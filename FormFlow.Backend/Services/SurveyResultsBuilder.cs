@@ -57,21 +57,16 @@ namespace FormFlow.Backend.Services
             {
                 result.Options = question.Options.Select(o => Count(o.Value, o.Label, allValues)).ToList();
             }
+            else if (type == QuestionTypes.Rating)
+            {
+                result.Options = Enumerable.Range(1, QuestionTypes.RatingScale(question))
+                    .Select(n => Count(n.ToString(CultureInfo.InvariantCulture), n == 1 ? "1 star" : $"{n} stars", allValues))
+                    .ToList();
+                result.Numbers = Summarize(allValues);
+            }
             else if (type == QuestionTypes.Number)
             {
-                var numbers = allValues
-                    .Select(v => decimal.TryParse(v, NumberStyles.Number, CultureInfo.InvariantCulture, out var n) ? n : (decimal?)null)
-                    .OfType<decimal>()
-                    .ToList();
-                if (numbers.Count > 0)
-                {
-                    result.Numbers = new NumberSummary
-                    {
-                        Min = numbers.Min(),
-                        Max = numbers.Max(),
-                        Average = Math.Round(numbers.Average(), 2)
-                    };
-                }
+                result.Numbers = Summarize(allValues);
             }
             else
             {
@@ -83,6 +78,20 @@ namespace FormFlow.Backend.Services
             }
 
             return result;
+        }
+
+        private static NumberSummary? Summarize(List<string> values)
+        {
+            var numbers = values
+                .Select(v => decimal.TryParse(v, NumberStyles.Number, CultureInfo.InvariantCulture, out var n) ? n : (decimal?)null)
+                .OfType<decimal>()
+                .ToList();
+            return numbers.Count == 0 ? null : new NumberSummary
+            {
+                Min = numbers.Min(),
+                Max = numbers.Max(),
+                Average = Math.Round(numbers.Average(), 2)
+            };
         }
 
         private static OptionCount Count(string value, string label, List<string> values) => new()

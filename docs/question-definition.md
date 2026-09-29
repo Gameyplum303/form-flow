@@ -206,8 +206,12 @@ The following examples show valid JSON structures for option-based question type
 | `radio` | Radio buttons | One option value |
 | `checkbox` | One tick box, or one per option | `"true"`/`"false"` without options, otherwise the ticked option values |
 | `multiselect` | A tick box per option | The selected option values |
+| `long_text` | Multi-line text box | The text |
+| `email` | Email field | The address, which must look like `name@example.com` |
+| `date` | Date picker | An ISO date, e.g. `"2025-08-18"` |
+| `rating` | A row of stars, 1 to 5 by default | The number of stars as text, e.g. `"4"` |
 
-`validationConfigs` rules apply to `text` (`MinLength`, `MaxLength`) and `number` (`MinValue`, `MaxValue`, `Range`) answers. The admin create page builds these rules for you.
+`validationConfigs` rules apply to `text` and `long_text` (`MinLength`, `MaxLength`) and `number` (`MinValue`, `MaxValue`, `Range`) answers. For a `rating`, a `MaxValue` rule sets the number of stars (2 to 10; 5 when left out). The admin create page builds these rules for you.
 
 ---
 

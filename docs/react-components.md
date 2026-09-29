@@ -43,6 +43,10 @@ The app calls `http://localhost:5164` unless `REACT_APP_API_URL` is set.
 | `radio` | Radio buttons |
 | `checkbox` | One checkbox, or one per option |
 | `multiselect` | A checkbox per option |
+| `long_text` | `<textarea>` |
+| `email` | `<input type="email">` |
+| `date` | `<input type="date">` |
+| `rating` | A radio button per star, drawn as stars |
 
 Groups of radio buttons and checkboxes are wrapped in `<fieldset>` with a `<legend>`, labels are tied to inputs with ids from `useId`, and errors are linked with `aria-describedby` and `aria-invalid`, so the form works with screen readers.
 

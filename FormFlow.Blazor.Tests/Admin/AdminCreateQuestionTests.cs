@@ -61,7 +61,7 @@ public class AdminCreateQuestionTests
         cut.Markup.Should().Contain("Help Text");
 
         var items = cut.FindComponents<MudSelectItem<string>>();
-        items.Should().HaveCount(7);
+        items.Select(i => i.Instance.Value).Should().BeEquivalentTo(QuestionTypes.All, "every question type can be picked");
     }
 
     [Fact]
@@ -96,6 +96,10 @@ public class AdminCreateQuestionTests
     [InlineData("text")]
     [InlineData("number")]
     [InlineData("yes_no")]
+    [InlineData("long_text")]
+    [InlineData("email")]
+    [InlineData("date")]
+    [InlineData("rating")]
     public async Task OptionsEditor_Hidden_For_NonOptionTypes(string type)
     {
         await using var ctx = CreateContext();
@@ -246,6 +250,58 @@ public class AdminCreateQuestionTests
         fake.LastUpdate.Should().NotBeNull();
         fake.LastUpdate!.Key.Should().Be("age");
         fake.LastUpdate.ValidationConfigs.Should().Contain("\"maxValue\":120");
+    }
+
+    [Theory]
+    [InlineData("text", "Minimum length")]
+    [InlineData("long_text", "Minimum length")]
+    [InlineData("number", "Minimum value")]
+    [InlineData("rating", "Number of stars")]
+    public async Task AnswerRules_MatchTheType(string type, string field)
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateQuestion>();
+
+        await SetTypeAsync(cut, type);
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain(field));
+    }
+
+    [Theory]
+    [InlineData("email")]
+    [InlineData("date")]
+    public async Task AnswerRules_AreHiddenForTypesWithoutThem(string type)
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateQuestion>();
+
+        await SetTypeAsync(cut, type);
+
+        cut.WaitForAssertion(() => cut.Markup.Should().NotContain("Answer rules"));
+    }
+
+    [Fact]
+    public async Task EditMode_KeepsARatingsNumberOfStars()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = new QuestionDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = "stars",
+            Label = "Rate it",
+            Type = "rating",
+            ValidationConfigs = """[{"validationType":"MaxValue","maxValue":10}]"""
+        };
+
+        var cut = ctx.Render<AdminCreateQuestion>(p => p.Add(x => x.Id, fake.Existing.Id));
+        var save = () => cut.FindComponents<MudButton>().Single(b => b.Markup.Contains("Save Changes"));
+        cut.WaitForAssertion(() => save().Instance.Disabled.Should().BeFalse());
+        cut.FindComponents<MudNumericField<int?>>().Single().Find("input").GetAttribute("value").Should().Be("10");
+
+        await cut.InvokeAsync(() => save().Find("button").Click());
+
+        fake.LastUpdate!.ValidationConfigs.Should().Be("""[{"validationType":"MaxValue","maxValue":10}]""");
     }
 
     private static BunitContext CreateContext()

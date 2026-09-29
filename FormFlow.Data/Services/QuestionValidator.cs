@@ -90,6 +90,13 @@ namespace FormFlow.Data.Services
             else
             {
                 ValidateOptions(question, result);
+                if (string.Equals(question.Type, QuestionTypes.Rating, StringComparison.OrdinalIgnoreCase)
+                    && ValidationRules.MaxValue(question.ValidationConfigs) is { } scale
+                    && (scale < 2 || scale > QuestionTypes.MaxRatingScale || scale != Math.Floor(scale)))
+                {
+                    AddError(result, "validationConfigs", "range",
+                        $"A rating needs a whole number of stars from 2 to {QuestionTypes.MaxRatingScale}");
+                }
             }
 
             if (question.VisibleIf is not null)

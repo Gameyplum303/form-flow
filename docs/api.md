@@ -97,7 +97,8 @@ Returns every question in the question bank.
 
 Rules checked on create and update:
 
-- `key`, `label` and `type` are required, and `type` must be one of `text`, `number`, `yes_no`, `dropdown`, `radio`, `checkbox`, `multiselect`.
+- `key`, `label` and `type` are required, and `type` must be one of `text`, `number`, `yes_no`, `dropdown`, `radio`, `checkbox`, `multiselect`, `long_text`, `email`, `date`, `rating`.
+- A `rating` can set its number of stars with a `MaxValue` rule from 2 to 10.
 - `dropdown`, `radio` and `multiselect` need at least one option. A `checkbox` with no options is a single tick box.
 - Option labels and values are required and must be unique within the question.
 - `visibleIf.key` must name an existing `yes_no` question other than this one.
@@ -176,7 +177,8 @@ The server validates the whole submission against the survey's questions:
 - Required visible questions must have an answer.
 - Unknown keys are rejected.
 - `number` answers must be numbers, `yes_no` answers must be `true`/`false` (or `yes`/`no`), and choice answers must be one of the question's option values with no duplicates.
-- Text and number answers are checked against the question's `validationConfigs` rules.
+- `email` answers must look like an email address, `date` answers must be ISO dates (`YYYY-MM-DD`), and `rating` answers must be a whole number of stars from 1 to the question's maximum.
+- Text, long text and number answers are checked against the question's `validationConfigs` rules.
 
 | Status | When |
 |---|---|

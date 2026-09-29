@@ -4,7 +4,7 @@ The Blazor app (`FormFlow.Blazor`) renders questions it gets from the API. Each 
 
 ## Question components
 
-All seven live in `Components/QuestionTypes/` and derive from `QuestionComponentBase`.
+All eleven live in `Components/QuestionTypes/` and derive from `QuestionComponentBase`.
 
 | Type | Component | Renders |
 |---|---|---|
@@ -15,6 +15,10 @@ All seven live in `Components/QuestionTypes/` and derive from `QuestionComponent
 | `radio` | `RadioQuestion` | `MudRadioGroup` over the options |
 | `checkbox` | `CheckboxQuestion` | One tick box, or one per option when options are set |
 | `multiselect` | `MultiselectQuestion` | A tick box per option |
+| `long_text` | `LongTextQuestion` | Multi-line `MudTextField` |
+| `email` | `EmailQuestion` | `MudTextField` with an email input |
+| `date` | `DateQuestion` | Native date input, which reports ISO dates |
+| `rating` | `RatingQuestion` | `MudRating` with the question's number of stars |
 
 ### `QuestionComponentBase` parameters
 

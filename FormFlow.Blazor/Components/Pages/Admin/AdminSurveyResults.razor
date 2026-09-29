@@ -56,6 +56,12 @@ else
 
                     @if (question.Options.Count > 0)
                     {
+                        @if (question.Numbers is { } rating)
+                        {
+                            <MudText Typo="Typo.body1" Class="mb-2" data-average-rating>
+                                Average rating: <strong>@rating.Average</strong> of @question.Options.Count
+                            </MudText>
+                        }
                         var total = Math.Max(1, question.Options.Sum(o => o.Count));
                         @foreach (var option in question.Options)
                         {
