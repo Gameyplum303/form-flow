@@ -78,6 +78,9 @@ namespace FormFlow.Backend.Services
                     QuestionTypes.Checkbox when question.Options.Count == 0 => [Bool(random.NextDouble() < 0.4)],
                     QuestionTypes.Number => [Number(question.Key, student, random)],
                     QuestionTypes.Rating => [random.Next(student ? 3 : 2, QuestionTypes.RatingScale(question) + 1).ToString(CultureInfo.InvariantCulture)],
+                    QuestionTypes.Nps => [Nps(student, random)],
+                    QuestionTypes.Slider => [Slider(question, student, random)],
+                    QuestionTypes.Likert => Likert(question, student, random),
                     QuestionTypes.Email => [$"{first}.{last}@example.com".ToLowerInvariant()],
                     QuestionTypes.Date => [DateOnly.FromDateTime(now).AddDays(-random.Next(30, 3 * 365)).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)],
                     QuestionTypes.Multiselect or QuestionTypes.Checkbox => question.Options
@@ -111,6 +114,33 @@ namespace FormFlow.Backend.Services
                 return random.NextDouble() < 0.6 ? "bachelor" : "master";
             }
             return Pick(random, question.Options).Value;
+        }
+
+        // Students are a little keener to recommend the place than everyone else.
+        private static string Nps(bool student, Random random) =>
+            Math.Min(QuestionTypes.NpsMax, random.Next(student ? 6 : 3, QuestionTypes.NpsMax + 1) + random.Next(0, 2))
+                .ToString(CultureInfo.InvariantCulture);
+
+        // Students spend more of the range (hours of study, say) than others.
+        private static string Slider(QuestionDefinition question, bool student, Random random)
+        {
+            var (min, max) = QuestionTypes.SliderRange(question);
+            var low = (int)min;
+            var high = (int)max;
+            var middle = low + (high - low) / 2;
+            var value = student ? random.Next(middle - (high - low) / 4, high + 1) : random.Next(low, middle + 1);
+            return Math.Clamp(value, low, high).ToString(CultureInfo.InvariantCulture);
+        }
+
+        // Each statement gets a rating that leans toward the agreeable end of the scale.
+        private static List<string> Likert(QuestionDefinition question, bool student, Random random)
+        {
+            var scale = QuestionTypes.LikertScale(question);
+            return question.Rows
+                .Where(_ => question.Required || random.NextDouble() < 0.9)
+                .Select(row => QuestionTypes.LikertAnswer(row.Value,
+                    scale[Math.Min(scale.Count - 1, random.Next(scale.Count) + (student && random.NextDouble() < 0.4 ? 1 : 0))].Value))
+                .ToList();
         }
 
         private static string Bool(bool value) => value ? "true" : "false";

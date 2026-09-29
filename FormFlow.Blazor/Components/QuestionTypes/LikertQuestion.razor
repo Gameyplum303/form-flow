@@ -1,0 +1,81 @@
+@inherits QuestionComponentBase
+@using FormFlow.Data.Models
+
+@* A grid of statements rated on one shared scale. Each statement is a radio group labelled by the
+   statement, and each radio button carries its column's label, so the visible column headings are
+   hidden from screen readers. On a narrow screen the grid scrolls sideways inside the card. *@
+<QuestionField Question="Question" Error="@Error">
+    <div class="likert-scroll">
+        <div class="likert-grid">
+            <div class="likert-row likert-head" aria-hidden="true">
+                <div class="likert-statement"></div>
+                <div class="likert-choices">
+                    @foreach (var option in Scale)
+                    {
+                        <span class="likert-column">@option.Label</span>
+                    }
+                </div>
+            </div>
+            @for (var i = 0; i < Question.Rows.Count; i++)
+            {
+                var row = Question.Rows[i];
+                var statementId = $"{InputId}-row-{i}";
+                <div class="likert-row" data-likert-row="@row.Value">
+                    <div class="likert-statement" id="@statementId">@row.Label</div>
+                    <div class="likert-choices">
+                        <MudRadioGroup T="string"
+                                       Value="@SelectedFor(row.Value)"
+                                       ValueChanged="@(option => OnChangedAsync(row.Value, option))"
+                                       aria-labelledby="@statementId">
+                            @foreach (var option in Scale)
+                            {
+                                <MudRadio T="string" Value="@option.Value" Color="Color.Primary" Dense="true" aria-label="@option.Label" />
+                            }
+                        </MudRadioGroup>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</QuestionField>
+
+@code {
+    // The option picked for each row, keyed by row value.
+    private Dictionary<string, string> _selected = new();
+
+    private IReadOnlyList<Option> Scale => QuestionTypes.LikertScale(Question);
+
+    protected override void OnParametersSet()
+    {
+        if (Value is not null)
+        {
+            _selected = new();
+            foreach (var answer in Value)
+            {
+                if (QuestionTypes.TryParseLikertAnswer(answer, out var row, out var option))
+                {
+                    _selected[row] = option;
+                }
+            }
+        }
+    }
+
+    private string? SelectedFor(string row) => _selected.GetValueOrDefault(row);
+
+    /// <summary>Reports one "row=option" entry per answered row, in row order.</summary>
+    private Task OnChangedAsync(string row, string? option)
+    {
+        if (option is null)
+        {
+            _selected.Remove(row);
+        }
+        else
+        {
+            _selected[row] = option;
+        }
+
+        return ReportAsync(Question.Rows
+            .Where(r => _selected.ContainsKey(r.Value))
+            .Select(r => QuestionTypes.LikertAnswer(r.Value, _selected[r.Value])));
+    }
+}

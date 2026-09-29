@@ -11,6 +11,9 @@ namespace FormFlow.Data.Models
         public string? DefaultValue { get; set; }
         public string? HelpText { get; set; }
         public List<Option> Options { get; set; } = new();
+
+        /// <summary>The statements of a likert grid; empty for other types.</summary>
+        public List<Option> Rows { get; set; } = new();
         public VisibleIf? VisibleIf { get; set; }
         public string? ValidationConfigs { get; set; }
     }

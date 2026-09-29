@@ -20,6 +20,9 @@ public static class QuestionComponentMapper
             Types.Email => typeof(EmailQuestion),
             Types.Date => typeof(DateQuestion),
             Types.Rating => typeof(RatingQuestion),
+            Types.Likert => typeof(LikertQuestion),
+            Types.Nps => typeof(NpsQuestion),
+            Types.Slider => typeof(SliderQuestion),
             _ => null
         };
 }
