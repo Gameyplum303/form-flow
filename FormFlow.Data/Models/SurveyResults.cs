@@ -70,11 +70,17 @@ namespace FormFlow.Data.Models
         /// <summary>How many responses answered this question.</summary>
         public int AnsweredCount { get; set; }
 
-        /// <summary>Counts per option, for choice and yes/no questions.</summary>
+        /// <summary>Counts per option, for choice, yes/no, rating and NPS questions.</summary>
         public List<OptionCount> Options { get; set; } = new();
 
-        /// <summary>Min, max and average, for number questions with at least one answer.</summary>
+        /// <summary>Min, max and average, for number, rating and slider questions with at least one answer.</summary>
         public NumberSummary? Numbers { get; set; }
+
+        /// <summary>Counts per option for each statement, in row order, for likert grids.</summary>
+        public List<RowResult> Rows { get; set; } = new();
+
+        /// <summary>The Net Promoter Score, for NPS questions with at least one answer.</summary>
+        public NpsSummary? Nps { get; set; }
 
         /// <summary>The most recent answers, newest first, for text questions.</summary>
         public List<string> RecentAnswers { get; set; } = new();
@@ -85,6 +91,30 @@ namespace FormFlow.Data.Models
         public string Value { get; set; } = string.Empty;
         public string Label { get; set; } = string.Empty;
         public int Count { get; set; }
+    }
+
+    /// <summary>One statement of a likert grid: how many rated it, and how often each point of the scale was picked.</summary>
+    public class RowResult
+    {
+        public string Value { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public int AnsweredCount { get; set; }
+        public List<OptionCount> Options { get; set; } = new();
+
+        /// <summary>The average of the picked options, when every option value on the scale is a number.</summary>
+        public decimal? Average { get; set; }
+    }
+
+    /// <summary>
+    /// An NPS question's score: the percentage of promoters (9 or 10) minus the percentage of
+    /// detractors (0 to 6), from -100 to 100. Answers of 7 or 8 are passives.
+    /// </summary>
+    public class NpsSummary
+    {
+        public int Score { get; set; }
+        public int Promoters { get; set; }
+        public int Passives { get; set; }
+        public int Detractors { get; set; }
     }
 
     public class NumberSummary

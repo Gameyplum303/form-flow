@@ -166,6 +166,8 @@ namespace FormFlow.Backend.Endpoints
             DefaultValue = source.DefaultValue,
             HelpText = source.HelpText,
             Options = source.Options ?? [],
+            // Only a likert grid has rows.
+            Rows = string.Equals(source.Type, QuestionTypes.Likert, StringComparison.OrdinalIgnoreCase) ? source.Rows ?? [] : [],
             VisibleIf = source.VisibleIf,
             ValidationConfigs = string.IsNullOrWhiteSpace(source.ValidationConfigs) ? null : source.ValidationConfigs
         };
