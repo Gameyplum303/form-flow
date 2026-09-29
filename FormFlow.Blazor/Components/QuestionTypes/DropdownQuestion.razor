@@ -1,9 +1,9 @@
-@inherits QuestionComponentBase
+@inherits SingleValueQuestionBase
 
 <QuestionField Question="Question" Error="@Error">
     <MudSelect T="string"
-               Value="_value"
-               ValueChanged="OnChanged"
+               Value="CurrentValue"
+               ValueChanged="OnChangedAsync"
                Variant="Variant.Outlined"
                Margin="Margin.Dense"
                Required="@Question.Required"
@@ -17,24 +17,3 @@
     </MudSelect>
 </QuestionField>
 
-@code {
-    private string? _value;
-
-    protected override void OnParametersSet()
-    {
-        if (Value is not null)
-        {
-            _value = BoundValue;
-        }
-        else if (_value is null && Question.DefaultValue is not null)
-        {
-            _value = Question.DefaultValue;
-        }
-    }
-
-    private Task OnChanged(string? value)
-    {
-        _value = value;
-        return ReportAsync(value);
-    }
-}

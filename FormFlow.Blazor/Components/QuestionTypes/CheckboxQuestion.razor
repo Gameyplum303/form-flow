@@ -10,7 +10,7 @@
             {
                 <MudCheckBox T="bool"
                              Value="@_selected.Contains(opt.Value)"
-                             ValueChanged="@(isChecked => Toggle(opt.Value, isChecked))"
+                             ValueChanged="@(isChecked => ToggleOptionAsync(_selected, opt.Value, isChecked))"
                              Color="Color.Primary"
                              Dense="true"
                              Label="@opt.Label" />
@@ -21,7 +21,7 @@
 else
 {
     <QuestionField Question="Question" Error="@Error" ShowLabel="false">
-        <MudCheckBox T="bool" Value="_checked" ValueChanged="OnCheckedChanged" Color="Color.Primary" Dense="true">
+        <MudCheckBox T="bool" Value="_checked" ValueChanged="OnCheckedChangedAsync" Color="Color.Primary" Dense="true">
             <span class="question-label-inline">@Question.Label</span>
             @if (Question.Required)
             {
@@ -50,19 +50,9 @@ else
         _initialized = true;
     }
 
-    private Task OnCheckedChanged(bool value)
+    private Task OnCheckedChangedAsync(bool value)
     {
         _checked = value;
         return ReportAsync(value ? "true" : "false");
-    }
-
-    private Task Toggle(string value, bool isChecked)
-    {
-        if (isChecked)
-            _selected.Add(value);
-        else
-            _selected.Remove(value);
-
-        return ReportAsync(Question.Options.Select(o => o.Value).Where(_selected.Contains));
     }
 }

@@ -49,9 +49,9 @@ public class AdminQuestionsPageTests
         cut.Markup.Should().Contain("Create Question");
         var rows = cut.FindAll("tbody tr");
         rows[0].TextContent.Should().Contain("professor");
-        rows[0].QuerySelectorAll("button").Should().Contain(b => b.TextContent.Trim() == "Edit");
+        rows[0].QuerySelectorAll("a").Should().Contain(a => a.TextContent.Trim() == "Edit");
         rows[1].TextContent.Should().Contain("Administrators", "the seeded questions belong to the administrators");
-        rows[1].QuerySelectorAll("button").Should().BeEmpty();
+        rows[1].QuerySelectorAll("a, button").Should().BeEmpty();
     }
 
     [Fact]
@@ -76,16 +76,26 @@ public class AdminQuestionsPageTests
     }
 
     [Fact]
-    public async Task Edit_opens_the_edit_page()
+    public async Task Edit_links_to_the_edit_page()
     {
         await using var ctx = CreateContext();
         var cut = ctx.Render<AdminQuestions>();
         cut.WaitForAssertion(() => cut.FindAll("tbody tr").Should().HaveCount(2));
 
-        cut.FindAll("button").First(b => b.TextContent.Trim() == "Edit").Click();
+        var edit = cut.FindAll("a").First(a => a.TextContent.Trim() == "Edit");
 
-        var nav = ctx.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
-        cut.WaitForAssertion(() => nav.Uri.Should().EndWith($"/admin/questions/{_questions.Questions[0].Id}/edit"));
+        edit.GetAttribute("href").Should().Be($"/admin/questions/{_questions.Questions[0].Id}/edit");
+    }
+
+    [Fact]
+    public async Task Says_so_when_the_questions_cannot_be_loaded()
+    {
+        _questions.Unreachable = true;
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminQuestions>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Could not load questions."));
+        cut.Markup.Should().NotContain("No questions found.");
     }
 
     [Fact]

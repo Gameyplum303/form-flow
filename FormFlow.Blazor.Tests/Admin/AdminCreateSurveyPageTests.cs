@@ -47,6 +47,91 @@ public class AdminCreateSurveyPageTests
     private static void Type(IRenderedComponent<AdminCreateSurvey> cut, string selector, string value) =>
         cut.Find(selector).Input(value);
 
+    private static bool SaveDisabled(IRenderedComponent<AdminCreateSurvey> cut) =>
+        cut.FindAll("button").Single(b => b.TextContent.Trim() == "Save Survey").HasAttribute("disabled");
+
+    /// <summary>The numbered rows of the "Selected Questions" list.</summary>
+    private static List<string> Selected(IRenderedComponent<AdminCreateSurvey> cut) =>
+        cut.FindAll("p").Select(p => p.TextContent.Trim()).Where(t => t.Length > 2 && char.IsDigit(t[0]) && t.Contains(". ")).ToList();
+
+    [Fact]
+    public async Task Save_is_disabled_until_the_required_fields_are_filled()
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Which campus?"));
+
+        ClickButton(cut, "Add", 0);
+        cut.WaitForAssertion(() => Selected(cut).Should().Equal("1. Are you a student?"));
+        SaveDisabled(cut).Should().BeTrue("the title and description are still empty");
+
+        Type(cut, "input", "Campus life");
+        Type(cut, "textarea", "About campus");
+
+        cut.WaitForAssertion(() => SaveDisabled(cut).Should().BeFalse());
+    }
+
+    [Fact]
+    public async Task A_question_can_only_be_added_once()
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Which campus?"));
+
+        ClickButton(cut, "Add", 0);
+
+        cut.WaitForAssertion(() => Selected(cut).Should().Equal("1. Are you a student?"));
+        var added = cut.FindAll("button").Single(b => b.TextContent.Trim() == "Added");
+        added.HasAttribute("disabled").Should().BeTrue();
+        cut.FindAll("button").Where(b => b.TextContent.Trim() == "Add").Should().ContainSingle("only the other question can still be added");
+    }
+
+    [Fact]
+    public async Task Removing_a_question_keeps_the_others_and_lets_it_be_added_again()
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Which campus?"));
+        ClickButton(cut, "Add", 0);
+        ClickButton(cut, "Add", 0);
+        cut.WaitForAssertion(() => Selected(cut).Should().Equal("1. Are you a student?", "2. Which campus?"));
+
+        ClickButton(cut, "Remove", 0);
+
+        cut.WaitForAssertion(() => Selected(cut).Should().Equal("1. Which campus?"));
+        cut.FindAll("button").Where(b => b.TextContent.Trim() == "Add").Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Removing_the_last_question_disables_save()
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Which campus?"));
+        Type(cut, "input", "Campus life");
+        Type(cut, "textarea", "About campus");
+        ClickButton(cut, "Add", 0);
+        cut.WaitForAssertion(() => SaveDisabled(cut).Should().BeFalse());
+
+        ClickButton(cut, "Remove");
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("No questions selected yet."));
+        SaveDisabled(cut).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Says_so_when_the_questions_cannot_be_loaded()
+    {
+        _questions.Unreachable = true;
+        await using var ctx = CreateContext();
+
+        var cut = ctx.Render<AdminCreateSurvey>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Could not load questions."));
+        cut.Markup.Should().NotContain("No questions found.");
+        cut.FindAll(".mud-progress-circular").Should().BeEmpty();
+    }
+
     [Fact]
     public async Task Warns_about_conditional_questions_until_they_follow_their_controller()
     {

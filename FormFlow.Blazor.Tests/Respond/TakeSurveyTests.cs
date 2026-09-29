@@ -207,4 +207,16 @@ public class TakeSurveyTests
 
         cut.FindAll("[data-draft-notice]").Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task Says_so_when_the_questions_cannot_be_loaded()
+    {
+        _service.QuestionsUnreachable = true;
+        await using var ctx = CreateContext();
+
+        var cut = ctx.Render<TakeSurvey>(p => p.Add(x => x.Id, _survey.Id));
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Could not load this survey"));
+        cut.FindAll("button").Should().NotContain(b => b.TextContent.Trim() == "Submit");
+    }
 }

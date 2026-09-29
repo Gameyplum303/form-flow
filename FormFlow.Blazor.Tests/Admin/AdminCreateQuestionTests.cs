@@ -1,3 +1,4 @@
+using System.Reflection;
 using Bunit;
 using FluentAssertions;
 using FormFlow.Blazor.Components.Pages.Admin;
@@ -7,7 +8,6 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using MudBlazor.Services;
-using System.Reflection;
 
 namespace FormFlow.Blazor.Tests.Admin;
 
@@ -22,6 +22,10 @@ file sealed class FakeQuestionService : IQuestionService
 
     public QuestionDefinition? Existing { get; set; }
     public NewQuestion? LastUpdate { get; private set; }
+    public int UpdateCallCount { get; private set; }
+
+    /// <summary>When set, saves wait until the test completes it, as a slow server would.</summary>
+    public TaskCompletionSource<(bool Success, string? Error)>? PendingSave { get; set; }
 
     public Task<QuestionDefinition?> GetQuestionAsync(Guid id)
         => Task.FromResult(Existing?.Id == id ? Existing : null);
@@ -29,7 +33,8 @@ file sealed class FakeQuestionService : IQuestionService
     public Task<(bool Success, string? Error)> UpdateQuestionAsync(Guid id, NewQuestion question)
     {
         LastUpdate = question;
-        return Task.FromResult(NextResult);
+        UpdateCallCount++;
+        return PendingSave?.Task ?? Task.FromResult(NextResult);
     }
 
     public Task<(bool Success, string? Error)> DeleteQuestionAsync(Guid id)
@@ -319,6 +324,43 @@ public class AdminCreateQuestionTests
         cut.Markup.Should().NotContain("Save Changes");
     }
 
+    [Fact]
+    public async Task EditMode_HidesTheFormForAMissingQuestion()
+    {
+        await using var ctx = CreateContext();
+
+        var cut = ctx.Render<AdminCreateQuestion>(p => p.Add(x => x.Id, Guid.NewGuid()));
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Question not found."));
+        cut.FindComponents<MudForm>().Should().BeEmpty("there is nothing to save");
+        cut.Markup.Should().NotContain("Save Changes");
+        cut.Find("a[href='/admin/questions']").TextContent.Trim().Should().Be("Back to questions");
+    }
+
+    [Fact]
+    public async Task EditMode_SaveIsDisabledWhileSaving()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = new QuestionDefinition { Id = Guid.NewGuid(), Key = "age", Label = "Age", Type = "number" };
+        fake.PendingSave = new();
+
+        var cut = ctx.Render<AdminCreateQuestion>(p => p.Add(x => x.Id, fake.Existing.Id));
+        var save = () => cut.FindComponents<MudButton>().Single(b => b.Instance.OnClick.HasDelegate && b.Markup.Contains("mud-button-filled"));
+        cut.WaitForAssertion(() => save().Instance.Disabled.Should().BeFalse());
+
+        await cut.InvokeAsync(() => save().Find("button").Click());
+
+        cut.WaitForAssertion(() => save().Instance.Disabled.Should().BeTrue());
+        cut.Markup.Should().Contain("Saving...");
+        fake.UpdateCallCount.Should().Be(1);
+
+        await cut.InvokeAsync(() => fake.PendingSave.SetResult((true, null)));
+        var nav = ctx.Services.GetRequiredService<NavigationManager>();
+        cut.WaitForAssertion(() => nav.Uri.Should().EndWith("/admin/questions"));
+        fake.UpdateCallCount.Should().Be(1);
+    }
+
     private static BunitContext CreateContext()
     {
         var ctx = new BunitContext();
@@ -344,7 +386,7 @@ public class AdminCreateQuestionTests
     private static async Task SetTypeAsync(IRenderedComponent<AdminCreateQuestion> cut, string type)
     {
         var typeField = typeof(AdminCreateQuestion)
-            .GetField("newQuestion", BindingFlags.Instance | BindingFlags.NonPublic);
+            .GetField("_newQuestion", BindingFlags.Instance | BindingFlags.NonPublic);
 
         typeField.Should().NotBeNull();
 
@@ -386,10 +428,10 @@ public class AdminCreateQuestionTests
         });
     }
 
-    private static async Task InvokeCreateQuestionAsync(IRenderedComponent<AdminCreateQuestion> cut)
+    private static async Task InvokeSaveQuestionAsync(IRenderedComponent<AdminCreateQuestion> cut)
     {
         var method = typeof(AdminCreateQuestion).GetMethod(
-            "CreateQuestion",
+            "SaveQuestionAsync",
             BindingFlags.Instance | BindingFlags.NonPublic);
 
         method.Should().NotBeNull();

@@ -1,7 +1,7 @@
-@inherits QuestionComponentBase
+@inherits SingleValueQuestionBase
 
 <QuestionField Question="Question" Error="@Error">
-    <MudRadioGroup T="string" Value="_value" ValueChanged="OnChanged" Class="question-options">
+    <MudRadioGroup T="string" Value="CurrentValue" ValueChanged="OnChangedAsync" Class="question-options">
         @foreach (var opt in Question.Options ?? [])
         {
             <MudRadio T="string" Value="@opt.Value" Color="Color.Primary" Dense="true">@opt.Label</MudRadio>
@@ -9,24 +9,3 @@
     </MudRadioGroup>
 </QuestionField>
 
-@code {
-    private string? _value;
-
-    protected override void OnParametersSet()
-    {
-        if (Value is not null)
-        {
-            _value = BoundValue;
-        }
-        else if (_value is null && Question.DefaultValue is not null)
-        {
-            _value = Question.DefaultValue;
-        }
-    }
-
-    private Task OnChanged(string? value)
-    {
-        _value = value;
-        return ReportAsync(value);
-    }
-}

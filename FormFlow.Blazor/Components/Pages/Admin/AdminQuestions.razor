@@ -1,7 +1,6 @@
 @page "/admin/questions"
 @using FormFlow.Blazor.Services
 @inject IQuestionService QuestionService
-@inject NavigationManager Nav
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -23,17 +22,21 @@
         }
     </MudStack>
 
-    @if (questions is null)
+    @if (!_loaded)
     {
         <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
     }
-    else if (!questions.Any())
+    else if (_questions is null)
+    {
+        <MudAlert Severity="Severity.Error">Could not load questions. Please try again.</MudAlert>
+    }
+    else if (!_questions.Any())
     {
         <MudText>No questions found.</MudText>
     }
     else
     {
-        <MudTable Items="@questions"
+        <MudTable Items="@_questions"
                   Hover="true"
                   Dense="true"
                   Outlined="true"
@@ -62,7 +65,7 @@
                     }
                 </MudTd>
 
-                <MudTd>@OwnerLabel(context)</MudTd>
+                <MudTd>@context.OwnerLabel()</MudTd>
 
                 <MudTd>
                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Wrap="Wrap.NoWrap">
@@ -71,14 +74,14 @@
                             <MudButton Variant="Variant.Outlined"
                                        Color="Color.Primary"
                                        Size="Size.Small"
-                                       OnClick="@(_ => EditQuestion(context.Id))">
+                                       Href="@($"/admin/questions/{context.Id}/edit")">
                                 Edit
                             </MudButton>
                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                            Color="Color.Error"
                                            Size="Size.Small"
                                            aria-label="@($"Delete {context.Label}")"
-                                           OnClick="@(_ => DeleteQuestion(context))" />
+                                           OnClick="@(_ => DeleteQuestionAsync(context))" />
                         }
                     </MudStack>
                 </MudTd>
@@ -97,22 +100,16 @@
     /// <summary>Everyone can use every question; only its creator or an administrator can change it. Without a guard (in tests) everything shows.</summary>
     private AdminAccess Current => Access ?? AdminAccess.Administrator;
 
-    /// <summary>The seeded demo questions have no owner and belong to the administrators.</summary>
-    public static string OwnerLabel(IOwned item) => item.OwnerName ?? "Administrators";
-
-    private List<QuestionDefinition>? questions;
+    private List<QuestionDefinition>? _questions;
+    private bool _loaded;
 
     protected override async Task OnInitializedAsync()
     {
-        questions = await QuestionService.GetAllQuestionsAsync() ?? [];
+        _questions = await QuestionService.GetAllQuestionsAsync();
+        _loaded = true;
     }
 
-    private void EditQuestion(Guid id)
-    {
-        Nav.NavigateTo($"/admin/questions/{id}/edit");
-    }
-
-    private async Task DeleteQuestion(QuestionDefinition question)
+    private async Task DeleteQuestionAsync(QuestionDefinition question)
     {
         var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete question",
@@ -126,7 +123,7 @@
         var (success, error) = await QuestionService.DeleteQuestionAsync(question.Id);
         if (success)
         {
-            questions?.Remove(question);
+            _questions?.Remove(question);
             Snackbar.Add($"Deleted \"{question.Label}\".", Severity.Success);
         }
         else

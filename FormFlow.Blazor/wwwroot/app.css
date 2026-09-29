@@ -66,7 +66,7 @@ h1:focus {
 
 /* Radio buttons and tick boxes are listed one per line. */
 .question-options,
-.question-options .mud-radio-group {
+.question-card .question-options .mud-input-control-input-container > div.mud-radio-group {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -198,4 +198,20 @@ h1:focus {
     white-space: pre-wrap;
     font-family: inherit;
     overflow-wrap: anywhere;
+}
+
+/* The home page's portal buttons, all one width. */
+.portal-button {
+    width: 250px;
+}
+
+/* The question bank on the survey builder scrolls instead of pushing the selected questions down. */
+.question-bank {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Keeps the line breaks people type, as in a sign-up's intended use. */
+.pre-line {
+    white-space: pre-line;
 }

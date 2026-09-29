@@ -42,6 +42,7 @@
 </MudPaper>
 
 @code {
+    // The same as FormFlow.Backend.Email.OutboxEmailSender.Capacity, which this app can't reference; change both together.
     private const int OutboxCapacity = 100;
 
     [CascadingParameter] public AdminAccess? Access { get; set; }
