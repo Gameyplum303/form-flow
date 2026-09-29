@@ -1,7 +1,10 @@
 # Runs the whole app: docker compose up --build
 #   API and Swagger UI  http://localhost:5164/swagger
-#   Blazor app          http://localhost:5224
+#   Blazor app          http://localhost:5224 (admin sign-in: admin / formflow-admin)
 #   React app           http://localhost:3000
+# Set FORMFLOW_ADMIN_PASSWORD and FORMFLOW_JWT_KEY (32+ characters) to change the defaults.
+# The admin account is created on the first start only, so a new password needs a fresh
+# volume (docker compose down --volumes). Set FORMFLOW_LOGIN_HINT= to hide the demo hint.
 services:
   api:
     build:
@@ -11,6 +14,10 @@ services:
       - "5164:8080"
     volumes:
       - formflow-data:/data
+    environment:
+      Admin__Username: admin
+      Admin__Password: ${FORMFLOW_ADMIN_PASSWORD:-formflow-admin}
+      Jwt__Key: ${FORMFLOW_JWT_KEY:-}
     healthcheck:
       # The runtime image has no curl, so bash's /dev/tcp does the request.
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /api/surveys HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
@@ -26,6 +33,7 @@ services:
       - "5224:8080"
     environment:
       BackendApi__BaseUrl: http://api:8080/
+      LoginHint: "${FORMFLOW_LOGIN_HINT-Demo account: admin / formflow-admin}"
     depends_on:
       api:
         condition: service_healthy

@@ -1,9 +1,16 @@
 # Admin Pages
 
-The admin area is part of the Blazor app and uses its own layout and menu (`AdminNavMenu`). Open it from **Admin Dashboard** in the main menu. There is no sign-in yet, so anyone who can reach the Blazor app can use it.
+The admin area is part of the Blazor app and uses its own layout and menu (`AdminNavMenu`). Open it from **Admin Dashboard** in the main menu.
+
+## Signing in
+
+Every `/admin` page needs an admin sign-in. `AdminGuard` (in `MainLayout`) sends a signed-out visitor to `/login?returnUrl=…` and brings them back to the page they asked for once they sign in. The development and docker compose account is `admin` / `formflow-admin`; the sign-in page shows it when the `LoginHint` setting is set.
+
+The API issues the token (see [api.md](api.md#authentication)). `AdminSession` keeps it in the browser's session storage, encrypted with ASP.NET Core data protection, so reloading a page keeps the admin signed in and closing the tab signs them out. `QuestionService` and `SurveyService` add it to every API call. **Sign out** at the bottom of the admin menu clears it.
 
 | Route | Page | Purpose |
 |---|---|---|
+| `/login` | `Login` | Admin sign-in |
 | `/admin/surveys` | `AdminSurveysList` | All surveys, with Edit, Preview, Results and Delete |
 | `/admin/surveys/create` | `AdminCreateSurvey` | Build a new survey |
 | `/admin/surveys/{id}/edit` | `AdminCreateSurvey` | Edit an existing survey |

@@ -111,8 +111,39 @@ public class SurveyServiceTests
     }
 
     [Fact]
-    public void ExportUrl_points_at_the_api()
+    public async Task ExportResponsesAsync_returns_the_file_name_and_bytes()
     {
-        _service.ExportUrl(_id).Should().Be($"http://api.test/api/surveys/{_id}/responses/export");
+        var csv = new ByteArrayContent(Encoding.UTF8.GetBytes("response_id\r\n"));
+        csv.Headers.ContentType = new("text/csv");
+        csv.Headers.ContentDisposition = new("attachment") { FileName = "campus-responses.csv", FileNameStar = "campus-responses.csv" };
+        _http.When($"http://api.test/api/surveys/{_id}/responses/export").Respond(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = csv });
+
+        var export = await _service.ExportResponsesAsync(_id);
+
+        export!.FileName.Should().Be("campus-responses.csv");
+        Encoding.UTF8.GetString(export.Content).Should().Be("response_id\r\n");
+    }
+
+    [Fact]
+    public async Task ExportResponsesAsync_returns_null_when_refused()
+    {
+        _http.When($"http://api.test/api/surveys/{_id}/responses/export").Respond(HttpStatusCode.Unauthorized);
+
+        (await _service.ExportResponsesAsync(_id)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Requests_carry_the_signed_in_admins_token()
+    {
+        var session = new Auth.FakeSessionStorage().CreateSession();
+        await session.SignInAsync(Auth.FakeSessionStorage.Login());
+        var service = new SurveyService(new HttpClient(_http) { BaseAddress = new Uri("http://api.test/") }, session);
+        _http.When(HttpMethod.Delete, $"http://api.test/api/surveys/{_id}")
+            .WithHeaders("Authorization", "Bearer test-token")
+            .Respond(HttpStatusCode.NoContent);
+
+        var (success, _) = await service.DeleteSurveyAsync(_id);
+
+        success.Should().BeTrue();
     }
 }

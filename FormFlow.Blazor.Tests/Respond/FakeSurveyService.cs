@@ -36,7 +36,17 @@ public sealed class FakeSurveyService : ISurveyService
         return Task.FromResult(NextSaveResult);
     }
 
-    public Task<(bool Success, string? Error)> DeleteSurveyAsync(Guid id) => Task.FromResult((true, (string?)null));
+    public (bool Success, string? Error) NextDeleteResult { get; set; } = (true, null);
+    public List<Guid> Deleted { get; } = new();
+
+    public Task<(bool Success, string? Error)> DeleteSurveyAsync(Guid id)
+    {
+        if (NextDeleteResult.Success)
+        {
+            Deleted.Add(id);
+        }
+        return Task.FromResult(NextDeleteResult);
+    }
 
     public Task<SubmitResult> SubmitResponseAsync(Guid surveyId, Dictionary<string, List<string>> answers)
     {
@@ -46,5 +56,7 @@ public sealed class FakeSurveyService : ISurveyService
 
     public Task<SurveyResults?> GetResultsAsync(Guid surveyId) => Task.FromResult(Results);
 
-    public string ExportUrl(Guid surveyId) => $"http://localhost/api/surveys/{surveyId}/responses/export";
+    public CsvExport? Export { get; set; }
+
+    public Task<CsvExport?> ExportResponsesAsync(Guid surveyId) => Task.FromResult(Export);
 }

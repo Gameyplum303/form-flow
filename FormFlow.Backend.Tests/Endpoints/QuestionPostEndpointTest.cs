@@ -46,7 +46,7 @@ namespace FormFlow.Backend.Tests.Endpoints
 
         public QuestionPostEndpointTests(CustomWebApplicationFactory factory)
         {
-            _client = factory.CreateClient();
+            _client = factory.CreateClient().AsAdmin();
         }
 
         [Fact]

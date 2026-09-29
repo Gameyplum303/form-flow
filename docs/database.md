@@ -23,6 +23,7 @@ The tests replace this registration with an in-memory database (see [testing.md]
 | `questions` | `QuestionDefinition` | `IQuestionRepository` / `QuestionRepository` |
 | `surveys` | `SurveyDefinition` | `ISurveyRepository` / `SurveyRepository` |
 | `responses` | `SurveyResponse` (indexed on `SurveyId`) | `IResponseRepository` / `ResponseRepository` |
+| `users` | `AdminUser` (username, password hash; unique index on `Username`) | `IUserRepository` / `UserRepository` |
 
 Endpoints and services only use the repository interfaces, never LiteDB directly. That keeps the endpoints easy to test and would let the storage change without touching them.
 
