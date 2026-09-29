@@ -7,7 +7,11 @@ namespace FormFlow.Backend.Auth
     {
         [BsonId]
         public Guid Id { get; set; }
+        /// <summary>The name as it was created, shown after sign-in.</summary>
         public string Username { get; set; } = string.Empty;
+
+        /// <summary>Trimmed, lower-case <see cref="Username"/>, so sign-in ignores case.</summary>
+        public string NormalizedUsername { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
     }

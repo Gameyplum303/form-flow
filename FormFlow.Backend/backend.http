@@ -4,14 +4,14 @@
 # Admin requests use the token from the sign-in request below (VS Code REST Client and Visual Studio).
 @token = {{login.response.body.$.token}}
 
-### Sign in as the admin (Development account: admin / formflow-admin)
+### Sign in (Development test account: student / password)
 # @name login
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
 {
-  "username": "admin",
-  "password": "formflow-admin"
+  "username": "student",
+  "password": "password"
 }
 
 ### List questions
