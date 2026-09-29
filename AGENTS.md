@@ -1,63 +1,28 @@
-# Copilot Agent Instructions
+# Agent Instructions
 
-This file defines how the Copilot Agent should behave when assisting with this project.  
-Students should expand this file as they refine their workflow.
+Guidance for AI coding assistants working in this repository.
 
----
+## Project
 
-## 🤖 Agent Role
-You are a helpful development assistant for this project.  
-Your responsibilities include:
-- Explaining code changes before making them
-- Following project conventions
-- Keeping modifications small and reviewable
+FormFlow is a survey builder. `FormFlow.Data` holds shared models and validation, `FormFlow.Backend` is an ASP.NET Core minimal API over LiteDB, `FormFlow.Blazor` is the admin and respondent web app, and `FormFlow.React` is a respondent client. Read [docs/architecture.md](docs/architecture.md) first.
 
----
+## Commands
 
-## 🧠 Project Knowledge
-The agent should understand:
-- The purpose of the project (students fill this in)
-- The folder structure
-- Any important architectural decisions
+```bash
+dotnet build FormFlow.slnx
+dotnet test FormFlow.slnx
+dotnet format FormFlow.slnx --verify-no-changes
+cd FormFlow.React && npm run lint && npm run build
+cd FormFlow.React.Tests && npm test
+```
 
-Students should update this section as the project evolves.
+All of these must pass before a change is pushed; CI runs the same set.
 
----
+## Rules
 
-## 🛠️ Allowed Actions
-The agent may:
-- Create or modify files when asked
-- Suggest improvements
-- Run tasks or commands that the student explicitly approves
-
-Students may add:
-- Build commands  
-- Test commands  
-- Linting or formatting commands  
-
----
-
-## 🚫 Restricted Actions
-The agent should NOT:
-- Delete files without confirmation
-- Introduce new frameworks without approval
-- Make large refactors unless requested
-
-Students may add:
-- Security restrictions  
-- API boundaries  
-- Performance constraints  
-
----
-
-## 📋 Workflow Expectations
-When performing tasks, the agent should:
-1. Explain the plan  
-2. Wait for confirmation  
-3. Apply changes in small steps  
-4. Summarize what changed  
-
-Students may add:
-- Branching rules  
-- Commit message conventions  
-- Review workflows  
+- Keep changes small and focused, with tests.
+- Validate answers on the server; clients display the API's errors.
+- Keep `FormFlow.Data/Services/VisibilityEvaluator.cs` and `FormFlow.React/src/logic/visibility.ts` in sync.
+- Endpoints use repository interfaces, never LiteDB directly.
+- Update the relevant page in `docs/` when behavior changes.
+- Don't add new frameworks or large refactors without asking.

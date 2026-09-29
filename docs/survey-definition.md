@@ -4,13 +4,13 @@
 
 `SurveyDefinition` represents the structure of a survey stored in LiteDB and exchanged through JSON.
 
-It defines the survey’s metadata, the ordered list of questions it contains, and versioning information.
+It defines the survey’s metadata and the ordered list of questions it contains.
 
 This model is used by:
 
-* The admin panel (creating & editing surveys)
+* The admin pages (creating, editing, previewing and deleting surveys, and viewing results)
 * The backend API (loading & saving surveys)
-* The form renderer (displaying surveys to end users)
+* The Blazor and React clients (displaying surveys to respondents)
 * Unit tests validating schema alignment
 
 ---
@@ -31,8 +31,6 @@ namespace FormFlow.Data.Models
         public required string Description { get; set; }
         public required List<Guid> QuestionIds { get; set; }
         public required DateTime CreatedAt { get; set; }
-
-        public int? Version { get; set; }
     }
 }
 ```
@@ -41,7 +39,8 @@ namespace FormFlow.Data.Models
 
 * **Id** is the LiteDB primary key.
 * **QuestionIds** preserves question order — the order of GUIDs is the order questions appear in the survey.
-* All fields except `Version` are **required** and enforced by C# 11 `required` properties.
+* All fields are **required** and enforced by C# 11 `required` properties.
+* Clients create and update surveys with the `NewSurvey` body (`title`, `description`, `questionIds`). The API sets `id` and `createdAt`. See [api.md](api.md#surveys).
 * Missing required fields during JSON deserialization will throw a `JsonException`.
 
 ---
@@ -55,7 +54,6 @@ namespace FormFlow.Data.Models
 | `description` | `Description` | `string`     | Yes      | Survey description           |
 | `questionIds` | `QuestionIds` | `List<Guid>` | Yes      | Ordered list of question IDs |
 | `createdAt`   | `CreatedAt`   | `DateTime`   | Yes      | ISO 8601 timestamp           |
-| `version`     | `Version`     | `int?`       | No       | Optional version number      |
 
 ### Casing Behavior
 
@@ -126,8 +124,7 @@ JSON deserialization for type 'SurveyDefinition' was missing required properties
     "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
     "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
   ],
-  "createdAt": "2024-01-01T12:00:00Z",
-  "version": 1
+  "createdAt": "2024-01-01T12:00:00Z"
 }
 ```
 
