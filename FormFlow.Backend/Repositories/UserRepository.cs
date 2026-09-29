@@ -1,4 +1,5 @@
 using FormFlow.Backend.Auth;
+using FormFlow.Data.Models;
 using LiteDB;
 
 namespace FormFlow.Backend.Repositories
@@ -27,7 +28,14 @@ namespace FormFlow.Backend.Repositories
         public AdminUser? FindByUsername(string username) =>
             _users.FindOne(u => u.NormalizedUsername == Normalize(username));
 
+        public AdminUser? FindById(Guid id) => _users.FindById(id);
+
+        public List<AdminUser> FindPending() =>
+            _users.Find(u => u.Status == AccountStatuses.Pending).OrderBy(u => u.CreatedAt).ToList();
+
         public bool Update(AdminUser user) => _users.Update(user);
+
+        public bool Delete(Guid id) => _users.Delete(id);
 
         public int Count() => _users.Count();
 

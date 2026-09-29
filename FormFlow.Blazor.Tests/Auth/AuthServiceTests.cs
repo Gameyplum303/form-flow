@@ -32,6 +32,7 @@ public class AuthServiceTests
 
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized, "Invalid username or password.")]
+    [InlineData(HttpStatusCode.Forbidden, "Your account is waiting for an administrator's approval.")]
     [InlineData(HttpStatusCode.TooManyRequests, "Too many sign-in attempts. Wait a minute and try again.")]
     [InlineData(HttpStatusCode.InternalServerError, "Sign-in failed (500). Please try again.")]
     public async Task LoginAsync_explains_failures(HttpStatusCode status, string expected)
@@ -52,5 +53,57 @@ public class AuthServiceTests
         var (_, error) = await _service.LoginAsync("admin", "secret");
 
         error.Should().Be("Could not reach the server. Please try again.");
+    }
+
+    private static FormFlow.Data.Models.SignUpRequest SignUp() => new()
+    {
+        Name = "Ada",
+        Email = "ada@lab.example",
+        Password = "analytical",
+        DateOfBirth = "1990-12-10",
+        IntendedUse = "Studies",
+        Organization = "Lab",
+    };
+
+    [Fact]
+    public async Task SignUpAsync_returns_the_new_accounts_status()
+    {
+        _http.When(HttpMethod.Post, "http://api.test/api/auth/signup")
+            .Respond(HttpStatusCode.Created, new StringContent("""{"status":"pending"}""", Encoding.UTF8, "application/json"));
+
+        var result = await _service.SignUpAsync(SignUp());
+
+        result.Succeeded.Should().BeTrue();
+        result.Status.Should().Be("pending");
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.Conflict)]
+    public async Task SignUpAsync_returns_problems_by_field(HttpStatusCode status)
+    {
+        _http.When(HttpMethod.Post, "http://api.test/api/auth/signup")
+            .Respond(status, new StringContent("""{"title":"One or more validation errors occurred.","errors":{"email":["Taken."],"name":["Enter your name."]}}""",
+                Encoding.UTF8, "application/problem+json"));
+
+        var result = await _service.SignUpAsync(SignUp());
+
+        result.Succeeded.Should().BeFalse();
+        result.FieldErrors["email"].Should().Equal("Taken.");
+        result.FieldErrors["name"].Should().Equal("Enter your name.");
+        result.Error.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests, "Too many attempts. Wait a minute and try again.")]
+    [InlineData(HttpStatusCode.InternalServerError, "Sign-up failed (500). Please try again.")]
+    public async Task SignUpAsync_explains_other_failures(HttpStatusCode status, string expected)
+    {
+        _http.When(HttpMethod.Post, "http://api.test/api/auth/signup").Respond(status);
+
+        var result = await _service.SignUpAsync(SignUp());
+
+        result.Error.Should().Be(expected);
+        result.FieldErrors.Should().BeEmpty();
     }
 }

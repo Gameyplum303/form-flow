@@ -1,0 +1,112 @@
+@page "/admin/signups"
+@using FormFlow.Blazor.Services
+@inject IAccountService AccountService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Pending sign-ups</PageTitle>
+
+<MudPaper Class="pa-4" Elevation="1">
+    <MudText Typo="Typo.h5" Class="mb-4">Pending sign-ups</MudText>
+
+    @if (!Current.IsAdmin)
+    {
+        <MudAlert Severity="Severity.Warning">Only administrators can review sign-ups.</MudAlert>
+    }
+    else if (_pending is null)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_pending.Count == 0)
+    {
+        <MudText>No one is waiting for approval. New professor and scientist sign-ups will show up here.</MudText>
+    }
+    else
+    {
+        <MudText Class="mb-4">
+            Approving a sign-up lets the person sign in as a Professor/Scientist. Declining removes it.
+        </MudText>
+        <MudTable Items="_pending" Hover="true" Dense="true" Bordered="true" Elevation="3">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Organization</MudTh>
+                <MudTh>Date of birth</MudTh>
+                <MudTh>How they'll use FormFlow</MudTh>
+                <MudTh>Signed up</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.Name</MudTd>
+                <MudTd>@context.Email</MudTd>
+                <MudTd>@context.Organization</MudTd>
+                <MudTd>@context.DateOfBirth</MudTd>
+                <MudTd Style="white-space: pre-line">@context.IntendedUse</MudTd>
+                <MudTd>@context.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</MudTd>
+                <MudTd>
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   aria-label="@($"Approve {context.Name}")" OnClick="@(() => ApproveAsync(context))">
+                            Approve
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                                   aria-label="@($"Decline {context.Name}")" OnClick="@(() => DeclineAsync(context))">
+                            Decline
+                        </MudButton>
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    [CascadingParameter] public AdminAccess? Access { get; set; }
+
+    /// <summary>Without a guard (in tests) the page shows an administrator's view.</summary>
+    private AdminAccess Current => Access ?? AdminAccess.Administrator;
+
+    private List<PendingAccount>? _pending;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Current.IsAdmin)
+        {
+            _pending = await AccountService.GetPendingAsync();
+        }
+    }
+
+    private async Task ApproveAsync(PendingAccount account)
+    {
+        var error = await AccountService.ApproveAsync(account.Id);
+        Finish(account, error, $"Approved {account.Name}. They can sign in now.");
+    }
+
+    private async Task DeclineAsync(PendingAccount account)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Decline sign-up",
+            $"Decline {account.Name}'s sign-up? They won't be able to sign in, but they can sign up again.",
+            yesText: "Decline", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var error = await AccountService.DeclineAsync(account.Id);
+        Finish(account, error, $"Declined {account.Name}'s sign-up.");
+    }
+
+    private void Finish(PendingAccount account, string? error, string success)
+    {
+        if (error is null)
+        {
+            _pending?.Remove(account);
+            Snackbar.Add(success, Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(error, Severity.Error);
+        }
+    }
+}

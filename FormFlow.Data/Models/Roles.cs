@@ -1,8 +1,9 @@
 namespace FormFlow.Data.Models
 {
     /// <summary>
-    /// The kinds of account. Administrators run the site and can change anything. Professors and
-    /// scientists build surveys and see the answers to the surveys they created. Students take surveys.
+    /// The roles on the site. Administrators run the site and can change anything. Professors and
+    /// scientists build surveys and see the answers to the surveys they created. Students take surveys
+    /// without an account; their role exists so administrators can preview the site as a student.
     /// </summary>
     public static class Roles
     {
@@ -13,6 +14,11 @@ namespace FormFlow.Data.Models
         public static readonly IReadOnlyList<string> All = [Admin, Professor, Student];
 
         public static bool IsKnown(string? role) => role is Admin or Professor or Student;
+
+        /// <summary>Roles an account can have. Administrators are added by hand; professors sign up.</summary>
+        public static readonly IReadOnlyList<string> ForAccounts = [Admin, Professor];
+
+        public static bool CanHaveAccount(string? role) => role is Admin or Professor;
 
         /// <summary>Roles that build surveys and questions.</summary>
         public static bool CanBuild(string? role) => role is Admin or Professor;

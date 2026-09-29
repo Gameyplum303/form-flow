@@ -8,6 +8,9 @@ namespace FormFlow.Backend.Auth
     /// <summary>Settings for the tokens the API issues, read from the "Jwt" configuration section.</summary>
     public class JwtSettings
     {
+        /// <summary>Administrators only, for managing accounts.</summary>
+        public const string AdminPolicy = "Admin";
+
         /// <summary>
         /// Building questions and surveys: administrators and professors. Endpoints then check that a
         /// professor owns what they change or read (see <see cref="CurrentUser.CanManage"/>).

@@ -152,16 +152,15 @@ namespace FormFlow.Backend.Tests.Endpoints
         {
             var admin = Admin();
             var survey = await InMemoryApiFactory.GetDemoSurveyAsync(admin);
-            var student = _factory.CreateClient().AsStudent();
-
-            var signedIn = await student.PostAsJsonAsync($"/api/surveys/{survey.Id}/responses", ResponseEndpointTests.ValidAnswers());
+            // Students answer without an account; a professor trying out a survey is signed in.
+            var signedIn = await Professor().PostAsJsonAsync($"/api/surveys/{survey.Id}/responses", ResponseEndpointTests.ValidAnswers());
             var anonymous = await _factory.CreateClient().PostAsJsonAsync($"/api/surveys/{survey.Id}/responses", ResponseEndpointTests.ValidAnswers());
 
-            (await signedIn.Content.ReadFromJsonAsync<SurveyResponse>())!.SubmittedBy.Should().Be("student");
+            (await signedIn.Content.ReadFromJsonAsync<SurveyResponse>())!.SubmittedBy.Should().Be("professor");
             (await anonymous.Content.ReadFromJsonAsync<SurveyResponse>())!.SubmittedBy.Should().BeNull();
             var csv = await admin.GetStringAsync($"/api/surveys/{survey.Id}/responses/export");
             csv.Split("\r\n")[0].Should().StartWith("response_id,submitted_at,submitted_by,first_name");
-            csv.Should().Contain(",student,");
+            csv.Should().Contain(",professor,");
         }
     }
 }

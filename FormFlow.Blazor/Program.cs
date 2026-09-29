@@ -30,6 +30,12 @@ builder.Services.AddHttpClient<IAuthService, AuthService>(client =>
     client.BaseAddress = new Uri(url ?? throw new Exception("URL Missing!"));
 });
 
+builder.Services.AddHttpClient<IAccountService, AccountService>(client =>
+{
+    var url = builder.Configuration["BackendAPI:BaseUrl"];
+    client.BaseAddress = new Uri(url ?? throw new Exception("URL Missing!"));
+});
+
 builder.Services.AddHttpClient("AdminApi", client =>
 {
     var url = builder.Configuration["BackendAPI:BaseUrl"];
