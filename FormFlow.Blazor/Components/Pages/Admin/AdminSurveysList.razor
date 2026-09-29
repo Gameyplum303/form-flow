@@ -2,6 +2,7 @@
 @inject ISurveyService SurveyService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <PageTitle>Survey Management</PageTitle>
 
@@ -87,6 +88,18 @@
                             Results
                         </MudButton>
 
+                        @if (Current.CanBuild)
+                        {
+                            <MudTooltip Text="Duplicate">
+                                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               Disabled="_duplicating"
+                                               aria-label="@($"Duplicate {context.Title}")"
+                                               OnClick="@(_ => DuplicateSurveyAsync(context))" />
+                            </MudTooltip>
+                        }
+
                         @if (Current.CanManage(context))
                         {
                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
@@ -124,6 +137,24 @@
     {
         _managed = await SurveyService.GetManagedSurveysAsync();
         _loaded = true;
+    }
+
+    private bool _duplicating;
+
+    /// <summary>Copies the survey into a new draft and opens it for editing.</summary>
+    private async Task DuplicateSurveyAsync(SurveyDefinition survey)
+    {
+        _duplicating = true;
+        var (copy, error) = await SurveyService.DuplicateSurveyAsync(survey.Id);
+        _duplicating = false;
+        if (copy is null)
+        {
+            Snackbar.Add($"The survey could not be duplicated: {error}", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add($"Created \"{copy.Title}\" as a draft.", Severity.Success);
+        Nav.NavigateTo($"/admin/surveys/{copy.Id}/edit");
     }
 
     private async Task DeleteSurveyAsync(SurveyDefinition survey)

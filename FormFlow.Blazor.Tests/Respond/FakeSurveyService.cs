@@ -63,6 +63,64 @@ public sealed class FakeSurveyService : ISurveyService
         return Task.FromResult(NextDeleteResult);
     }
 
+    /// <summary>When set, duplicating and using a template fail with this message.</summary>
+    public string? NextCopyError { get; set; }
+    public List<Guid> Duplicated { get; } = new();
+
+    /// <summary>Copies the survey into a new draft, like the API does.</summary>
+    public Task<(SurveyDefinition? Survey, string? Error)> DuplicateSurveyAsync(Guid id)
+    {
+        var source = Surveys.FirstOrDefault(s => s.Id == id);
+        if (NextCopyError is not null || source is null)
+        {
+            return Task.FromResult<(SurveyDefinition?, string?)>((null, NextCopyError ?? "Survey not found."));
+        }
+        Duplicated.Add(id);
+        return Task.FromResult<(SurveyDefinition?, string?)>((AddCopy(source.Id, $"Copy of {source.Title}", source.QuestionIds, source.PageBreaks), null));
+    }
+
+    public List<SurveyTemplate> Templates { get; } = new();
+
+    /// <summary>Makes loading the templates fail.</summary>
+    public bool TemplatesUnreachable { get; set; }
+
+    public Task<List<SurveyTemplate>?> GetTemplatesAsync() =>
+        Task.FromResult<List<SurveyTemplate>?>(Unreachable || TemplatesUnreachable ? null : Templates.ToList());
+
+    public List<Guid> UsedTemplates { get; } = new();
+
+    public Task<(SurveyDefinition? Survey, string? Error)> UseTemplateAsync(Guid templateId)
+    {
+        var template = Templates.FirstOrDefault(t => t.Id == templateId);
+        if (NextCopyError is not null || template is null)
+        {
+            return Task.FromResult<(SurveyDefinition?, string?)>((null, NextCopyError ?? "Template not found."));
+        }
+        UsedTemplates.Add(templateId);
+        return Task.FromResult<(SurveyDefinition?, string?)>((AddCopy(templateId, template.Title, [], []), null));
+    }
+
+    private SurveyDefinition AddCopy(Guid sourceId, string title, List<Guid> questionIds, List<Guid> pageBreaks)
+    {
+        var copy = new SurveyDefinition
+        {
+            Id = Guid.NewGuid(),
+            Title = title,
+            Description = $"A copy of {sourceId}",
+            QuestionIds = questionIds.ToList(),
+            PageBreaks = pageBreaks.ToList(),
+            CreatedAt = DateTime.UtcNow,
+            Status = SurveyStatuses.Draft,
+            Listed = false,
+        };
+        Surveys.Add(copy);
+        if (Questions.TryGetValue(sourceId, out var questions))
+        {
+            Questions[copy.Id] = questions.ToList();
+        }
+        return copy;
+    }
+
     public string? NextSharingError { get; set; }
     public (Guid Id, SurveySharing Sharing)? LastSharing { get; private set; }
 
