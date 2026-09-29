@@ -91,8 +91,14 @@ More detail: [docs/architecture.md](docs/architecture.md).
 | Web UI | Blazor Server, MudBlazor 9 |
 | SPA | React 19, TypeScript |
 | Testing | xUnit, FluentAssertions, Moq, `WebApplicationFactory`, bUnit, Jest, React Testing Library, Playwright, coverlet |
-| Delivery | Docker (multi-stage images, non-root), docker compose |
+| Delivery | Docker (multi-stage images, non-root), docker compose, a Render Blueprint for the public demo |
 | CI | GitHub Actions: build, test, coverage, ESLint, `dotnet format`, Docker build and browser tests |
+
+## Deploy the demo
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Gameyplum303/form-flow)
+
+[`render.yaml`](render.yaml) deploys the API, the Blazor app and the React app to Render's free plan. The demo seeds 80 sample responses so the results and charts have something to show, has public `admin` and `professor` accounts, and resets itself whenever it restarts. See [docs/deployment.md](docs/deployment.md).
 
 ## Run it with Docker
 
@@ -129,7 +135,7 @@ cd FormFlow.Backend
 dotnet run
 ```
 
-On first start it creates `formflow.db`, loads 10 sample questions and builds a demo "Student Experience Survey" from them. Open http://localhost:5164/swagger to try the endpoints.
+On first start it creates `formflow.db`, loads 13 sample questions and builds a demo "Student Experience Survey" from them. Open http://localhost:5164/swagger to try the endpoints.
 
 **2. Blazor app** (https://localhost:7230), in a second terminal
 
@@ -207,7 +213,7 @@ npx playwright test
 | Suite | Tests | Covers |
 |---|---|---|
 | `FormFlow.Data.Tests` | 83 | Question rules, response validation for every question type, sign-up rules, rating scales, visibility chains and cycles |
-| `FormFlow.Backend.Tests` | 193 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in, sign-up, email verification and approval, password reset and change, link expiry, each role, survey and question ownership, drafts, share links, close dates and one answer per browser, rate limits, results filters, date ranges, timelines and group comparisons, repositories, seeding, CSV escaping |
+| `FormFlow.Backend.Tests` | 195 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in, sign-up, email verification and approval, password reset and change, link expiry, each role, survey and question ownership, drafts, share links, close dates and one answer per browser, rate limits, results filters, date ranges, timelines and group comparisons, repositories, seeding including sample responses, CSV escaping |
 | `FormFlow.Blazor.Tests` | 270 | Each question component, two-way binding, sign-in, sign-up, the password and email pages, the sign-ups review page, the admin guard, each role's view and the administrator's View as switch, admin pages, the Share page, taking a survey by link, the results page with its filters, dates, timeline and comparisons |
 | `FormFlow.React.Tests` | 30 | Visibility logic, the form component, and the app against a mocked API, including share links and closed or already answered surveys |
 | `FormFlow.E2E` | 32 | Playwright in Chromium: signing in as each role, professor sign-up, email verification and approval, resetting and changing a password, viewing the site as a professor or student, the full admin flow including publishing, copying the share link, answering it as a student and closing it, taking surveys in both apps, filtering and comparing results, CSV download, API security |

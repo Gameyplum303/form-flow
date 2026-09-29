@@ -73,7 +73,7 @@ dotnet format FormFlow.slnx --verify-no-changes
 
 ## How the API tests work
 
-`FormFlow.Backend.Tests/Endpoints/InMemoryApiFactory.cs` starts the real API with `WebApplicationFactory<Program>` and swaps the LiteDB registration for one backed by a `MemoryStream`. Each test gets a fresh database (xUnit creates a new factory per test), the 10 sample questions and the demo survey are seeded exactly as in production, and tests call the API with a normal `HttpClient`. Helpers such as `GetDemoSurveyAsync` and `GetQuestionAsync` look up seeded data by key.
+`FormFlow.Backend.Tests/Endpoints/InMemoryApiFactory.cs` starts the real API with `WebApplicationFactory<Program>` and swaps the LiteDB registration for one backed by a `MemoryStream`. Each test gets a fresh database (xUnit creates a new factory per test), the 13 sample questions and the demo survey are seeded exactly as in production, and tests call the API with a normal `HttpClient`. Helpers such as `GetDemoSurveyAsync` and `GetQuestionAsync` look up seeded data by key.
 
 Tests that should start without the demo survey set `SeedData:DemoSurvey` to `false` with `UseSetting`.
 

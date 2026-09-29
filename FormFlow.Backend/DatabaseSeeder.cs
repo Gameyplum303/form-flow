@@ -1,6 +1,8 @@
 using LiteDB;
 using System.Text.Json;
+using FormFlow.Backend.Services;
 using FormFlow.Data.Models;
+using FormFlow.Data.Services;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace FormFlow.Backend
@@ -11,18 +13,27 @@ namespace FormFlow.Backend
         private readonly IWebHostEnvironment _env;
 
         private readonly IConfiguration? _config;
+        private readonly ResponseValidator? _validator;
+        private readonly TimeProvider _clock;
 
-        public DatabaseSeeder(ILiteDatabase dbContext, IWebHostEnvironment env, IConfiguration? config = null)
+        public const string DemoSurveyTitle = "Student Experience Survey";
+
+        public DatabaseSeeder(ILiteDatabase dbContext, IWebHostEnvironment env, IConfiguration? config = null,
+            ResponseValidator? validator = null, TimeProvider? clock = null)
         {
             Repositories.LiteDbMappings.EnsureBuilt();
             _dbContext = dbContext;
             _env = env;
             _config = config;
+            _validator = validator;
+            _clock = clock ?? TimeProvider.System;
         }
 
         /// <summary>
         /// Seeds sample questions into an empty database and, unless disabled with
-        /// SeedData:DemoSurvey=false, a demo survey that uses them.
+        /// SeedData:DemoSurvey=false, a demo survey that uses them. With SeedData:SampleResponses
+        /// set, the demo survey also gets that many made-up responses, so a public demo has results
+        /// to explore.
         /// </summary>
         public void Seed()
         {
@@ -31,8 +42,31 @@ namespace FormFlow.Backend
 
             if (_config?.GetValue("SeedData:DemoSurvey", true) ?? true)
             {
-                SeedDemoSurvey(questions, _dbContext.GetCollection<SurveyDefinition>("surveys"));
+                var surveys = _dbContext.GetCollection<SurveyDefinition>("surveys");
+                SeedDemoSurvey(questions, surveys);
+                SeedSampleResponses(questions, surveys, _config?.GetValue("SeedData:SampleResponses", 0) ?? 0);
             }
+        }
+
+        /// <summary>Adds made-up responses to the demo survey, if it has none yet.</summary>
+        public void SeedSampleResponses(ILiteCollection<QuestionDefinition> questions, ILiteCollection<SurveyDefinition> surveys, int count)
+        {
+            if (count <= 0 || _validator is null)
+            {
+                return;
+            }
+            var responses = _dbContext.GetCollection<SurveyResponse>(Repositories.ResponseRepository.CollectionName);
+            var survey = surveys.FindOne(s => s.Title == DemoSurveyTitle);
+            if (survey is null || responses.Exists(r => r.SurveyId == survey.Id))
+            {
+                return;
+            }
+
+            var byId = questions.FindAll().ToDictionary(q => q.Id);
+            var ordered = survey.QuestionIds.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
+            var sample = SampleResponseGenerator.Generate(survey, ordered, _validator, count, _clock.GetUtcNow().UtcDateTime);
+            responses.InsertBulk(sample);
+            Console.WriteLine($"Seeded {sample.Count} sample responses to \"{survey.Title}\".");
         }
 
         public void SeedDemoSurvey(ILiteCollection<QuestionDefinition> questions, ILiteCollection<SurveyDefinition> surveys)
@@ -56,7 +90,7 @@ namespace FormFlow.Backend
             surveys.Insert(new SurveyDefinition
             {
                 Id = Guid.NewGuid(),
-                Title = "Student Experience Survey",
+                Title = DemoSurveyTitle,
                 Description = "A demo survey built from the sample questions. Answer yes to \"Are you currently a student?\" to see the campus question appear.",
                 QuestionIds = questionIds,
                 CreatedAt = DateTime.UtcNow

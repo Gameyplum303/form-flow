@@ -13,5 +13,6 @@ Start with the [README](../README.md) for what FormFlow is and how to run it.
 | [Admin pages](admin.md) | The Blazor admin area |
 | [Blazor components](blazor-components.md) | Question components, `QuestionRenderer`, `SurveyForm` and the API services |
 | [React components](react-components.md) | The React client |
+| [Deployment](deployment.md) | The public demo on Render and what its settings do |
 | [Testing](testing.md) | Test projects, how to run them, and what CI checks |
 | [Troubleshooting](troubleshooting.md) | Common setup problems |

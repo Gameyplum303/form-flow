@@ -10,6 +10,7 @@
 |---|---|---|
 | `ConnectionStrings:LiteDb` | `Filename=formflow.db;Connection=shared` | Where LiteDB stores data |
 | `SeedData:DemoSurvey` | `true` | Create the demo survey on first start |
+| `SeedData:SampleResponses` | `0` | Give the demo survey this many made-up responses from the last three weeks, when it has none. The public demo uses 80. |
 | `Accounts` | `Rogers` (admin) and `professor`, both with `password`, in Development; otherwise empty | A list of `{ "Username", "Password", "Role", "Email" }` accounts (`Email` is optional and lets the account reset a forgotten password). Role is `admin` or `professor`, and defaults to `professor`; an account with any other role (students don't have accounts) is skipped with a warning. Missing accounts are created at startup, and each listed account's role is updated to match. Changing a password here later has no effect on an existing account. As environment variables: `Accounts__0__Username`, `Accounts__0__Password`, `Accounts__0__Role`, and so on. |
 | `SignUp:RequireApproval` | `true` | Whether professor/scientist sign-ups wait for an administrator's approval before they can sign in |
 | `SignUp:RequireEmailVerification` | `true` | Whether sign-ups must open an emailed link before they can sign in |
@@ -30,8 +31,9 @@ Any setting can be overridden on the command line (`dotnet run --SeedData:DemoSu
 
 `DatabaseSeeder.Seed()` runs once at startup:
 
-1. If the `questions` collection is empty, it loads the 10 sample questions from `SeedData/questions.json`. They cover every question type and include one conditional question (`campus_preference`, shown when `is_student` is yes).
+1. If the `questions` collection is empty, it loads the 13 sample questions from `SeedData/questions.json`. They cover every question type and include one conditional question (`campus_preference`, shown when `is_student` is yes).
 2. If `SeedData:DemoSurvey` is on and the `surveys` collection is empty, it creates the "Student Experience Survey" with every sample question, in the order they appear in the seed file.
+3. If `SeedData:SampleResponses` is above zero and the demo survey has no responses, `SampleResponseGenerator` makes that many. Each one runs through `ResponseValidator` like a real submission, so the campus question is only answered by students, and the answers lean the way a real survey might (students are younger and rate their experience higher).
 
 To reset, stop the API and delete `formflow.db`. It is recreated and reseeded on the next start.
 
