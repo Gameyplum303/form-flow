@@ -4,7 +4,7 @@
 # Admin requests use the token from the sign-in request below (VS Code REST Client and Visual Studio).
 @token = {{login.response.body.$.token}}
 
-### Sign in (Development admin: Rogers / password; view-only: student / password)
+### Sign in (Development admin: Rogers / password; professor: professor / password)
 # @name login
 POST {{host}}/api/auth/login
 Content-Type: application/json
@@ -53,6 +53,23 @@ Content-Type: application/json
 ### List surveys (copy an id into @surveyId above)
 GET {{host}}/api/surveys
 
+### Publish a survey by link only, closing on October 15 (new surveys start as drafts)
+PUT {{host}}/api/surveys/{{surveyId}}/sharing
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "published",
+  "listed": false,
+  "closesAt": "2026-10-15T17:00:00Z"
+}
+
+### Open a survey by the code in its share link
+GET {{host}}/api/share/k7m2p9qa
+
+### Has this browser answered already?
+GET {{host}}/api/surveys/{{surveyId}}/answered?respondentId=4f9c2b7e8d1a4c3b9e6f0a2d5c8b7e1f
+
 ### A survey's questions, in order
 GET {{host}}/api/surveys/{{surveyId}}/questions
 
@@ -72,7 +89,8 @@ Content-Type: application/json
     "subscribe_newsletter": true,
     "skills": ["csharp", "sql"],
     "campus_preference": "north"
-  }
+  },
+  "respondentId": "4f9c2b7e8d1a4c3b9e6f0a2d5c8b7e1f"
 }
 
 ### Aggregated results

@@ -33,6 +33,11 @@ namespace FormFlow.Backend.Repositories
             return _responses.Count(r => r.SurveyId == surveyId);
         }
 
+        public bool HasAnswered(Guid surveyId, string respondentId)
+        {
+            return _responses.Exists(r => r.SurveyId == surveyId && r.RespondentId == respondentId);
+        }
+
         public int DeleteBySurveyId(Guid surveyId)
         {
             return _responses.DeleteMany(r => r.SurveyId == surveyId);

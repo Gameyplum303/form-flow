@@ -1,5 +1,7 @@
 @page "/admin/surveys/{Id:guid}/preview"
+@using Microsoft.Extensions.DependencyInjection
 @inject IHttpClientFactory HttpClientFactory
+@inject IServiceProvider Services
 @inject NavigationManager Nav
 
 <MudPaper Class="pa-6" Elevation="2">
@@ -38,6 +40,8 @@
     protected override async Task OnInitializedAsync()
     {
         var client = HttpClientFactory.CreateClient("AdminApi");
+        // Drafts are only served to the people who manage them, so send the sign-in along.
+        Services.GetService<AdminSession>()?.Authorize(client);
 
         var response = await client.GetAsync($"api/surveys/{Id}");
         if (!response.IsSuccessStatusCode)

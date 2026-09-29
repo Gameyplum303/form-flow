@@ -13,6 +13,7 @@ namespace FormFlow.Blazor.Tests.Respond;
 public class TakeSurveyTests
 {
     private readonly FakeSurveyService _service = new();
+    private readonly FakeRespondentIdentity _respondent = new();
     private readonly SurveyDefinition _survey;
 
     private BunitContext CreateContext()
@@ -21,6 +22,7 @@ public class TakeSurveyTests
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         ctx.Services.AddMudServices();
         ctx.Services.AddSingleton<ISurveyService>(_service);
+        ctx.Services.AddSingleton<IRespondentIdentity>(_respondent);
         ctx.Render<MudPopoverProvider>();
         return ctx;
     }
@@ -45,7 +47,9 @@ public class TakeSurveyTests
             Title = "Campus survey",
             Description = "Tell us about you",
             QuestionIds = [isStudent.Id, campus.Id],
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            Status = SurveyStatuses.Published,
+            ShareCode = "k7m2p9qa"
         };
         _service.Surveys.Add(_survey);
         _service.Questions[_survey.Id] = [isStudent, campus];
@@ -96,6 +100,7 @@ public class TakeSurveyTests
         _service.LastSubmitted.Should().NotBeNull();
         _service.LastSubmitted!["is_student"].Should().Equal("true");
         _service.LastSubmitted["campus"].Should().Equal("south");
+        _service.LastRespondentId.Should().Be(_respondent.Id, "the server uses it to accept one answer per browser");
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Thank you!"));
     }
 
@@ -124,5 +129,82 @@ public class TakeSurveyTests
         var cut = ctx.Render<TakeSurvey>(p => p.Add(x => x.Id, Guid.NewGuid()));
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("does not exist"));
+    }
+
+    [Fact]
+    public async Task ShareLink_OpensTheSurveyByItsCode()
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<TakeSurvey>(p => p.Add(x => x.Code, "K7M2P9QA"));
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain(_survey.Title));
+        cut.FindComponents<QuestionRenderer>().Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task UnknownShareCode_ShowsNotAvailableMessage()
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<TakeSurvey>(p => p.Add(x => x.Code, "nope2345"));
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("does not exist"));
+    }
+
+    [Fact]
+    public async Task AlreadyAnswered_ShowsThankYouInsteadOfTheForm()
+    {
+        await using var ctx = CreateContext();
+        _service.Answered.Add((_survey.Id, _respondent.Id));
+        var cut = RenderPage(ctx);
+
+        cut.WaitForAssertion(() =>
+            cut.Find("[data-survey-closed]").TextContent.Should().Contain("You've already answered this survey."));
+        cut.FindAll("button").Should().NotContain(b => b.TextContent.Contains("Submit"));
+    }
+
+    [Fact]
+    public async Task ClosedSurvey_SaysItNoLongerTakesAnswers()
+    {
+        await using var ctx = CreateContext();
+        _survey.ClosesAt = DateTime.UtcNow.AddMinutes(-1);
+        var cut = RenderPage(ctx);
+
+        cut.Find("[data-survey-closed]").TextContent.Should().Contain("This survey is closed");
+        cut.FindComponents<QuestionRenderer>().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Submit_RefusedForGood_ReplacesTheFormWithTheServersMessage()
+    {
+        await using var ctx = CreateContext();
+        _service.NextSubmitResult = new SubmitResult(false, new Dictionary<string, string[]>(),
+            "This survey is closed and no longer takes answers.", CanRetry: false);
+        var cut = RenderPage(ctx);
+
+        await cut.InvokeAsync(() => cut.FindAll("button").Single(b => b.TextContent.Contains("Submit")).Click());
+
+        cut.WaitForAssertion(() =>
+            cut.Find("[data-survey-closed]").TextContent.Should().Contain("This survey is closed"));
+        cut.FindAll("button").Should().NotContain(b => b.TextContent.Contains("Submit"));
+    }
+
+    [Fact]
+    public async Task Draft_TellsItsOwnerOnlyTheyCanOpenIt()
+    {
+        await using var ctx = CreateContext();
+        _survey.Status = SurveyStatuses.Draft;
+        var cut = RenderPage(ctx);
+
+        cut.Find("[data-draft-notice]").TextContent.Should().Contain("This survey is a draft");
+        cut.FindComponents<QuestionRenderer>().Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task PublishedSurvey_ShowsNoDraftNotice()
+    {
+        await using var ctx = CreateContext();
+        var cut = RenderPage(ctx);
+
+        cut.FindAll("[data-draft-notice]").Should().BeEmpty();
     }
 }

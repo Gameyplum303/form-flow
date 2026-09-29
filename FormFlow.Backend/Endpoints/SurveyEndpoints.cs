@@ -11,11 +11,11 @@ namespace FormFlow.Backend.Endpoints
         {
             var group = app.MapGroup("/api/surveys").WithTags("Surveys");
 
-            // GET All Surveys
-            group.MapGet("", (ISurveyRepository repo) =>
+            // GET the public list: published, listed surveys that are still open
+            group.MapGet("", (ISurveyRepository repo, TimeProvider clock) =>
             {
-                var surveys = repo.FindAll().ToList();
-                return Results.Json(surveys);
+                var now = clock.GetUtcNow().UtcDateTime;
+                return Results.Json(repo.FindAll().Where(s => s.IsOnPublicList(now)).ToList());
             })
             .WithName("GetAllSurveys")
             .Produces<List<SurveyDefinition>>(StatusCodes.Status200OK);
@@ -33,7 +33,7 @@ namespace FormFlow.Backend.Endpoints
             .Produces(StatusCodes.Status403Forbidden);
 
             // GET survey by id
-            group.MapGet("/{id}", (string id, ISurveyRepository repo) =>
+            group.MapGet("/{id}", (string id, ClaimsPrincipal principal, ISurveyRepository repo) =>
             {
                 if (!Guid.TryParse(id, out var parsedId))
                 {
@@ -45,7 +45,7 @@ namespace FormFlow.Backend.Endpoints
 
                 var survey = repo.FindById(parsedId);
 
-                if (survey is null)
+                if (survey is null || !CurrentUser.From(principal).CanOpen(survey))
                 {
                     return Results.NotFound();
                 }
@@ -57,10 +57,11 @@ namespace FormFlow.Backend.Endpoints
             .Produces(StatusCodes.Status404NotFound);
 
             // GET the survey's questions, in survey order, so a client can render it in one call
-            group.MapGet("/{id:guid}/questions", (Guid id, ISurveyRepository repo, IQuestionRepository questions) =>
+            group.MapGet("/{id:guid}/questions", (Guid id, ClaimsPrincipal principal, ISurveyRepository repo,
+                IQuestionRepository questions) =>
             {
                 var survey = repo.FindById(id);
-                if (survey is null)
+                if (survey is null || !CurrentUser.From(principal).CanOpen(survey))
                 {
                     return Results.NotFound();
                 }
@@ -84,7 +85,11 @@ namespace FormFlow.Backend.Endpoints
                     Title = dto.Title.Trim(),
                     Description = dto.Description.Trim(),
                     QuestionIds = dto.QuestionIds,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    // New surveys stay private until their owner publishes them.
+                    Status = SurveyStatuses.Draft,
+                    Listed = false,
+                    ShareCode = repo.NewShareCode(),
                 };
                 CurrentUser.From(principal).Own(survey);
 
@@ -131,6 +136,47 @@ namespace FormFlow.Backend.Endpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces<SurveyDefinition>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
+
+            // Publish or unpublish a survey, choose whether it is on the public list, and when it closes
+            group.MapPut("/{id:guid}/sharing", (Guid id, SurveySharing sharing, ClaimsPrincipal principal, ISurveyRepository repo) =>
+            {
+                var existing = repo.FindById(id);
+                if (existing is null)
+                {
+                    return Results.NotFound();
+                }
+                if (!CurrentUser.From(principal).CanManage(existing))
+                {
+                    return CurrentUser.NotYours("surveys");
+                }
+                if (!SurveyStatuses.IsKnown(sharing.Status))
+                {
+                    return Results.BadRequest(new { error = $"Status must be \"{SurveyStatuses.Draft}\" or \"{SurveyStatuses.Published}\"." });
+                }
+
+                existing.Status = sharing.Status;
+                existing.Listed = sharing.Listed;
+                existing.ClosesAt = sharing.ClosesAt?.ToUniversalTime();
+                repo.Update(existing);
+                return Results.Ok(existing);
+            })
+            .WithName("UpdateSurveySharing")
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
+            .Produces<SurveyDefinition>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
+            // Open a survey from its share link
+            app.MapGet("/api/share/{code}", (string code, ClaimsPrincipal principal, ISurveyRepository repo) =>
+                repo.FindByShareCode(code) is { } survey && CurrentUser.From(principal).CanOpen(survey)
+                    ? Results.Ok(survey)
+                    : Results.NotFound())
+            .WithTags("Surveys")
+            .WithName("GetSurveyByShareCode")
+            .Produces<SurveyDefinition>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
             group.MapDelete("/{id:guid}", (Guid id, ClaimsPrincipal principal, ISurveyRepository repo,

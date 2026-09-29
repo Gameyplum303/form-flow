@@ -45,6 +45,7 @@
                 <MudTh>Title</MudTh>
                 <MudTh>Description</MudTh>
                 <MudTh>Questions</MudTh>
+                <MudTh>Status</MudTh>
                 @if (Current.IsAdmin)
                 {
                     <MudTh>Created by</MudTh>
@@ -56,6 +57,7 @@
                 <MudTd>@context.Title</MudTd>
                 <MudTd>@context.Description</MudTd>
                 <MudTd>@context.QuestionIds.Count</MudTd>
+                <MudTd><SurveyStatusChip Survey="context" /></MudTd>
                 @if (Current.IsAdmin)
                 {
                     <MudTd>@AdminQuestions.OwnerLabel(context)</MudTd>
@@ -71,6 +73,16 @@
                                     Size="Size.Small"
                                     OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/edit"))">
                                 Edit
+                            </MudButton>
+                        }
+
+                        @if (Current.CanManage(context))
+                        {
+                            <MudButton Variant="Variant.Filled"
+                                    Color="Color.Primary"
+                                    Size="Size.Small"
+                                    OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/share"))">
+                                Share
                             </MudButton>
                         }
 

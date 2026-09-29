@@ -7,6 +7,8 @@ const key = `campus_job_${runId}`;
 const label = `Which campus job do you have? (${runId})`;
 const editedLabel = `What campus job do you have? (${runId})`;
 const surveyTitle = `Campus Life ${runId}`;
+/** The survey's share link, read from its Share page. */
+let shareLink = "";
 
 function questionRow(page: Page, text: string) {
     return page.locator("tr", { hasText: text });
@@ -161,12 +163,14 @@ test.describe.serial("Blazor: admin", () => {
     let page: Page;
 
     test.beforeAll(async ({ browser }) => {
-        page = await browser.newPage();
+        // Clipboard access, so "Copy link" works as it does for a person clicking it.
+        const context = await browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
+        page = await context.newPage();
         await signIn(page);
     });
 
     test.afterAll(async () => {
-        await page.close();
+        await page.context().close();
     });
 
     test("creates a conditional question with an answer rule", async () => {
@@ -235,17 +239,74 @@ test.describe.serial("Blazor: admin", () => {
         await expect(question(page, key)).toHaveCount(1);
     });
 
-    test("enforces the new question's rule when answering", async ({ request }) => {
-        const survey = await surveyByTitle(request, surveyTitle);
-        await openBlazor(page, `/surveys/${survey.id}`);
-        await question(page, "is_student").locator("label.mud-radio").first().click();
-        await answer(page, key, "TA");
-        await page.getByRole("button", { name: "Submit" }).click();
-        await expect(question(page, key).getByText("Minimum length is 3.")).toBeVisible();
+    test("publishes the survey and copies its share link", async ({ browser }) => {
+        await openBlazor(page, "/admin/surveys");
+        const row = questionRow(page, surveyTitle);
+        await expect(row.locator("[data-survey-status]")).toHaveText("Draft");
+        await row.getByRole("button", { name: "Share" }).click();
+        await expect(page).toHaveURL(/\/share$/);
+        await expect(page.getByRole("button", { name: "Save sharing settings" })).toBeVisible();
 
-        await answer(page, key, "Library assistant");
-        await page.getByRole("button", { name: "Submit" }).click();
-        await expect(page.getByText("Thank you!")).toBeVisible();
+        const linkField = page.locator("input[data-share-link], [data-share-link] input").first();
+        shareLink = await linkField.inputValue();
+        expect(shareLink).toMatch(/\/s\/[a-z0-9]{8}$/);
+        await expect(page.locator("[data-share-qr] svg")).toBeVisible();
+
+        // Nobody else can open a draft, even with the link.
+        const visitor = await browser.newPage();
+        await visitor.goto(shareLink);
+        await expect(visitor.getByText("This survey does not exist or is no longer available.")).toBeVisible();
+
+        await page.getByText("Published: anyone with the link can answer").click();
+        await page.getByRole("button", { name: "Save sharing settings" }).click();
+        await expect(page.getByText("Saved. The survey is published.")).toBeVisible();
+        await expect(page.locator("[data-survey-status]")).toHaveText("Published, link only");
+
+        await page.getByRole("button", { name: "Copy link" }).click();
+        await expect(page.getByText("Link copied.")).toBeVisible();
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(shareLink);
+
+        await visitor.reload();
+        await expect(visitor.getByText(surveyTitle)).toBeVisible();
+        await visitor.close();
+    });
+
+    test("enforces the new question's rule when a student answers by link", async ({ browser }) => {
+        // Students answer without an account, in their own browser.
+        const student = await browser.newPage();
+        await student.goto(shareLink);
+        await expect(student.locator(".page[data-interactive=true]")).toBeVisible();
+        await question(student, "is_student").locator("label.mud-radio").first().click();
+        await answer(student, key, "TA");
+        await student.getByRole("button", { name: "Submit" }).click();
+        await expect(question(student, key).getByText("Minimum length is 3.")).toBeVisible();
+
+        await answer(student, key, "Library assistant");
+        await student.getByRole("button", { name: "Submit" }).click();
+        await expect(student.getByText("Thank you!")).toBeVisible();
+
+        await student.reload();
+        await expect(student.locator("[data-survey-closed]")).toContainText("You've already answered this survey.");
+        await student.close();
+    });
+
+    test("closes the survey", async ({ browser }) => {
+        await openBlazor(page, "/admin/surveys");
+        await questionRow(page, surveyTitle).getByRole("button", { name: "Share" }).click();
+        // The survey list has status chips too, so wait until the Share page has replaced it.
+        await expect(page).toHaveURL(/\/share$/);
+        await expect(page.getByRole("button", { name: "Save sharing settings" })).toBeVisible();
+        await expect(page.locator("[data-survey-status]")).toHaveText("Published, link only");
+        const closeField = page.getByLabel("Stop taking answers at");
+        await closeField.fill("2020-01-01T09:00");
+        await closeField.press("Tab");
+        await page.getByRole("button", { name: "Save sharing settings" }).click();
+        await expect(page.locator("[data-survey-status]")).toHaveText("Closed");
+
+        const late = await browser.newPage();
+        await late.goto(shareLink);
+        await expect(late.locator("[data-survey-closed]")).toContainText("This survey is closed and no longer takes answers.");
+        await late.close();
     });
 
     test("refuses to delete a question a survey uses", async () => {

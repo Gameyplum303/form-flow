@@ -140,5 +140,24 @@ namespace FormFlow.Blazor.Tests.Admin
 
             cut.WaitForAssertion(() => cut.Markup.Should().Contain("Survey not found"));
         }
+
+        [Fact]
+        public async Task SendsTheSignIn_SoOwnersCanPreviewTheirDrafts()
+        {
+            var session = new Auth.FakeSessionStorage().CreateSession();
+            await session.SignInAsync(Auth.FakeSessionStorage.Login());
+            Services.AddSingleton(session);
+            var mock = new RichardSzalay.MockHttp.MockHttpMessageHandler();
+            mock.When(HttpMethod.Get, $"http://localhost/api/surveys/{surveyId}")
+                .WithHeaders("Authorization", "Bearer test-token")
+                .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(FakeSurvey) });
+            mock.When(HttpMethod.Get, $"http://localhost/api/surveys/{surveyId}").Respond(HttpStatusCode.NotFound);
+            mock.When(HttpMethod.Get, "http://localhost/api/questions/*").Respond(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(q2) });
+            RegisterMockClient(mock);
+
+            var cut = Render<AdminSurveyPreview>(parameters => parameters.Add(p => p.Id, surveyId));
+
+            cut.WaitForAssertion(() => cut.Markup.Should().Contain(FakeSurvey.Title));
+        }
     }
 }
