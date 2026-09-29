@@ -239,7 +239,7 @@ h1:focus {
     border-top: 1px dashed var(--mud-palette-lines-default);
 }
 
-.page-break-switch .mud-switch-label {
+.page-break-switch .mud-typography {
     font-size: 0.85rem;
     color: var(--mud-palette-text-secondary);
 }

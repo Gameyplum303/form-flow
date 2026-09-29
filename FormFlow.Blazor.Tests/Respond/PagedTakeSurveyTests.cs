@@ -182,6 +182,23 @@ public class PagedTakeSurveyTests
     }
 
     [Fact]
+    public async Task When_answers_leave_one_page_there_is_no_progress_and_Submit_shows()
+    {
+        // Everything after the first page is for students only.
+        _comments.VisibleIf = new VisibleIf { Key = "is_student", ShouldEqual = true };
+        await using var ctx = CreateContext();
+        var cut = RenderPage(ctx);
+
+        cut.FindAll("[data-survey-progress]").Should().BeEmpty();
+        Buttons(cut).Should().Contain("Submit").And.NotContain("Next");
+
+        await AnswerStudentAsync(cut, true);
+
+        cut.WaitForAssertion(() => PageLabel(cut).Should().Be("Page 1 of 3"));
+        Buttons(cut).Should().Contain("Next").And.NotContain("Submit");
+    }
+
+    [Fact]
     public async Task A_survey_without_page_breaks_is_one_page_with_Submit()
     {
         _survey.PageBreaks = [];

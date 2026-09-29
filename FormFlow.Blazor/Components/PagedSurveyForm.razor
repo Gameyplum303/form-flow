@@ -8,7 +8,8 @@
 *@
 @inject IJSRuntime JS
 
-@if (IsPaged)
+@* "Page 1 of 1" says nothing, so the progress shows once answers leave more than one page. *@
+@if (IsPaged && Shown.Count > 1)
 {
     <div class="survey-progress" data-survey-progress>
         <div class="survey-progress-label" data-page-label>Page @(Position + 1) of @Shown.Count</div>

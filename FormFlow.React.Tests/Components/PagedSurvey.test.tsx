@@ -132,6 +132,25 @@ describe("Paged surveys", () => {
     expect(screen.getByLabelText(/Your name/)).toHaveValue("Al");
   });
 
+  test("shows no progress while answers leave only one page", async () => {
+    // Everything after the first page is for students only.
+    const studentsOnly = questions.map((q) => (q.key === "comments" ? { ...q, visibleIf: { key: "is_student", shouldEqual: true } } : q));
+    const fetchMock = jest.fn(async (url: string) => {
+      const body = url.endsWith("/questions") ? studentsOnly : url.includes("/answered") ? { answered: false } : survey;
+      return { ok: true, status: 200, json: async () => body } as Response;
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    await openSurvey();
+
+    expect(screen.queryByText(/^Page \d of \d$/)).not.toBeInTheDocument();
+    expect(button("Submit")).toBeInTheDocument();
+
+    answerStudent("Yes");
+
+    expect(pageLabel()).toBe("Page 1 of 3");
+    expect(button("Next")).toBeInTheDocument();
+  });
+
   test("a survey without page breaks is one page with Submit", async () => {
     mockFetch(undefined, { ...survey, pageBreaks: [] });
     await openSurvey();
