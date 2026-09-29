@@ -28,7 +28,7 @@ flowchart LR
 
 **`FormFlow.Data`** is a class library with no web dependencies.
 
-- `Models/`: `QuestionDefinition`, `Option`, `VisibleIf`, `SurveyDefinition`, `SurveyResponse`, `SurveyResults`, the `NewQuestion` and `NewSurvey` request bodies, and `QuestionTypes` (the eleven supported types and helpers such as `IsChoice`).
+- `Models/`: `QuestionDefinition`, `Option`, `VisibleIf`, `SurveyDefinition`, `SurveyResponse`, `SurveyResults`, the `NewQuestion` and `NewSurvey` request bodies, and `QuestionTypes` (the fourteen supported types and helpers such as `IsChoice`).
 - `Services/QuestionValidator`: checks that a question definition is well formed.
 - `Services/Validation/QuestionValidationEngine`: applies a question's `validationConfigs` rules (min/max length, min/max value, range) to an answer.
 - `Services/ResponseValidator`: checks a full submission against a survey's questions and normalizes the answers.

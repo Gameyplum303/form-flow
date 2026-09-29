@@ -159,8 +159,10 @@ Returns every question in the question bank.
 
 Rules checked on create and update:
 
-- `key`, `label` and `type` are required, and `type` must be one of `text`, `number`, `yes_no`, `dropdown`, `radio`, `checkbox`, `multiselect`, `long_text`, `email`, `date`, `rating`.
+- `key`, `label` and `type` are required, and `type` must be one of `text`, `number`, `yes_no`, `dropdown`, `radio`, `checkbox`, `multiselect`, `long_text`, `email`, `date`, `rating`, `likert`, `nps`, `slider`.
 - A `rating` can set its number of stars with a `MaxValue` rule from 2 to 10.
+- A `likert` grid needs at least one row in `rows`, each with a label and a unique value that doesn't contain `=`. Its `options` are the scale; without them it uses Strongly disagree (`1`) to Strongly agree (`5`). Other types' `rows` are dropped.
+- A `slider` takes its range from `MinValue` and `MaxValue` (or `Range`) rules: whole numbers, with the minimum below the maximum. Without them it runs from 0 to 100.
 - `dropdown`, `radio` and `multiselect` need at least one option. A `checkbox` with no options is a single tick box.
 - Option labels and values are required and must be unique within the question.
 - `visibleIf.key` must name an existing `yes_no` question other than this one.
@@ -262,6 +264,8 @@ The server validates the whole submission against the survey's questions:
 - Unknown keys are rejected.
 - `number` answers must be numbers, `yes_no` answers must be `true`/`false` (or `yes`/`no`), and choice answers must be one of the question's option values with no duplicates.
 - `email` answers must look like an email address, `date` answers must be ISO dates (`YYYY-MM-DD`), and `rating` answers must be a whole number of stars from 1 to the question's maximum.
+- `likert` answers are a list of `"rowValue=optionValue"` entries, at most one per row, with known rows and scale options. A required grid needs every row answered. They're stored in row order.
+- `nps` answers must be a whole number from 0 to 10, and `slider` answers a whole number from the slider's minimum to its maximum.
 - Text, long text and number answers are checked against the question's `validationConfigs` rules.
 
 | Status | When |
@@ -318,7 +322,7 @@ Aggregated results for the admin results page:
 }
 ```
 
-Choice and yes/no questions get a count per option, number questions get min, max and average, and text questions get the five most recent answers. `lastSubmittedAt` is the newest response of all, whatever the filters.
+Choice, yes/no, rating and NPS questions get a count per option (ratings also get `numbers`), number and slider questions get min, max and average, and text questions get the five most recent answers. NPS questions also get `nps`: `{ "score": 25, "promoters": 2, "passives": 1, "detractors": 1 }`, where the score is the percentage of promoters (9 or 10) minus the percentage of detractors (0 to 6), rounded. Likert grids get `rows`, one per statement: `{ "value": "library", "label": "…", "answeredCount": 4, "options": [ { "value": "1", "label": "Strongly disagree", "count": 1 }, … ], "average": 3.25 }`, where `average` is null unless every scale value is a number. `lastSubmittedAt` is the newest response of all, whatever the filters.
 
 #### Filters, dates and comparisons
 
@@ -326,7 +330,7 @@ Optional query parameters narrow or split the results:
 
 | Parameter | Example | Effect |
 |---|---|---|
-| `filter` | `filter=is_student:true&filter=skills:sql` | Only responses that gave every listed answer (for multiselect, the answer is one of those chosen). Up to 10. Works on yes/no, choice, rating and single checkbox questions. |
+| `filter` | `filter=is_student:true&filter=skills:sql` | Only responses that gave every listed answer (for multiselect, the answer is one of those chosen). Up to 10. Works on yes/no, choice, rating, NPS and single checkbox questions. |
 | `from`, `to` | `from=2026-09-01T04:00:00Z&to=2026-09-08T04:00:00Z` | Only responses sent at or after `from` and before `to` (ISO 8601; without an offset, UTC) |
 | `compareBy` | `compareBy=is_student` | Adds a `comparison` with every question summarized separately for each answer to this question, plus a "No answer" group when some responses skipped it |
 | `utcOffset` | `utcOffset=-240` | Minutes ahead of UTC (-840 to 840), so the timeline counts the viewer's local days |
@@ -353,4 +357,4 @@ The response then also has:
 
 ### `GET /api/surveys/{id}/responses/export` (Builder)
 
-Downloads every response as `<survey-title>-responses.csv`, or only those matching `filter`, `from` and `to` when given (the same parameters as the results, with the same 400 for bad ones). Columns are `response_id`, `submitted_at`, `submitted_by`, then one column per question key in survey order. Multiple values are joined with `; `. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return (and aren't numbers) are prefixed with `'` so spreadsheets don't run them as formulas.
+Downloads every response as `<survey-title>-responses.csv`, or only those matching `filter`, `from` and `to` when given (the same parameters as the results, with the same 400 for bad ones). Columns are `response_id`, `submitted_at`, `submitted_by`, then one column per question key in survey order. A likert grid gets a column per row instead, named `key[rowValue]`, holding the option picked for that row. Multiple values are joined with `; `. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return (and aren't numbers) are prefixed with `'` so spreadsheets don't run them as formulas.

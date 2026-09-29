@@ -4,7 +4,7 @@ The Blazor app (`FormFlow.Blazor`) renders questions it gets from the API. Each 
 
 ## Question components
 
-All eleven live in `Components/QuestionTypes/` and derive from `QuestionComponentBase`.
+All fourteen live in `Components/QuestionTypes/` and derive from `QuestionComponentBase`.
 
 | Type | Component | Renders |
 |---|---|---|
@@ -19,6 +19,9 @@ All eleven live in `Components/QuestionTypes/` and derive from `QuestionComponen
 | `email` | `EmailQuestion` | `MudTextField` with an email input |
 | `date` | `DateQuestion` | Native date input, which reports ISO dates |
 | `rating` | `RatingQuestion` | `MudRating` with the question's number of stars |
+| `likert` | `LikertQuestion` | A grid with a row per statement and a column per point of the scale. Each row is a `MudRadioGroup` labelled by its statement, and each radio button carries its column's label. It scrolls sideways inside the card on narrow screens. |
+| `nps` | `NpsQuestion` | Eleven buttons from 0 to 10, with "Not likely" and "Extremely likely" under the ends. The chosen one is pressed (`aria-pressed`); pressing it again clears the answer. |
+| `slider` | `SliderQuestion` | `MudSlider` from the question's minimum to maximum value (0 to 100 by default), with the value beside it. Unanswered until it is moved. |
 
 ### `QuestionComponentBase` parameters
 
