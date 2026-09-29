@@ -9,6 +9,8 @@
 
 FormFlow is a survey builder where the questions live in a database instead of in code. Admins build a question bank, group questions into surveys, and publish them. Respondents fill them out in a Blazor or React front end, the API validates and stores every answer, and admins see live results, filter and compare them, and export them to CSV.
 
+**[Try the live demo](https://gameyplum-formflow.onrender.com)**: sign in as `admin` / `password` or `professor` / `password`, or just take the survey. The same survey is in the [React app](https://gameyplum-formflow-react.onrender.com), and the API is in [Swagger UI](https://gameyplum-formflow-api.onrender.com/swagger). It runs on a free plan, so the first visit can take about a minute while it wakes up, and it resets itself now and then.
+
 It started as the capstone team project for the Software Engineering BS at East Carolina University (ECU Pirate Forge) and has since been extended into a complete, end-to-end application.
 
 ![Taking a survey in the Blazor app, with server-side validation errors shown per question](docs/images/blazor-take-survey.png)
@@ -98,7 +100,7 @@ More detail: [docs/architecture.md](docs/architecture.md).
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Gameyplum303/form-flow)
 
-[`render.yaml`](render.yaml) deploys the API, the Blazor app and the React app to Render's free plan. The demo seeds 80 sample responses so the results and charts have something to show, has public `admin` and `professor` accounts, and resets itself whenever it restarts. See [docs/deployment.md](docs/deployment.md).
+[`render.yaml`](render.yaml) deploys the API, the Blazor app and the React app to Render's free plan, and runs the [live demo](https://gameyplum-formflow.onrender.com). The demo seeds 80 sample responses so the results and charts have something to show, has public `admin` and `professor` accounts, and resets itself whenever it restarts. See [docs/deployment.md](docs/deployment.md).
 
 ## Run it with Docker
 
