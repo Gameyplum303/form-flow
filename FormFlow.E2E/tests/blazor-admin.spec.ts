@@ -10,6 +10,16 @@ function questionRow(page: Page, text: string) {
     return page.locator("tr", { hasText: text });
 }
 
+// The question bank shows 10 rows a page in storage order, so a new question can land on page 2. Show them all.
+async function showAllQuestions(page: Page) {
+    await choose(page, page.locator(".mud-table-pagination .mud-select"), "100");
+}
+
+async function openQuestionBank(page: Page) {
+    await openBlazor(page, "/admin/questions");
+    await showAllQuestions(page);
+}
+
 async function confirmDelete(page: Page, name: string) {
     await page.getByRole("button", { name: `Delete ${name}` }).click();
     await page.locator(".mud-dialog").getByRole("button", { name: "Delete" }).click();
@@ -86,13 +96,13 @@ test.describe.serial("Blazor: admin", () => {
         await page.getByRole("button", { name: "Create Question" }).click();
         await expect(page.getByText(`Question '${label}' created successfully.`)).toBeVisible();
 
-        await openBlazor(page, "/admin/questions");
+        await openQuestionBank(page);
         await expect(questionRow(page, key)).toHaveCount(1);
         await expect(questionRow(page, key).getByText("is_student is yes")).toBeVisible();
     });
 
     test("edits the question", async () => {
-        await openBlazor(page, "/admin/questions");
+        await openQuestionBank(page);
         await questionRow(page, key).getByRole("button", { name: "Edit" }).click();
         await expect(page).toHaveURL(/\/edit$/);
         await expect(page.getByLabel("Minimum length")).toHaveValue("3");
@@ -102,6 +112,7 @@ test.describe.serial("Blazor: admin", () => {
         await labelField.press("Tab");
         await page.getByRole("button", { name: "Save Changes" }).click();
         await expect(page).toHaveURL(/\/admin\/questions$/);
+        await showAllQuestions(page);
         await expect(page.locator("td", { hasText: editedLabel })).toHaveCount(1);
     });
 
@@ -149,7 +160,7 @@ test.describe.serial("Blazor: admin", () => {
     });
 
     test("refuses to delete a question a survey uses", async () => {
-        await openBlazor(page, "/admin/questions");
+        await openQuestionBank(page);
         await confirmDelete(page, editedLabel);
         await expect(page.getByText(`This question is used by: ${surveyTitle}.`, { exact: false })).toBeVisible();
         await expect(page.locator("td", { hasText: editedLabel })).toHaveCount(1);
@@ -160,7 +171,7 @@ test.describe.serial("Blazor: admin", () => {
         await confirmDelete(page, surveyTitle);
         await expect(questionRow(page, surveyTitle)).toHaveCount(0);
 
-        await openBlazor(page, "/admin/questions");
+        await openQuestionBank(page);
         await page.getByRole("button", { name: `Delete ${editedLabel}` }).click();
         await page.locator(".mud-dialog").getByRole("button", { name: "Cancel" }).click();
         await expect(page.locator("td", { hasText: editedLabel })).toHaveCount(1);
