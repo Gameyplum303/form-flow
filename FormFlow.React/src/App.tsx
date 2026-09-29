@@ -3,6 +3,7 @@ import "./App.css";
 import {
     API_BASE, getSurvey, getSurveyByShareCode, getSurveyQuestions, getSurveys, hasAnswered, respondentId, submitResponse,
 } from "./api";
+import { initialValue } from "./components/QuestionRenderer";
 import { SurveyForm } from "./components/SurveyForm";
 import { QuestionDefinition } from "./types/QuestionDefinition";
 import { AnswerErrors, Answers, SurveyDefinition } from "./types/Survey";
@@ -34,8 +35,9 @@ function isClosed(survey: SurveyDefinition): boolean {
 function defaultAnswers(questions: QuestionDefinition[]): Answers {
     const answers: Answers = {};
     questions.forEach((q) => {
-        if (q.defaultValue !== undefined && q.defaultValue !== null && q.defaultValue !== "") {
-            answers[q.key] = [String(q.defaultValue)];
+        const initial = initialValue(q);
+        if (initial.length > 0) {
+            answers[q.key] = initial;
         }
     });
     return answers;
@@ -46,7 +48,13 @@ function SurveyList({ onOpen }: { onOpen: (id: string) => void }) {
     const [failed, setFailed] = useState(false);
 
     useEffect(() => {
-        getSurveys().then(setSurveys).catch(() => setFailed(true));
+        let active = true;
+        getSurveys()
+            .then((list) => active && setSurveys(list))
+            .catch(() => active && setFailed(true));
+        return () => {
+            active = false;
+        };
     }, []);
 
     if (failed) {
@@ -210,7 +218,12 @@ function App() {
                 <h1>FormFlow</h1>
                 <p>Surveys rendered from question definitions stored by the FormFlow API.</p>
             </header>
-            {target ? <TakeSurvey target={target} onBack={back} /> : <SurveyList onOpen={open} />}
+            {/* The key gives each survey a fresh form, so errors from one survey never show on the next. */}
+            {target ? (
+                <TakeSurvey key={"id" in target ? `id:${target.id}` : `code:${target.code}`} target={target} onBack={back} />
+            ) : (
+                <SurveyList onOpen={open} />
+            )}
         </main>
     );
 }
