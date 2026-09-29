@@ -100,3 +100,42 @@ Authorization: Bearer {{token}}
 ### Download responses as CSV
 GET {{host}}/api/surveys/{{surveyId}}/responses/export
 Authorization: Bearer {{token}}
+
+### Ask for a password reset link (without SMTP, read it from the outbox below)
+POST {{host}}/api/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "ada@lab.example"
+}
+
+### Emails in the outbox (administrators, when no SMTP server is set)
+GET {{host}}/api/accounts/outbox
+Authorization: Bearer {{token}}
+
+### Set a new password with the token from the emailed link
+POST {{host}}/api/auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "paste-the-token-from-the-link",
+  "password": "a-new-password"
+}
+
+### Verify an email address with the token from the emailed link
+POST {{host}}/api/auth/verify-email
+Content-Type: application/json
+
+{
+  "token": "paste-the-token-from-the-link"
+}
+
+### Change the signed-in account's password (signs out its other sessions)
+POST {{host}}/api/auth/change-password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "currentPassword": "password",
+  "newPassword": "a-new-password"
+}

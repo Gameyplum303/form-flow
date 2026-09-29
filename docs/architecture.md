@@ -37,7 +37,8 @@ flowchart LR
 **`FormFlow.Backend`** is an ASP.NET Core minimal API.
 
 - `Endpoints/`: one static class per resource (`QuestionEndpoints`, `SurveyEndpoints`, `ResponseEndpoints`), each mapping a `MapGroup` with OpenAPI metadata.
-- `Repositories/`: interfaces and LiteDB implementations for the `questions`, `surveys` and `responses` collections.
+- `Repositories/`: interfaces and LiteDB implementations for the `questions`, `surveys`, `responses`, `users` and `account_tokens` collections.
+- `Email/`: the verification and password reset emails, sent through SMTP or kept in an in-memory outbox.
 - `Services/`: `SurveyResultsBuilder` aggregates responses for the results page, `CsvExporter` writes the CSV download.
 - `DatabaseSeeder`: loads `SeedData/questions.json` into an empty database and creates the demo survey.
 - `Program.cs`: dependency injection, CORS, problem details, OpenAPI and Swagger UI.

@@ -10,12 +10,17 @@
 |---|---|---|
 | `ConnectionStrings:LiteDb` | `Filename=formflow.db;Connection=shared` | Where LiteDB stores data |
 | `SeedData:DemoSurvey` | `true` | Create the demo survey on first start |
-| `Accounts` | `Rogers` (admin) and `professor`, both with `password`, in Development; otherwise empty | A list of `{ "Username", "Password", "Role" }` accounts. Role is `admin` or `professor`, and defaults to `professor`; an account with any other role (students don't have accounts) is skipped with a warning. Missing accounts are created at startup, and each listed account's role is updated to match. Changing a password here later has no effect on an existing account. As environment variables: `Accounts__0__Username`, `Accounts__0__Password`, `Accounts__0__Role`, and so on. |
+| `Accounts` | `Rogers` (admin) and `professor`, both with `password`, in Development; otherwise empty | A list of `{ "Username", "Password", "Role", "Email" }` accounts (`Email` is optional and lets the account reset a forgotten password). Role is `admin` or `professor`, and defaults to `professor`; an account with any other role (students don't have accounts) is skipped with a warning. Missing accounts are created at startup, and each listed account's role is updated to match. Changing a password here later has no effect on an existing account. As environment variables: `Accounts__0__Username`, `Accounts__0__Password`, `Accounts__0__Role`, and so on. |
 | `SignUp:RequireApproval` | `true` | Whether professor/scientist sign-ups wait for an administrator's approval before they can sign in |
+| `SignUp:RequireEmailVerification` | `true` | Whether sign-ups must open an emailed link before they can sign in |
+| `Email:LinkBaseUrl` | `http://localhost:5224/` | The Blazor app's address, used for the links in emails |
+| `Email:From` | `FormFlow <no-reply@formflow.local>` | The sender address |
+| `Email:Smtp:Host`, `Port`, `Username`, `Password`, `EnableSsl` | Not set, `587`, not set, not set, `true` | The SMTP server that sends email. Any provider works (SendGrid, Mailgun, Amazon SES, Gmail with an app password). Without a host, emails stay in an in-memory outbox that administrators read on the Blazor **Emails** page. |
 | `Jwt:Key` | A development key in Development, otherwise not set | Secret for signing tokens, at least 32 characters. When it is missing the API makes a random key at startup and logs a warning, so tokens stop working when the API restarts. |
 | `Jwt:Issuer`, `Jwt:Audience` | `FormFlow` | Written into and checked on every token |
 | `Jwt:LifetimeMinutes` | `480` | How long a sign-in lasts |
-| `RateLimits:LoginPerMinute` | `20` | Sign-in and sign-up attempts allowed per IP address per minute |
+| `RateLimits:LoginPerMinute` | `20` | Sign-in attempts allowed per IP address per minute |
+| `RateLimits:AccountPerMinute` | `20` | Sign-up, email link and password requests allowed per IP address per minute |
 | `RateLimits:SubmissionsPerMinute` | `60` | Survey submissions allowed per IP address per minute |
 | `DisableHttpsRedirection` | `true` in Development, otherwise not set | Serve plain HTTP without redirecting to HTTPS. On in Development so the React app can call `http://localhost:5164`; also useful behind a proxy that terminates TLS |
 
@@ -32,7 +37,9 @@ To reset, stop the API and delete `formflow.db`. It is recreated and reseeded on
 
 ## Authentication
 
-`Auth/` holds the sign-in pieces. `AdminAccountSeeder` creates the configured accounts, `TokenService` issues JWTs with the account's id (`sub`), username and `role` claim (`admin`, `professor` or `student`, listed in `FormFlow.Data/Models/Roles.cs`), and `JwtSettings` reads the `Jwt` section. `Program.cs` registers JWT bearer authentication, an `Admin` policy for reviewing sign-ups, a `Builder` policy for building surveys and reading their results (admin or professor), a `SignedIn` policy (any role), and two fixed-window rate limiters partitioned by client IP. Endpoints opt in with `.RequireAuthorization(JwtSettings.BuilderPolicy)`.
+`Auth/` holds the sign-in pieces. `AdminAccountSeeder` creates the configured accounts, `TokenService` issues JWTs with the account's id (`sub`), username and `role` claim (`admin`, `professor` or `student`, listed in `FormFlow.Data/Models/Roles.cs`), and `JwtSettings` reads the `Jwt` section. `Program.cs` registers JWT bearer authentication, an `Admin` policy for reviewing sign-ups, a `Builder` policy for building surveys and reading their results (admin or professor), a `SignedIn` policy (any role), and three fixed-window rate limiters partitioned by client IP. Endpoints opt in with `.RequireAuthorization(JwtSettings.BuilderPolicy)`. After a token's signature checks out, `SessionCheck` rejects it if its account no longer exists or its password changed after the token was issued.
+
+Emailed links use `AccountToken`s from `AccountTokenRepository` (the `account_tokens` collection): only a SHA-256 hash of each token is stored, each has a purpose and expiry, and redeeming one deletes it. `Email/` holds `AccountEmails`, which writes the verification and reset emails, and two `IEmailSender`s: `SmtpEmailSender` when `Email:Smtp:Host` is set, otherwise `OutboxEmailSender`. A failed send is logged rather than failing the request, so the person can ask for another link.
 
 The policy only checks the role. Ownership is checked inside each endpoint: questions and surveys implement `IOwned` (`OwnerId`, `OwnerName`), creating one records the caller as its owner, and `CurrentUser.CanManage` lets an administrator manage anything and a professor only what they own, returning `403` otherwise. Items with no owner, like the seeded demo data, belong to administrators. A submitted response stays anonymous unless the request carries a token, in which case `SubmittedBy` records the username.
 

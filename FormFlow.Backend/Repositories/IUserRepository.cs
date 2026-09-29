@@ -9,6 +9,9 @@ namespace FormFlow.Backend.Repositories
         AdminUser? FindByUsername(string username);
         AdminUser? FindById(Guid id);
 
+        /// <summary>Finds the account with this email address, ignoring case.</summary>
+        AdminUser? FindByEmail(string email);
+
         /// <summary>Accounts waiting for approval, oldest first.</summary>
         List<AdminUser> FindPending();
         bool Update(AdminUser user);

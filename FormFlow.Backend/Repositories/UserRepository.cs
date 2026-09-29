@@ -30,6 +30,12 @@ namespace FormFlow.Backend.Repositories
 
         public AdminUser? FindById(Guid id) => _users.FindById(id);
 
+        public AdminUser? FindByEmail(string email)
+        {
+            var normalized = Normalize(email);
+            return normalized.Length == 0 ? null : _users.FindOne(u => u.Email != null && u.Email.ToLower() == normalized);
+        }
+
         public List<AdminUser> FindPending() =>
             _users.Find(u => u.Status == AccountStatuses.Pending).OrderBy(u => u.CreatedAt).ToList();
 

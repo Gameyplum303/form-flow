@@ -24,7 +24,8 @@
     else
     {
         <MudText Class="mb-4">
-            Approving a sign-up lets the person sign in as a Professor/Scientist. Declining removes it.
+            Approving a sign-up lets the person sign in as a Professor/Scientist once they have also verified their
+            email address. Declining removes it.
         </MudText>
         <MudTable Items="_pending" Hover="true" Dense="true" Bordered="true" Elevation="3">
             <HeaderContent>
@@ -38,7 +39,14 @@
             </HeaderContent>
             <RowTemplate>
                 <MudTd>@context.Name</MudTd>
-                <MudTd>@context.Email</MudTd>
+                <MudTd>
+                    @context.Email
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                             Color="@(context.EmailVerified ? Color.Success : Color.Default)"
+                             data-email-verified="@(context.EmailVerified ? "true" : "false")">
+                        @(context.EmailVerified ? "Verified" : "Not verified yet")
+                    </MudChip>
+                </MudTd>
                 <MudTd>@context.Organization</MudTd>
                 <MudTd>@context.DateOfBirth</MudTd>
                 <MudTd Style="white-space: pre-line">@context.IntendedUse</MudTd>

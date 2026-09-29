@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { admin, adminHeaders, demoSurveyTitle, headersFor, newSignUp, professor, publish, runId, surveyByTitle, urls } from "./helpers";
+import {
+    admin, adminHeaders, approvedProfessor, demoSurveyTitle, emailedLink, headersFor, newSignUp, professor, publish, runId, surveyByTitle,
+    tokenOf, urls,
+} from "./helpers";
 
 test.describe("API", () => {
     test("serves Swagger UI and the OpenAPI document", async ({ request }) => {
@@ -32,10 +35,19 @@ test.describe("API", () => {
         const signUp = newSignUp("Api Ada");
         const created = await request.post(`${urls.api}/api/auth/signup`, { data: signUp });
         expect(created.status()).toBe(201);
-        expect(await created.json()).toEqual({ status: "pending" });
+        expect(await created.json()).toEqual({ status: "pending", emailVerificationRequired: true });
         expect((await request.post(`${urls.api}/api/auth/signup`, { data: signUp })).status()).toBe(409);
 
         const credentials = { username: signUp.email, password: signUp.password };
+        const unverified = await request.post(`${urls.api}/api/auth/login`, { data: credentials });
+        expect(unverified.status()).toBe(403);
+        expect(await unverified.json()).toMatchObject({ title: "Please verify your email address first.", reason: "email_unverified" });
+
+        const token = tokenOf(await emailedLink(request, signUp.email, "verify-email"));
+        const verified = await request.post(`${urls.api}/api/auth/verify-email`, { data: { token } });
+        expect(await verified.json()).toEqual({ status: "pending" });
+        expect((await request.post(`${urls.api}/api/auth/verify-email`, { data: { token } })).status()).toBe(400);
+
         const waiting = await request.post(`${urls.api}/api/auth/login`, { data: credentials });
         expect(waiting.status()).toBe(403);
         expect((await waiting.json()).title).toBe("Your account is waiting for an administrator's approval.");
@@ -102,6 +114,31 @@ test.describe("API", () => {
         } finally {
             expect((await request.delete(`${urls.api}/api/surveys/${survey.id}`, { headers })).status()).toBe(204);
         }
+    });
+
+    test("resets a forgotten password, and a password change ends other sign-ins", async ({ request }) => {
+        const ada = await approvedProfessor(request, "Api Reset");
+        const forgot = await request.post(`${urls.api}/api/auth/forgot-password`, { data: { email: ada.email } });
+        expect(forgot.status()).toBe(202);
+        const nobody = await request.post(`${urls.api}/api/auth/forgot-password`, { data: { email: `nobody.${runId}@lab.example` } });
+        expect(await nobody.json()).toEqual(await forgot.json());
+
+        const token = tokenOf(await emailedLink(request, ada.email, "reset-password"));
+        expect((await request.post(`${urls.api}/api/auth/reset-password`, { data: { token, password: "short" } })).status()).toBe(400);
+        expect((await request.post(`${urls.api}/api/auth/reset-password`, { data: { token, password: "difference engine" } })).status()).toBe(204);
+        expect((await request.post(`${urls.api}/api/auth/login`, { data: { username: ada.email, password: ada.password } })).status()).toBe(401);
+
+        const signedIn = await request.post(`${urls.api}/api/auth/login`, { data: { username: ada.email, password: "difference engine" } });
+        const oldToken = (await signedIn.json()).token;
+        // Sign-in tokens carry whole seconds; a change in the same second as the sign-in would keep it valid.
+        await new Promise(resolve => setTimeout(resolve, 1100));
+        const changed = await request.post(`${urls.api}/api/auth/change-password`, {
+            headers: { Authorization: `Bearer ${oldToken}` },
+            data: { currentPassword: "difference engine", newPassword: "analytical engine" },
+        });
+        expect(changed.status()).toBe(200);
+        expect((await request.get(`${urls.api}/api/auth/me`, { headers: { Authorization: `Bearer ${oldToken}` } })).status()).toBe(401);
+        expect((await request.get(`${urls.api}/api/auth/me`, { headers: { Authorization: `Bearer ${(await changed.json()).token}` } })).status()).toBe(200);
     });
 
     test("rejects invalid questions and protects questions in use", async ({ request }) => {

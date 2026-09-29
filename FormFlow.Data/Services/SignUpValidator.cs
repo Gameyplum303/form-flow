@@ -11,6 +11,7 @@ public static class SignUpValidator
 {
     public const int MinimumAge = 18;
     public const int MinimumPasswordLength = 8;
+    public const int MaxPasswordLength = 128;
     public const int MaxNameLength = 100;
     public const int MaxOrganizationLength = 200;
     public const int MaxIntendedUseLength = 1000;
@@ -31,14 +32,9 @@ public static class SignUpValidator
             errors["email"] = ["Enter an email address, like name@example.com."];
         }
 
-        var password = request.Password ?? string.Empty;
-        if (password.Length < MinimumPasswordLength)
+        if (PasswordError(request.Password) is { } passwordError)
         {
-            errors["password"] = [$"Use at least {MinimumPasswordLength} characters."];
-        }
-        else if (password.Length > 128)
-        {
-            errors["password"] = ["Use at most 128 characters."];
+            errors["password"] = [passwordError];
         }
 
         if (!DateOnly.TryParseExact(request.DateOfBirth?.Trim(), ResponseValidator.DateFormat, CultureInfo.InvariantCulture,
@@ -59,6 +55,15 @@ public static class SignUpValidator
         Required(errors, "organization", request.Organization, "Enter your university, lab or company.", MaxOrganizationLength);
 
         return errors;
+    }
+
+    /// <summary>What's wrong with a new password, or null when it's fine. Shared by sign-up, reset and change.</summary>
+    public static string? PasswordError(string? password)
+    {
+        var length = password?.Length ?? 0;
+        return length < MinimumPasswordLength ? $"Use at least {MinimumPasswordLength} characters."
+            : length > MaxPasswordLength ? $"Use at most {MaxPasswordLength} characters."
+            : null;
     }
 
     private static void Required(Dictionary<string, string[]> errors, string field, string? value, string missing, int maxLength)

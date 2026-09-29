@@ -113,6 +113,43 @@ export function adminHeaders(request: APIRequestContext) {
     return headersFor(request, admin);
 }
 
+/**
+ * The path (like "/verify-email?token=...") of the newest link to a Blazor page emailed to an address.
+ * Without a mail server the API keeps emails in an outbox that administrators can read. The path is
+ * opened against BLAZOR_URL, whatever address the API puts in its links.
+ */
+export async function emailedLink(request: APIRequestContext, to: string, page: "verify-email" | "reset-password") {
+    const headers = await adminHeaders(request);
+    let path: string | undefined;
+    await expect.poll(async () => {
+        const outbox: { to: string; body: string }[] = await (await request.get(`${urls.api}/api/accounts/outbox`, { headers })).json();
+        const email = outbox.find(e => e.to.toLowerCase() === to.toLowerCase() && e.body.includes(`/${page}?token=`));
+        path = email?.body.match(new RegExp(`/${page}\\?token=\\S+`))?.[0];
+        return path;
+    }, { message: `a ${page} email to ${to}` }).toBeDefined();
+    return path!;
+}
+
+/** The token in an emailed link's path. */
+export function tokenOf(path: string) {
+    return decodeURIComponent(new URL(path, "http://x").searchParams.get("token")!);
+}
+
+/** A professor who signed up, verified their email and was approved, all through the API. */
+export async function approvedProfessor(request: APIRequestContext, name: string) {
+    const signUp = newSignUp(name);
+    expect((await request.post(`${urls.api}/api/auth/signup`, { data: signUp })).status()).toBe(201);
+    const verify = await request.post(`${urls.api}/api/auth/verify-email`, {
+        data: { token: tokenOf(await emailedLink(request, signUp.email, "verify-email")) },
+    });
+    expect(verify.status()).toBe(200);
+    const headers = await adminHeaders(request);
+    const pending: { id: string; email: string }[] = await (await request.get(`${urls.api}/api/accounts/pending`, { headers })).json();
+    const id = pending.find(p => p.email === signUp.email)!.id;
+    expect((await request.post(`${urls.api}/api/accounts/${id}/approve`, { headers })).status()).toBe(204);
+    return signUp;
+}
+
 /** Fills in the Blazor sign-in form on the current page. */
 export async function submitSignIn(page: Page, username: string, password: string) {
     await page.locator("input[autocomplete=username]").fill(username);

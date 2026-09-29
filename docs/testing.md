@@ -5,10 +5,10 @@ FormFlow has four unit and integration test projects and one browser test projec
 | Project | Framework | What it tests |
 |---|---|---|
 | `FormFlow.Data.Tests` | xUnit, FluentAssertions | `QuestionValidator` rules, `QuestionValidationEngine` (min/max length and value, range), `ResponseValidator`, and `VisibilityEvaluator` including chained and circular rules |
-| `FormFlow.Backend.Tests` | xUnit, FluentAssertions, Moq, `WebApplicationFactory` | Every endpoint over real HTTP against an in-memory LiteDB, sign-in and which endpoints need it, drafts, share links, close dates and one answer per browser (`SharingTests`), rate limits, the repositories, database seeding, and CSV escaping |
-| `FormFlow.Blazor.Tests` | xUnit, bUnit, MudBlazor, RichardSzalay.MockHttp | Each question component, two-way binding through `QuestionRenderer`, the admin pages including the Share page, sign-in and the admin guard, taking a survey by id or share link, and the results page |
+| `FormFlow.Backend.Tests` | xUnit, FluentAssertions, Moq, `WebApplicationFactory` | Every endpoint over real HTTP against an in-memory LiteDB, sign-in and which endpoints need it, email verification, password reset and change (`AccountSecurityTests`, with a clock the tests move forward to expire links), drafts, share links, close dates and one answer per browser (`SharingTests`), rate limits, the repositories, database seeding, and CSV escaping |
+| `FormFlow.Blazor.Tests` | xUnit, bUnit, MudBlazor, RichardSzalay.MockHttp | Each question component, two-way binding through `QuestionRenderer`, the admin pages including the Share page, sign-in and the admin guard, the password and email pages, taking a survey by id or share link, and the results page |
 | `FormFlow.React.Tests` | Jest, ts-jest, React Testing Library | The visibility logic, the `SurveyForm` component, and the whole app against a mocked `fetch` |
-| `FormFlow.E2E` | Playwright | The running apps in a real browser: signing in, the whole admin flow, taking surveys in Blazor and React, CSV download, and API security |
+| `FormFlow.E2E` | Playwright | The running apps in a real browser: signing in, verifying an email, resetting and changing a password, the whole admin flow, taking surveys in Blazor and React, CSV download, and API security |
 
 ## Running the tests
 
@@ -40,7 +40,7 @@ npx playwright install chromium
 npx playwright test
 ```
 
-Point it at apps running elsewhere with `API_URL`, `BLAZOR_URL` and `REACT_URL`, and at other accounts with `ADMIN_USERNAME` and `ADMIN_PASSWORD`, and `PROFESSOR_USERNAME` and `PROFESSOR_PASSWORD`. The sign-up tests create a new professor with an email unique to the run. The tests share one database, so they run one at a time, and names include a run id so they can run again without a reset. The admin flow is one ordered series (create a question, edit it, build a survey, preview, publish and copy its share link, answer it as a student in a separate browser, close it, delete) in a single signed-in tab. New surveys are drafts, so API tests publish theirs with the `publish` helper before answering them anonymously.
+Point it at apps running elsewhere with `API_URL`, `BLAZOR_URL` and `REACT_URL`, and at other accounts with `ADMIN_USERNAME` and `ADMIN_PASSWORD`, and `PROFESSOR_USERNAME` and `PROFESSOR_PASSWORD`. The sign-up tests create a new professor with an email unique to the run, and follow the emailed links by reading the administrator's outbox (`emailedLink` in `helpers.ts`), so the stack must run without an SMTP server. The tests share one database, so they run one at a time, and names include a run id so they can run again without a reset. The admin flow is one ordered series (create a question, edit it, build a survey, preview, publish and copy its share link, answer it as a student in a separate browser, close it, delete) in a single signed-in tab. New surveys are drafts, so API tests publish theirs with the `publish` helper before answering them anonymously.
 
 The Blazor layout sets `data-interactive="true"` once its circuit is connected, and the tests wait for it before clicking, because clicks on a prerendered page are ignored until then. If a page never gets there, the failure message lists the browser's console errors and failed requests.
 
