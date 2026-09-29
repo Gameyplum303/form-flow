@@ -19,9 +19,9 @@ It started as the capstone team project for the Software Engineering BS at East 
 - **Conditional questions.** A question can be shown only when a yes/no question has a given answer ("Preferred campus" appears only for students). The same rule runs in C# on the server and in TypeScript in the browser, and hidden answers are dropped before they are saved.
 - **One validator, three clients.** Every submission goes through a single server-side `ResponseValidator` that returns RFC 7807 problem details keyed by question, so the Blazor and React apps show the same errors next to the same fields.
 - **Full admin loop.** Create, edit, reorder and delete questions and surveys, preview a survey, see per-question results (option counts, number stats, recent text answers) and download responses as CSV.
-- **Secure admin area.** Admins sign in with a JWT issued by the API. Passwords are hashed with PBKDF2, sign-in and submissions are rate limited, and every admin endpoint is enforced on the server, while respondents never need an account.
+- **Secure admin area.** Accounts sign in with a JWT issued by the API and are either admins or view-only. Passwords are hashed with PBKDF2, sign-in and submissions are rate limited, and every admin endpoint is enforced on the server, while respondents never need an account.
 - **Safe by design.** Question keys that are in use can't be renamed, questions used by a survey or a visibility rule can't be deleted, and CSV cells are escaped against spreadsheet formula injection.
-- **Documented, tested, automated.** OpenAPI with Swagger UI, 290+ unit and integration tests with coverage reporting, and Playwright browser tests that run against the Docker images in GitHub Actions on every push.
+- **Documented, tested, automated.** OpenAPI with Swagger UI, 300+ unit and integration tests with coverage reporting, and Playwright browser tests that run against the Docker images in GitHub Actions on every push.
 - **One command to run.** `docker compose up` starts the API, the Blazor app and the React app.
 
 ## Screenshots
@@ -98,7 +98,7 @@ docker compose up --build
 | React app (respondent) | http://localhost:3000 |
 | API and Swagger UI | http://localhost:5164/swagger |
 
-Sign in to the admin pages with the test account `student` / `password`. Data is kept in a Docker volume; `docker compose down --volumes` resets it. Before exposing the app anywhere public, set `FORMFLOW_ADMIN_PASSWORD` and `FORMFLOW_STUDENT_PASSWORD` to real passwords and `FORMFLOW_JWT_KEY` to a fixed key (32+ characters), before the first start.
+Sign in to the admin pages as `Rogers` / `password` (admin) or with the view-only test account `student` / `password`. Data is kept in a Docker volume; `docker compose down --volumes` resets it. Before exposing the app anywhere public, set `FORMFLOW_ADMIN_PASSWORD` and `FORMFLOW_STUDENT_PASSWORD` to real passwords and `FORMFLOW_JWT_KEY` to a fixed key (32+ characters), before the first start.
 
 ## Run it locally
 
@@ -126,7 +126,7 @@ cd FormFlow.Blazor
 dotnet run
 ```
 
-Go to **Take a Survey** to answer the demo survey, or **Admin Dashboard** to manage questions and surveys and see results. In Development you can sign in as `student` / `password` (a test account) or `Rogers` / `password`.
+Go to **Take a Survey** to answer the demo survey, or **Admin Dashboard** to manage questions and surveys and see results. In Development you can sign in as `Rogers` / `password` (admin) or `student` / `password` (view-only: can see surveys and results, can't change anything).
 
 **3. React app** (http://localhost:3000), in a third terminal
 
@@ -145,7 +145,7 @@ To start over with a clean database, stop the API and delete `FormFlow.Backend/f
 | Method | Path | Access | Purpose |
 |---|---|---|---|
 | `POST` | `/api/auth/login` | Public | Sign in and get a token (rate limited) |
-| `GET` | `/api/auth/me` | Admin | Check a token |
+| `GET` | `/api/auth/me` | Signed in | Check a token and its role |
 | `GET` | `/api/questions` | Public | List all questions |
 | `GET` | `/api/questions/{id}` | Public | Get one question |
 | `POST` | `/api/questions` | Admin | Create a question |
@@ -158,11 +158,11 @@ To start over with a clean database, stop the API and delete `FormFlow.Backend/f
 | `PUT` | `/api/surveys/{id}` | Admin | Update a survey |
 | `DELETE` | `/api/surveys/{id}` | Admin | Delete a survey and its responses |
 | `POST` | `/api/surveys/{id}/responses` | Public | Submit answers (validated, rate limited; returns 400 problem details per question) |
-| `GET` | `/api/surveys/{id}/responses` | Admin | List stored responses |
-| `GET` | `/api/surveys/{id}/results` | Admin | Aggregated results per question |
-| `GET` | `/api/surveys/{id}/responses/export` | Admin | Download responses as CSV |
+| `GET` | `/api/surveys/{id}/responses` | Signed in | List stored responses |
+| `GET` | `/api/surveys/{id}/results` | Signed in | Aggregated results per question |
+| `GET` | `/api/surveys/{id}/responses/export` | Signed in | Download responses as CSV |
 
-Admin requests send `Authorization: Bearer <token>`.
+Signed-in requests send `Authorization: Bearer <token>`. "Signed in" endpoints accept admin and view-only accounts; "Admin" endpoints return `403` for view-only accounts.
 
 Request and response examples are in [docs/api.md](docs/api.md), and [FormFlow.Backend/backend.http](FormFlow.Backend/backend.http) has ready-to-send requests for VS Code or Rider.
 
@@ -184,10 +184,10 @@ npx playwright test
 | Suite | Tests | Covers |
 |---|---|---|
 | `FormFlow.Data.Tests` | 39 | Question rules, response validation, visibility chains and cycles |
-| `FormFlow.Backend.Tests` | 104 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in and access rules, rate limits, repositories, seeding, CSV escaping |
-| `FormFlow.Blazor.Tests` | 132 | Each question component, two-way binding, sign-in and the admin guard, admin pages, taking a survey, results page |
+| `FormFlow.Backend.Tests` | 114 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in and admin and view-only access rules, rate limits, repositories, seeding, CSV escaping |
+| `FormFlow.Blazor.Tests` | 141 | Each question component, two-way binding, sign-in and the admin guard, admin pages, taking a survey, results page |
 | `FormFlow.React.Tests` | 20 | Visibility logic, the form component, and the app against a mocked API |
-| `FormFlow.E2E` | 20 | Playwright in Chromium: signing in, the full admin flow, taking surveys in both apps, CSV download, API security |
+| `FormFlow.E2E` | 22 | Playwright in Chromium: signing in as an admin and a view-only account, the full admin flow, taking surveys in both apps, CSV download, API security |
 
 CI runs all of these, measures .NET code coverage (85% of lines), and checks ESLint and `dotnet format --verify-no-changes` on every push and pull request. The browser tests run against the Docker images started with docker compose. See [docs/testing.md](docs/testing.md).
 

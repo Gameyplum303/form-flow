@@ -16,7 +16,7 @@ To use HTTP instead, run the Blazor app with `dotnet run --BackendApi:BaseUrl=ht
 
 **Sign-in fails with "Invalid username or password."**
 
-Accounts are created only when they don't exist yet. If you changed a password in `AdminAccounts` (or `FORMFLOW_ADMIN_PASSWORD` / `FORMFLOW_STUDENT_PASSWORD` for docker compose) after the account was created, the old password still applies. Delete `formflow.db`, or run `docker compose down --volumes`, to start over with the new one.
+Accounts are created only when they don't exist yet. If you changed a password in `Accounts` (or `FORMFLOW_ADMIN_PASSWORD` / `FORMFLOW_STUDENT_PASSWORD` for docker compose) after the account was created, the old password still applies. Delete `formflow.db`, or run `docker compose down --volumes`, to start over with the new one.
 
 **Admin pages keep sending me back to the sign-in page**
 

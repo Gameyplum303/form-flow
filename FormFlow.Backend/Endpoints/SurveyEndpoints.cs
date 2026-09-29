@@ -81,6 +81,7 @@ namespace FormFlow.Backend.Endpoints
             .WithName("CreateSurvey")
             .RequireAuthorization(JwtSettings.AdminPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .Produces<SurveyDefinition>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest);
 
@@ -108,6 +109,7 @@ namespace FormFlow.Backend.Endpoints
             .WithName("UpdateSurvey")
             .RequireAuthorization(JwtSettings.AdminPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .Produces<SurveyDefinition>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound);
@@ -126,6 +128,7 @@ namespace FormFlow.Backend.Endpoints
             .WithName("DeleteSurvey")
             .RequireAuthorization(JwtSettings.AdminPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
         }

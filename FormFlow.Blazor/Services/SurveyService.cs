@@ -104,6 +104,11 @@ namespace FormFlow.Blazor.Services
 
         private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
         {
+            if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return QuestionService.ViewOnlyMessage;
+            }
+
             var body = await response.Content.ReadAsStringAsync();
             try
             {

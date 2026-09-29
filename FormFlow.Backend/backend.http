@@ -4,13 +4,13 @@
 # Admin requests use the token from the sign-in request below (VS Code REST Client and Visual Studio).
 @token = {{login.response.body.$.token}}
 
-### Sign in (Development test account: student / password)
+### Sign in (Development admin: Rogers / password; view-only: student / password)
 # @name login
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
 {
-  "username": "student",
+  "username": "Rogers",
   "password": "password"
 }
 

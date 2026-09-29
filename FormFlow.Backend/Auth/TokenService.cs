@@ -22,12 +22,12 @@ namespace FormFlow.Backend.Auth
                 [
                     new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                     new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
-                    new Claim("role", JwtSettings.AdminRole),
+                    new Claim("role", user.Role),
                 ]),
                 SigningCredentials = new SigningCredentials(settings.SigningKey, SecurityAlgorithms.HmacSha256),
             });
 
-            return new LoginResponse { Token = token, Username = user.Username, ExpiresAt = expires };
+            return new LoginResponse { Token = token, Username = user.Username, Role = user.Role, ExpiresAt = expires };
         }
     }
 }

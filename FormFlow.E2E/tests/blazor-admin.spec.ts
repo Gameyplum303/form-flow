@@ -1,5 +1,5 @@
 import { expect, Page, test } from "@playwright/test";
-import { admin, answer, choose, openBlazor, question, runId, signIn, submitSignIn, surveyByTitle } from "./helpers";
+import { admin, answer, choose, demoSurveyTitle, openBlazor, question, runId, signIn, submitSignIn, surveyByTitle, viewer } from "./helpers";
 
 const key = `campus_job_${runId}`;
 const label = `Which campus job do you have? (${runId})`;
@@ -34,6 +34,25 @@ test.describe("Blazor: signing in", () => {
         await expect(page).toHaveURL(/\/login\?returnUrl=%2Fadmin%2Fquestions$/);
         await openBlazor(page, "/admin/surveys");
         await expect(page).toHaveURL(/\/login\?returnUrl=%2Fadmin%2Fsurveys$/);
+    });
+});
+
+test.describe("Blazor: view-only account", () => {
+    test("can see surveys and results but not change anything", async ({ page, request }) => {
+        await signIn(page, viewer);
+        await expect(page.getByText(`Signed in as ${viewer.username} (view only)`)).toBeVisible();
+        await expect(page.getByText("You're signed in with a view-only account.")).toBeVisible();
+        await expect(questionRow(page, demoSurveyTitle)).toHaveCount(1);
+        await expect(page.getByText("+ Create Survey")).toHaveCount(0);
+        await expect(page.getByRole("button", { name: `Delete ${demoSurveyTitle}` })).toHaveCount(0);
+
+        await questionRow(page, demoSurveyTitle).getByRole("button", { name: "Results" }).click();
+        await expect(page.getByText(/^\d+ responses?/)).toBeVisible();
+
+        const survey = await surveyByTitle(request, demoSurveyTitle);
+        await openBlazor(page, `/admin/surveys/${survey.id}/edit`);
+        await expect(page.getByText("Only admins can create or edit questions and surveys.")).toBeVisible();
+        await expect(page.getByRole("button", { name: "Save Survey" })).toHaveCount(0);
     });
 });
 

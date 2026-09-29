@@ -60,10 +60,16 @@ export async function surveyByTitle(request: APIRequestContext, title: string) {
 
 export const demoSurveyTitle = "Student Experience Survey";
 
-/** The test account docker compose creates. Override with ADMIN_USERNAME and ADMIN_PASSWORD. */
+/** The admin account docker compose creates. Override with ADMIN_USERNAME and ADMIN_PASSWORD. */
 export const admin = {
-    username: process.env.ADMIN_USERNAME ?? "student",
+    username: process.env.ADMIN_USERNAME ?? "Rogers",
     password: process.env.ADMIN_PASSWORD ?? "password",
+};
+
+/** The view-only test account. Override with VIEWER_USERNAME and VIEWER_PASSWORD. */
+export const viewer = {
+    username: process.env.VIEWER_USERNAME ?? "student",
+    password: process.env.VIEWER_PASSWORD ?? "password",
 };
 
 let adminToken: string | undefined;
@@ -88,8 +94,8 @@ export async function submitSignIn(page: Page, username: string, password: strin
 }
 
 /** Signs in to the Blazor admin pages. The sign-in lasts for this tab, across page loads. */
-export async function signIn(page: Page) {
+export async function signIn(page: Page, account = admin) {
     await openBlazor(page, "/login");
-    await submitSignIn(page, admin.username, admin.password);
+    await submitSignIn(page, account.username, account.password);
     await expect(page).toHaveURL(/\/admin\/surveys$/);
 }

@@ -15,12 +15,16 @@ namespace FormFlow.Blazor.Services
 
         public string? Token { get; private set; }
         public string? Username { get; private set; }
+        public string? Role { get; private set; }
         public DateTime ExpiresAt { get; private set; }
 
         /// <summary>Whether the stored sign-in has been read. Storage is only readable once the page is interactive.</summary>
         public bool IsRestored { get; private set; }
 
         public bool IsSignedIn => Token is not null && ExpiresAt > DateTime.UtcNow;
+
+        /// <summary>Admins can change questions and surveys. Other accounts can only look.</summary>
+        public bool IsAdmin => IsSignedIn && Role == "admin";
 
         public event Action? Changed;
 
@@ -61,6 +65,7 @@ namespace FormFlow.Blazor.Services
         {
             Token = null;
             Username = null;
+            Role = null;
             await storage.DeleteAsync(StorageKey);
             Changed?.Invoke();
         }
@@ -73,6 +78,7 @@ namespace FormFlow.Blazor.Services
         {
             Token = login.Token;
             Username = login.Username;
+            Role = login.Role;
             ExpiresAt = login.ExpiresAt;
         }
     }

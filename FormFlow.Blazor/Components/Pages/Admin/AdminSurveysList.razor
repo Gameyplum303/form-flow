@@ -12,11 +12,14 @@
 
         <MudText Typo="Typo.h5" Class="mb-4">Survey Management</MudText>
 
-        <MudButton Variant="Variant.Filled"
-                Color="Color.Primary"
-                Href="/admin/surveys/create">
-            + Create Survey
-        </MudButton>
+        @if (CanEdit)
+        {
+            <MudButton Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    Href="/admin/surveys/create">
+                + Create Survey
+            </MudButton>
+        }
 
     </MudStack>
 
@@ -53,12 +56,15 @@
                 <MudTd>
                     <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
 
-                        <MudButton Variant="Variant.Filled"
-                                Color="Color.Primary"
-                                Size="Size.Small"
-                                OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/edit"))">
-                            Edit
-                        </MudButton>
+                        @if (CanEdit)
+                        {
+                            <MudButton Variant="Variant.Filled"
+                                    Color="Color.Primary"
+                                    Size="Size.Small"
+                                    OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/edit"))">
+                                Edit
+                            </MudButton>
+                        }
 
                         <MudButton Variant="Variant.Filled"
                                 Color="Color.Primary"
@@ -74,11 +80,14 @@
                             Results
                         </MudButton>
 
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                Color="Color.Error"
-                                Size="Size.Small"
-                                aria-label="@($"Delete {context.Title}")"
-                                OnClick="@(_ => DeleteSurvey(context))" />
+                        @if (CanEdit)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                    Color="Color.Error"
+                                    Size="Size.Small"
+                                    aria-label="@($"Delete {context.Title}")"
+                                    OnClick="@(_ => DeleteSurvey(context))" />
+                        }
 
                     </MudStack>
                 </MudTd>
@@ -93,6 +102,11 @@
 </MudPaper>  
 
 @code {
+    [CascadingParameter] public AdminAccess? Access { get; set; }
+
+    /// <summary>View-only accounts don't get create, edit or delete buttons. Without a guard (in tests) everything shows.</summary>
+    private bool CanEdit => Access?.CanEdit ?? true;
+
     private List<SurveyDefinition>? surveys;
 
     protected override async Task OnInitializedAsync()

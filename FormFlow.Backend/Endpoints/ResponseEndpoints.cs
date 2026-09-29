@@ -72,7 +72,7 @@ namespace FormFlow.Backend.Endpoints
                 return Results.Ok(responses.FindBySurveyId(surveyId).ToList());
             })
             .WithName("GetResponses")
-            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .RequireAuthorization(JwtSettings.ViewerPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces<List<SurveyResponse>>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
@@ -91,7 +91,7 @@ namespace FormFlow.Backend.Endpoints
                 return Results.Ok(SurveyResultsBuilder.Build(survey, questions, stored));
             })
             .WithName("GetSurveyResults")
-            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .RequireAuthorization(JwtSettings.ViewerPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces<SurveyResults>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
@@ -110,7 +110,7 @@ namespace FormFlow.Backend.Endpoints
                 return Results.File(Encoding.UTF8.GetBytes(csv), "text/csv", $"{FileNameFor(survey.Title)}-responses.csv");
             })
             .WithName("ExportResponses")
-            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .RequireAuthorization(JwtSettings.ViewerPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status200OK, contentType: "text/csv")
             .Produces(StatusCodes.Status404NotFound);

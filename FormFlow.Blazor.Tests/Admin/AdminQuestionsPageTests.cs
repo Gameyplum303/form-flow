@@ -37,6 +37,18 @@ public class AdminQuestionsPageTests
     }
 
     [Fact]
+    public async Task View_only_account_sees_the_questions_without_create_edit_or_delete()
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminQuestions>(p => p.AddCascadingValue(new AdminAccess(false)));
+
+        cut.WaitForAssertion(() => cut.FindAll("tbody tr").Should().HaveCount(2));
+        cut.Markup.Should().NotContain("Create New Question");
+        cut.FindAll("button").Should().NotContain(b => b.TextContent.Trim() == "Edit");
+        cut.FindAll("button[aria-label^='Delete']").Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Lists_questions_with_when_they_are_shown()
     {
         await using var ctx = CreateContext();
