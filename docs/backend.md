@@ -32,7 +32,7 @@ Any setting can be overridden on the command line (`dotnet run --SeedData:DemoSu
 
 `DatabaseSeeder.Seed()` runs once at startup:
 
-1. If the `questions` collection is empty, it loads the 13 sample questions from `SeedData/questions.json`. They cover every question type and include one conditional question (`campus_preference`, shown when `is_student` is yes).
+1. If the `questions` collection is empty, it loads the 16 sample questions from `SeedData/questions.json`. They cover every question type and include one conditional question (`campus_preference`, shown when `is_student` is yes).
 2. If `SeedData:DemoSurvey` is on and the `surveys` collection is empty, it creates the "Student Experience Survey" with every sample question, in the order they appear in the seed file.
 3. If `SeedData:SampleResponses` is above zero and the demo survey has no responses, `SampleResponseGenerator` makes that many. Each one runs through `ResponseValidator` like a real submission, so the campus question is only answered by students, and the answers lean the way a real survey might (students are younger and rate their experience higher).
 
