@@ -26,7 +26,7 @@ Reading questions and surveys and submitting answers are public. Everything else
 | `professor` | Professor/Scientist | Create questions and surveys, and edit, delete and read the responses and results of the ones they created |
 | `student` | Student | Take surveys. Students don't have accounts; the role exists so administrators can preview the site as a student. |
 
-Questions and surveys record who created them in `ownerId` and `ownerName`. The seeded demo data has no owner and belongs to administrators. Every professor can put any question in their surveys, but only change their own.
+Questions and surveys record who created them in `ownerId` and `ownerName`. Only administrators and professors see these; for anyone else (including anonymous visitors) the public endpoints return them as `null`, because a professor's username is their email address. The seeded demo data has no owner and belongs to administrators. Every professor can put any question in their surveys, but only change their own.
 
 Endpoints marked **Builder** need the `admin` or `professor` role; for a professor they return `403` on a question or survey someone else created. Endpoints marked **Admin** need the `admin` role. Endpoints marked **Signed in** accept any role. Both return `401` without a valid token.
 
@@ -131,8 +131,7 @@ Returns every question in the question bank.
 | Status | When |
 |---|---|
 | 200 | The question |
-| 400 | `id` is not a GUID: `{ "error": "Invalid question id. Provide a non-empty GUID value." }` |
-| 404 | No question with that id |
+| 404 | No question with that id, or `id` is not a GUID |
 
 ### `POST /api/questions` (Builder)
 
@@ -165,7 +164,7 @@ Rules checked on create and update:
 - `dropdown`, `radio` and `multiselect` need at least one option. A `checkbox` with no options is a single tick box.
 - Option labels and values are required and must be unique within the question.
 - `visibleIf.key` must name an existing `yes_no` question other than this one.
-- `validationConfigs`, when present, must be a JSON array of rules with a known `validationType` (`MinLength`, `MaxLength`, `MinValue`, `MaxValue`, `Range`). See [question-definition.md](question-definition.md).
+- `validationConfigs`, when present, must be a JSON array of rules with a known `validationType` (`MinLength`, `MaxLength`, `MinValue`, `MaxValue`, `Range`). Each rule needs its limits as JSON numbers: `minLength`/`maxLength` whole and 0 or more, `minValue`/`maxValue` any number (a `Range` needs both). A `message`, when given, must be text. See [question-definition.md](question-definition.md).
 
 ### `PUT /api/questions/{id}` (Builder)
 
@@ -208,7 +207,7 @@ A survey is a title, a description and an ordered list of question ids. The API 
 | Method | Path | Access | Result |
 |---|---|---|---|
 | `GET` | `/api/surveys` | Public | The public list: published, listed surveys that haven't closed |
-| `GET` | `/api/surveys/{id}` | Public | One survey; 400 if `id` is not a GUID, 404 if missing or a draft the caller can't manage |
+| `GET` | `/api/surveys/{id}` | Public | One survey; 404 if `id` is not a GUID, if it's missing, or if it's a draft the caller can't manage |
 | `GET` | `/api/share/{code}` | Public | The survey with that share code (not case sensitive); 404 if there is none or it's a draft the caller can't manage |
 | `GET` | `/api/surveys/{id}/questions` | Public | The survey's questions in survey order, so a client can render it with one call; 404 like `GET /api/surveys/{id}` |
 | `GET` | `/api/surveys/managed` | Builder | The surveys the caller can manage, newest first: every survey for an administrator, their own for a professor |

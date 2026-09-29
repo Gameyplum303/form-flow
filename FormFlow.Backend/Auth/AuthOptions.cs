@@ -20,9 +20,15 @@ namespace FormFlow.Backend.Auth
         /// <summary>Any signed-in account.</summary>
         public const string SignedInPolicy = "SignedIn";
 
-        public string Issuer { get; init; } = "FormFlow";
-        public string Audience { get; init; } = "FormFlow";
-        public TimeSpan Lifetime { get; init; } = TimeSpan.FromHours(8);
+        /// <summary>The issuer and audience written into tokens when Jwt:Issuer and Jwt:Audience aren't set.</summary>
+        public const string DefaultIssuer = "FormFlow";
+
+        /// <summary>How long a sign-in lasts when Jwt:LifetimeMinutes isn't set: 8 hours.</summary>
+        public const int DefaultLifetimeMinutes = 480;
+
+        public string Issuer { get; init; } = DefaultIssuer;
+        public string Audience { get; init; } = DefaultIssuer;
+        public TimeSpan Lifetime { get; init; } = TimeSpan.FromMinutes(DefaultLifetimeMinutes);
         public required SymmetricSecurityKey SigningKey { get; init; }
 
         /// <summary>
@@ -46,9 +52,9 @@ namespace FormFlow.Backend.Auth
 
             return new JwtSettings
             {
-                Issuer = section["Issuer"] ?? "FormFlow",
-                Audience = section["Audience"] ?? "FormFlow",
-                Lifetime = TimeSpan.FromMinutes(section.GetValue("LifetimeMinutes", 480)),
+                Issuer = section["Issuer"] ?? DefaultIssuer,
+                Audience = section["Audience"] ?? DefaultIssuer,
+                Lifetime = TimeSpan.FromMinutes(section.GetValue("LifetimeMinutes", DefaultLifetimeMinutes)),
                 SigningKey = new SymmetricSecurityKey(keyBytes),
             };
         }

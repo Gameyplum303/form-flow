@@ -1,38 +1,15 @@
 @inherits QuestionComponentBase
 @using FormFlow.Data.Models
 
-<MudPaper Elevation="1" Class="pa-4" Style="max-width:400px;">
-    <div style="margin-bottom: 1rem;">
-        <label style="font-weight:600; margin-bottom:8px; display:block;">
-            @Question.Label
-            @if (Question.Required)
-            {
-                <span style="color:red">*</span>
-            }
-        </label>
-
-        <MudRating SelectedValue="_value"
-                   SelectedValueChanged="OnChanged"
-                   MaxValue="Scale"
-                   Size="Size.Large"
-                   Color="Color.Warning"
-                   aria-label="@Question.Label" />
-        <div class="rating-caption" style="font-size: 0.85rem; margin-top: 4px;">
-            @(_value == 0 ? "Not rated" : $"{_value} of {Scale}")
-        </div>
-
-        @if (!string.IsNullOrWhiteSpace(Question.HelpText))
-        {
-            <div style="font-size: 0.8rem; color: #666; margin-top: 4px;">
-                @Question.HelpText
-            </div>
-        }
-        @if (HasError)
-        {
-            <div class="question-error">@Error</div>
-        }
-    </div>
-</MudPaper>
+<QuestionField Question="Question" Error="@Error">
+    <MudRating SelectedValue="_value"
+               SelectedValueChanged="OnChangedAsync"
+               MaxValue="Scale"
+               Size="Size.Large"
+               Color="Color.Warning"
+               aria-label="@Question.Label" />
+    <div class="rating-caption">@(_value == 0 ? "Not rated" : $"{_value} of {Scale}")</div>
+</QuestionField>
 
 @code {
     private int _value;
@@ -48,7 +25,7 @@
         }
     }
 
-    private Task OnChanged(int value)
+    private Task OnChangedAsync(int value)
     {
         _value = value;
         return ReportAsync(value == 0 ? null : value.ToString());

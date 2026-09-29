@@ -2,8 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using FormFlow.Data.Models;
 using LiteDB;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -84,7 +84,7 @@ namespace FormFlow.Backend.Tests.Endpoints
         [InlineData("")]
         [InlineData(" ")]
         [InlineData("not-a-guid")]
-        public async Task Get_QuestionById_Returns400ForInvalidId(string invalidId)
+        public async Task Get_QuestionById_Returns404ForInvalidId(string invalidId)
         {
             var requestPath = string.IsNullOrEmpty(invalidId)
                 ? "/api/questions/%20"
@@ -92,7 +92,8 @@ namespace FormFlow.Backend.Tests.Endpoints
 
             var response = await _client.GetAsync(requestPath);
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            // The route only matches a GUID, so anything else is not found.
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         [Fact]

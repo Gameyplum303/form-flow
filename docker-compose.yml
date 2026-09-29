@@ -34,6 +34,8 @@ services:
       Email__Smtp__Port: ${FORMFLOW_SMTP_PORT:-587}
       Email__Smtp__Username: ${FORMFLOW_SMTP_USERNAME:-}
       Email__Smtp__Password: ${FORMFLOW_SMTP_PASSWORD:-}
+      # The React app calls the API from the browser at this address (the browser tests use it too).
+      Cors__AllowedOrigins__0: http://localhost:3000
     healthcheck:
       # The runtime image has no curl, so bash's /dev/tcp does the request.
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /api/surveys HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]

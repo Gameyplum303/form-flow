@@ -214,13 +214,13 @@ npx playwright test
 
 | Suite | Tests | Covers |
 |---|---|---|
-| `FormFlow.Data.Tests` | 83 | Question rules, response validation for every question type, sign-up rules, rating scales, visibility chains and cycles |
-| `FormFlow.Backend.Tests` | 195 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in, sign-up, email verification and approval, password reset and change, link expiry, each role, survey and question ownership, drafts, share links, close dates and one answer per browser, rate limits, results filters, date ranges, timelines and group comparisons, repositories, seeding including sample responses, CSV escaping |
-| `FormFlow.Blazor.Tests` | 270 | Each question component, two-way binding, sign-in, sign-up, the password and email pages, the sign-ups review page, the admin guard, each role's view and the administrator's View as switch, admin pages, the Share page, taking a survey by link, the results page with its filters, dates, timeline and comparisons |
+| `FormFlow.Data.Tests` | 98 | Question rules and their numeric values, response validation for every question type, sign-up rules, rating scales, visibility chains and cycles |
+| `FormFlow.Backend.Tests` | 201 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in, sign-up, email verification and approval, password reset and change, link expiry, each role, survey and question ownership, owner details hidden from the public, CORS, error handling, drafts, share links, close dates and one answer per browser, rate limits, results filters, date ranges, timelines and group comparisons, repositories, seeding including sample responses, CSV escaping |
+| `FormFlow.Blazor.Tests` | 282 | Each question component, two-way binding, sign-in, sign-up, the password and email pages, the sign-ups review page, the admin guard, each role's view and the administrator's View as switch, admin pages, the Share page, taking a survey by link, the results page with its filters, dates, timeline and comparisons, and friendly errors when the API is down |
 | `FormFlow.React.Tests` | 30 | Visibility logic, the form component, and the app against a mocked API, including share links and closed or already answered surveys |
 | `FormFlow.E2E` | 32 | Playwright in Chromium: signing in as each role, professor sign-up, email verification and approval, resetting and changing a password, viewing the site as a professor or student, the full admin flow including publishing, copying the share link, answering it as a student and closing it, taking surveys in both apps, filtering and comparing results, CSV download, API security |
 
-CI runs all of these, measures .NET code coverage (85% of lines), and checks ESLint and `dotnet format --verify-no-changes` on every push and pull request. The browser tests run against the Docker images started with docker compose. See [docs/testing.md](docs/testing.md).
+CI runs all of these, measures .NET code coverage (85% of lines), and checks ESLint, TypeScript types and `dotnet format --verify-no-changes` on every push and pull request. The browser tests run against the Docker images started with docker compose. See [docs/testing.md](docs/testing.md).
 
 ## Project history and my contributions
 

@@ -1,49 +1,15 @@
-@inherits QuestionComponentBase
+@inherits SingleValueQuestionBase
 
-<MudPaper Elevation="1" Class="pa-4" Style="max-width:400px;">    
-    <div style="margin-bottom: 1rem;">
-        <label style="font-weight:600; margin-bottom:4px; display:block;">
-            @Question.Label
-            @if (Question.Required)
-            {
-                <span style="color:red">*</span>
-            }
-        </label>
-        <MudTextField T="string"
-                      Value="_value"
-                      InputType="InputType.Email"
-                      ValueChanged="OnChanged"
-                      Required="@Question.Required"
-                      Placeholder="@Question.Placeholder"
-                      HelperText="@Question.HelpText"
-                      Error="HasError"
-                      Class="my-input" />
-        @* The message is rendered here rather than through ErrorText: once someone edits the field,
-           MudTextField keeps showing its own (empty) validation result and hides a new server error. *@
-        @if (HasError)
-        {
-            <div class="question-error">@Error</div>
-        }
-    </div>
-</MudPaper>
-@code {
-    private string? _value;
-  
-    protected override void OnParametersSet()
-    {
-        if (Value is not null)
-        {
-            _value = BoundValue;
-        }
-        else if (_value is null && Question.DefaultValue is not null)
-        {
-            _value = Question.DefaultValue;
-        }
-    }
-
-    private Task OnChanged(string? value)
-    {
-        _value = value;
-        return ReportAsync(value);
-    }
-}
+@* An email address; the browser checks its shape and the server validates it. *@
+<QuestionField Question="Question" Error="@Error" For="@InputId">
+    <MudTextField T="string"
+                  Value="CurrentValue"
+                  ValueChanged="OnChangedAsync"
+                  InputId="@InputId"
+                  InputType="InputType.Email"
+                  Variant="Variant.Outlined"
+                  Margin="Margin.Dense"
+                  Required="@Question.Required"
+                  Placeholder="@Question.Placeholder"
+                  Error="HasError" />
+</QuestionField>

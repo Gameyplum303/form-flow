@@ -335,7 +335,7 @@ public class AccountSecurityPageTests
             return Task.FromResult(Outbox);
         }
 
-        public Task<List<PendingAccount>> GetPendingAsync() => Task.FromResult(new List<PendingAccount>());
+        public Task<List<PendingAccount>?> GetPendingAsync() => Task.FromResult<List<PendingAccount>?>([]);
         public Task<string?> ApproveAsync(Guid id) => Task.FromResult<string?>(null);
         public Task<string?> DeclineAsync(Guid id) => Task.FromResult<string?>(null);
     }

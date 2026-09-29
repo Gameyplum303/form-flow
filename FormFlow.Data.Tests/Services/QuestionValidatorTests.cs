@@ -1,7 +1,7 @@
 using FluentAssertions;
-using Xunit;
 using FormFlow.Data.Models;
 using FormFlow.Data.Services;
+using Xunit;
 
 namespace FormFlow.Tests;
 
@@ -66,6 +66,33 @@ public class QuestionValidatorRuleTests
         var result = _validator.Validate(Q(q => q.ValidationConfigs = rules));
 
         result.Errors.Should().Contain(e => e.Message!.Contains(expected));
+    }
+
+    [Theory]
+    [InlineData("""[{"validationType":"MaxValue"}]""", "maxValue as a number")]
+    [InlineData("""[{"validationType":"MaxValue","maxValue":"10"}]""", "maxValue as a number")]
+    [InlineData("""[{"validationType":"MinValue","minValue":null}]""", "minValue as a number")]
+    [InlineData("""[{"validationType":"Range","minValue":1}]""", "maxValue as a number")]
+    [InlineData("""[{"validationType":"MinLength","minLength":2.5}]""", "minLength as a whole number")]
+    [InlineData("""[{"validationType":"MaxLength","maxLength":-1}]""", "maxLength as a whole number")]
+    [InlineData("""[{"validationType":"MaxLength","maxLength":10,"message":5}]""", "message must be text")]
+    public void ValidationRules_WithUnreadableValues_AreRejected(string rules, string expected)
+    {
+        var result = _validator.Validate(Q(q => q.ValidationConfigs = rules));
+
+        result.Errors.Should().ContainSingle().Which.Message.Should().Contain(expected);
+    }
+
+    [Theory]
+    [InlineData("""[{"validationType":"MaxValue","maxValue":7.5}]""")]
+    [InlineData("""[{"validationType":"Range","minValue":-0.5,"maxValue":7.5,"message":"Between -0.5 and 7.5"}]""")]
+    [InlineData("""[{"validationType":"MinLength","MinLength":2},{"validationType":"MaxLength","maxLength":10,"message":null}]""")]
+    public void ValidationRules_WithNumbers_AreAccepted_AndCheckAnswersWithoutThrowing(string rules)
+    {
+        _validator.Validate(Q(q => q.ValidationConfigs = rules)).Valid.Should().BeTrue();
+
+        var check = () => new QuestionValidationEngine().Validate("5", rules, out _);
+        check.Should().NotThrow();
     }
 
     [Fact]

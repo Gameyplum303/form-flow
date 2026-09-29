@@ -24,8 +24,6 @@ namespace FormFlow.Data.Models
         /// <summary>Minutes ahead of UTC (-300 for US Eastern in winter), so the timeline counts local days.</summary>
         public int UtcOffsetMinutes { get; set; }
 
-        public bool IsEmpty => Filters.Count == 0 && From is null && To is null && string.IsNullOrEmpty(CompareBy) && UtcOffsetMinutes == 0;
-
         /// <summary>The query string for these settings, without the leading "?"; empty when nothing is set.</summary>
         public string ToQueryString()
         {

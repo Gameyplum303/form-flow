@@ -1,39 +1,22 @@
-using System.Net;
 using Bunit;
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
-using FormFlow.Blazor.Components.Pages.Admin;
 using FormFlow.Blazor.Components;
+using FormFlow.Blazor.Components.Pages.Admin;
+using FormFlow.Blazor.Services;
+using FormFlow.Blazor.Tests.Respond;
 using FormFlow.Data.Models;
-using RichardSzalay.MockHttp;
-using System.Net.Http.Json;
-using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using MudBlazor.Services;
 
 namespace FormFlow.Blazor.Tests.Admin
 {
     public class AdminSurveyPreviewTests : BunitContext
     {
-        public AdminSurveyPreviewTests()
-        {
-            Services.AddMudServices();
-            JSInterop.SetupVoid("mudElementRef.addOnBlurEvent", _ => true);
-            JSInterop.SetupVoid("mudElementRef.addOnFocusEvent", _ => true);
-            JSInterop.SetupVoid("mudElementRef.addKeyDownEvent", _ => true);
-        }
+        private readonly FakeSurveyService _surveys = new();
+        private readonly Guid _surveyId = Guid.NewGuid();
 
-        private readonly Guid surveyId = Guid.NewGuid();
-
-        private SurveyDefinition FakeSurvey => new()
-        {
-            Id = surveyId,
-            Title = "Customer Satisfaction Survey",
-            Description = "A test survey",
-            QuestionIds = [q1.Id, q2.Id],
-            CreatedAt = DateTime.UtcNow
-        };
-
-        private readonly QuestionDefinition q1 = new()
+        private readonly QuestionDefinition _q1 = new()
         {
             Id = Guid.NewGuid(),
             Label = "How satisfied are you?",
@@ -41,7 +24,7 @@ namespace FormFlow.Blazor.Tests.Admin
             Type = "rating"
         };
 
-        private readonly QuestionDefinition q2 = new()
+        private readonly QuestionDefinition _q2 = new()
         {
             Id = Guid.NewGuid(),
             Label = "Any comments?",
@@ -49,46 +32,39 @@ namespace FormFlow.Blazor.Tests.Admin
             Type = "text"
         };
 
-        private RichardSzalay.MockHttp.MockHttpMessageHandler SetupMockApi()
+        public AdminSurveyPreviewTests()
         {
-            var mock = new RichardSzalay.MockHttp.MockHttpMessageHandler();
-
-            mock.When(HttpMethod.Get, $"http://localhost/api/surveys/{surveyId}")
-                .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = JsonContent.Create(FakeSurvey)
-                });
-
-            mock.When(HttpMethod.Get, $"http://localhost/api/questions/{q1.Id}")
-                .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = JsonContent.Create(q1)
-                });
-
-            mock.When(HttpMethod.Get, $"http://localhost/api/questions/{q2.Id}")
-                .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = JsonContent.Create(q2)
-                });
-
-            return mock;
+            Services.AddMudServices();
+            JSInterop.Mode = JSRuntimeMode.Loose;
         }
 
-        private void RegisterMockClient(RichardSzalay.MockHttp.MockHttpMessageHandler mock)
+        private SurveyDefinition AddSurvey()
         {
-            Services.AddHttpClient("AdminApi")
-                .ConfigureHttpClient(c => c.BaseAddress = new Uri("http://localhost"))
-                .ConfigurePrimaryHttpMessageHandler(() => mock);
+            var survey = new SurveyDefinition
+            {
+                Id = _surveyId,
+                Title = "Customer Satisfaction Survey",
+                Description = "A test survey",
+                QuestionIds = [_q1.Id, _q2.Id],
+                CreatedAt = DateTime.UtcNow
+            };
+            _surveys.Surveys.Add(survey);
+            _surveys.Questions[_surveyId] = [_q1, _q2];
+            Services.AddSingleton<ISurveyService>(_surveys);
+            return survey;
         }
+
+        private IRenderedComponent<AdminSurveyPreview> RenderPreview() =>
+            Render<AdminSurveyPreview>(parameters => parameters.Add(p => p.Id, _surveyId));
 
         [Fact]
         public void ShowsLoadingStateBeforeDataLoads()
         {
-            var mock = new RichardSzalay.MockHttp.MockHttpMessageHandler();
-            RegisterMockClient(mock);
+            var service = new Mock<ISurveyService>();
+            service.Setup(s => s.GetSurveyAsync(_surveyId)).Returns(new TaskCompletionSource<SurveyDefinition?>().Task);
+            Services.AddSingleton(service.Object);
 
-            var cut = Render<AdminSurveyPreview>(parameters =>
-                parameters.Add(p => p.Id, surveyId));
+            var cut = RenderPreview();
 
             cut.Markup.Should().Contain("mud-progress-circular");
         }
@@ -96,68 +72,47 @@ namespace FormFlow.Blazor.Tests.Admin
         [Fact]
         public void LoadsSurveyAndRendersTitle()
         {
-            var mock = SetupMockApi();
-            RegisterMockClient(mock);
+            var survey = AddSurvey();
 
-            var cut = Render<AdminSurveyPreview>(parameters =>
-                parameters.Add(p => p.Id, surveyId));
+            var cut = RenderPreview();
 
-            cut.WaitForAssertion(() =>
-            {
-                cut.Markup.Should().Contain(FakeSurvey.Title);
-            });
+            cut.WaitForAssertion(() => cut.Markup.Should().Contain(survey.Title));
         }
 
         [Fact]
         public void RendersAllQuestionsInOrder()
         {
-            var mock = SetupMockApi();
-            RegisterMockClient(mock);
+            AddSurvey();
 
-            var cut = Render<AdminSurveyPreview>(parameters =>
-                parameters.Add(p => p.Id, surveyId));
+            var cut = RenderPreview();
 
             cut.WaitForState(() => cut.FindComponents<QuestionRenderer>().Count == 2);
-
             var renderers = cut.FindComponents<QuestionRenderer>();
-            renderers.Should().HaveCount(2);
-            renderers[0].Instance.Question.Should().BeEquivalentTo(q1);
-            renderers[1].Instance.Question.Should().BeEquivalentTo(q2);
+            renderers[0].Instance.Question.Should().BeEquivalentTo(_q1);
+            renderers[1].Instance.Question.Should().BeEquivalentTo(_q2);
         }
 
         [Fact]
         public void HandlesMissingSurveyGracefully()
         {
-            var mock = new RichardSzalay.MockHttp.MockHttpMessageHandler();
+            Services.AddSingleton<ISurveyService>(_surveys);
 
-            mock.When(HttpMethod.Get, $"http://localhost/api/surveys/{surveyId}")
-                .Respond(HttpStatusCode.NotFound);
-
-            RegisterMockClient(mock);
-
-            var cut = Render<AdminSurveyPreview>(parameters =>
-                parameters.Add(p => p.Id, surveyId));
+            var cut = RenderPreview();
 
             cut.WaitForAssertion(() => cut.Markup.Should().Contain("Survey not found"));
         }
 
         [Fact]
-        public async Task SendsTheSignIn_SoOwnersCanPreviewTheirDrafts()
+        public void SaysSoWhenTheQuestionsCannotBeLoaded()
         {
-            var session = new Auth.FakeSessionStorage().CreateSession();
-            await session.SignInAsync(Auth.FakeSessionStorage.Login());
-            Services.AddSingleton(session);
-            var mock = new RichardSzalay.MockHttp.MockHttpMessageHandler();
-            mock.When(HttpMethod.Get, $"http://localhost/api/surveys/{surveyId}")
-                .WithHeaders("Authorization", "Bearer test-token")
-                .Respond(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(FakeSurvey) });
-            mock.When(HttpMethod.Get, $"http://localhost/api/surveys/{surveyId}").Respond(HttpStatusCode.NotFound);
-            mock.When(HttpMethod.Get, "http://localhost/api/questions/*").Respond(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(q2) });
-            RegisterMockClient(mock);
+            var survey = AddSurvey();
+            _surveys.QuestionsUnreachable = true;
 
-            var cut = Render<AdminSurveyPreview>(parameters => parameters.Add(p => p.Id, surveyId));
+            var cut = RenderPreview();
 
-            cut.WaitForAssertion(() => cut.Markup.Should().Contain(FakeSurvey.Title));
+            cut.WaitForAssertion(() => cut.Markup.Should().Contain("Could not load the survey"));
+            cut.Markup.Should().Contain(survey.Title);
+            cut.FindComponents<QuestionRenderer>().Should().BeEmpty();
         }
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.OpenApi;
 
 namespace FormFlow.Backend.Auth
 {
+    /// <summary>Adds the bearer token to the OpenAPI document.</summary>
     public static class OpenApiSecurity
     {
         private const string SchemeName = "Bearer";

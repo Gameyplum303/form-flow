@@ -26,14 +26,14 @@ else if (!Current.CanManage(_survey))
 else
 {
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-        <MudText Typo="Typo.h4">Share "@_survey.Title"</MudText>
+        <PageHeading CssClass="mb-0">Share "@_survey.Title"</PageHeading>
         <SurveyStatusChip Survey="_survey" />
     </MudStack>
 
     <MudGrid>
         <MudItem xs="12" md="7">
             <MudPaper Class="pa-4" Elevation="1">
-                <MudText Typo="Typo.h6" Class="mb-2">Who can answer</MudText>
+                <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-2">Who can answer</MudText>
                 <MudRadioGroup T="string" @bind-Value="_status">
                     <MudRadio T="string" Value="SurveyStatuses.Draft" Color="Color.Primary">
                         Draft: only you can open it while you finish it
@@ -48,7 +48,7 @@ else
                     Also show it on the public list of surveys
                 </MudCheckBox>
 
-                <MudText Typo="Typo.h6" Class="mt-4 mb-2">When it closes</MudText>
+                <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-4 mb-2">When it closes</MudText>
                 <label for="share-closes-at" class="d-block mb-1">Stop taking answers at</label>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                     <input id="share-closes-at" type="datetime-local" class="share-close-input"
@@ -66,7 +66,7 @@ else
 
         <MudItem xs="12" md="5">
             <MudPaper Class="pa-4" Elevation="1">
-                <MudText Typo="Typo.h6" Class="mb-2">Share link</MudText>
+                <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-2">Share link</MudText>
                 <MudTextField T="string" Value="Link" ReadOnly="true" Variant="Variant.Outlined" data-share-link />
                 <MudStack Row="true" Spacing="2" Class="mt-2">
                     <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyAsync">Copy link</MudButton>
@@ -110,9 +110,11 @@ else
 
     private string? CloseText
     {
-        get => _closesAtUtc?.AddMinutes(-_timezoneOffset).ToString(LocalFormat, CultureInfo.InvariantCulture);
+        get => _closesAtUtc is { } utc
+            ? BrowserTime.ToLocal(utc, _timezoneOffset).ToString(LocalFormat, CultureInfo.InvariantCulture)
+            : null;
         set => _closesAtUtc = DateTime.TryParseExact(value, InputFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var local)
-            ? DateTime.SpecifyKind(local.AddMinutes(_timezoneOffset), DateTimeKind.Utc)
+            ? BrowserTime.ToUtc(local, _timezoneOffset)
             : null;
     }
 
@@ -142,7 +144,7 @@ else
     {
         if (firstRender)
         {
-            _timezoneOffset = await JS.InvokeAsync<int>("formFlow.timezoneOffset");
+            _timezoneOffset = await JS.GetTimezoneOffsetAsync();
             if (_timezoneOffset != 0)
             {
                 StateHasChanged();

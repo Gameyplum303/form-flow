@@ -66,6 +66,37 @@ namespace FormFlow.Backend.Tests.Endpoints
         }
 
         [Fact]
+        public async Task ValidationRules_WithDecimals_CheckAnswers_AndUnreadableRulesAreRejectedWhenSaved()
+        {
+            var unreadable = await _client.PostAsJsonAsync("/api/questions", new NewQuestion
+            {
+                Key = "hours_bad",
+                Label = "Hours",
+                Type = "number",
+                ValidationConfigs = """[{"validationType":"MaxValue","maxValue":"10"}]""",
+            });
+            unreadable.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+            var created = await _client.PostAsJsonAsync("/api/questions", new NewQuestion
+            {
+                Key = "hours",
+                Label = "Hours",
+                Type = "number",
+                ValidationConfigs = """[{"validationType":"Range","minValue":0.5,"maxValue":7.5}]""",
+            });
+            created.StatusCode.Should().Be(HttpStatusCode.Created);
+            var question = (await created.Content.ReadFromJsonAsync<QuestionDefinition>())!;
+            var survey = await (await _client.PostAsJsonAsync("/api/surveys",
+                new NewSurvey { Title = "Sleep", Description = "Hours of sleep", QuestionIds = [question.Id] }))
+                .Content.ReadFromJsonAsync<SurveyDefinition>();
+
+            (await _client.PostAsJsonAsync($"/api/surveys/{survey!.Id}/responses", new { answers = new { hours = 7.5 } }))
+                .StatusCode.Should().Be(HttpStatusCode.Created);
+            var tooMany = await _client.PostAsJsonAsync($"/api/surveys/{survey.Id}/responses", new { answers = new { hours = 8 } });
+            (await ErrorsOf(tooMany)).Should().ContainKey("hours");
+        }
+
+        [Fact]
         public async Task Submit_MissingRequiredAnswer_ReturnsErrorForThatQuestion()
         {
             var (_, response) = await SubmitAsync(ValidAnswers(a => a.Remove("email")));

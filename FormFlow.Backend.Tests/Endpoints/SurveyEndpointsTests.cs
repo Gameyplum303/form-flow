@@ -6,8 +6,8 @@ using FormFlow.Data.Models;
 using LiteDB;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 using Moq;
+using Xunit;
 
 namespace FormFlow.Backend.Tests.Endpoints;
 
@@ -81,13 +81,14 @@ public class SurveyEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
-    public async Task GetSurveyById_ReturnsBadRequest_WhenInvalidGuid()
+    public async Task GetSurveyById_ReturnsNotFound_WhenInvalidGuid()
     {
         var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/api/surveys/not-a-guid");
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        // The route only matches a GUID, so anything else is not found.
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]

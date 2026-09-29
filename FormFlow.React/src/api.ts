@@ -89,7 +89,7 @@ export async function submitResponse(surveyId: string, answers: Answers, respond
     }
 
     if (response.status === 400) {
-        const problem = (await response.json()) as { errors?: AnswerErrors };
+        const problem = (await response.json().catch(() => ({}))) as { errors?: AnswerErrors };
         return { ok: false, errors: problem.errors ?? {}, message: "Please fix the highlighted answers." };
     }
 

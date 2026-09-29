@@ -1,10 +1,8 @@
-using System;
-
 namespace FormFlow.Data.Validation.Models;
 
-public class MinValueValidationConfig : IValidationConfig
+public class MinValueValidationConfig
 {
     public string ValidationType { get; set; } = ValidationTypes.MinValue;
-    public int MinValue { get; set; }
+    public decimal MinValue { get; set; }
     public string? Message { get; set; }
 }

@@ -1,122 +1,107 @@
 @page "/admin/surveys"
 @inject ISurveyService SurveyService
-@inject NavigationManager Nav
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
 <PageTitle>Survey Management</PageTitle>
 
-<MudPaper Class="pa-6" Elevation="2">
+<MudPaper Class="pa-6" Elevation="1">
 
-    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-4">
-
-        <MudText Typo="Typo.h5" Class="mb-4">Survey Management</MudText>
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <PageHeading CssClass="mb-0">Survey Management</PageHeading>
 
         @if (Current.CanBuild)
         {
             <MudButton Variant="Variant.Filled"
-                    Color="Color.Primary"
-                    Href="/admin/surveys/create">
-                + Create Survey
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Href="/admin/surveys/create">
+                Create Survey
             </MudButton>
         }
-
     </MudStack>
 
-    @if (surveys is null)
+    @if (!_loaded)
     {
         <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
     }
-    else if (!surveys.Any())
+    else if (Surveys is null)
+    {
+        <MudAlert Severity="Severity.Error">Could not load surveys. Please try again.</MudAlert>
+    }
+    else if (!Surveys.Any())
     {
         <MudText>No surveys found.</MudText>
     }
     else
     {
-        <MudTable Items="@surveys" 
-                Hover="true" 
-                Dense="true"
-                Bordered="true"
-                Elevation="3">
-            <ToolBarContent>
-                <MudText Typo="Typo.h6" Class="mb-2">Surveys</MudText>
-            </ToolBarContent>
+        <MudTable Items="@Surveys"
+                  Hover="true"
+                  Dense="true"
+                  Outlined="true"
+                  Elevation="0">
             <HeaderContent>
-                <MudTh>Title</MudTh>
-                <MudTh>Description</MudTh>
+                <MudTh>Survey</MudTh>
                 <MudTh>Questions</MudTh>
                 <MudTh>Status</MudTh>
                 @if (Current.IsAdmin)
                 {
                     <MudTh>Created by</MudTh>
                 }
-                <MudTh></MudTh>
+                <MudTh><span class="visually-hidden">Actions</span></MudTh>
             </HeaderContent>
 
             <RowTemplate>
-                <MudTd>@context.Title</MudTd>
-                <MudTd>@context.Description</MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.subtitle2">@context.Title</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Description</MudText>
+                </MudTd>
                 <MudTd>@context.QuestionIds.Count</MudTd>
                 <MudTd><SurveyStatusChip Survey="context" /></MudTd>
                 @if (Current.IsAdmin)
                 {
-                    <MudTd>@AdminQuestions.OwnerLabel(context)</MudTd>
+                    <MudTd>@context.OwnerLabel()</MudTd>
                 }
 
                 <MudTd>
-                    <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
-
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Wrap="Wrap.NoWrap">
                         @if (Current.CanManage(context))
                         {
-                            <MudButton Variant="Variant.Filled"
-                                    Color="Color.Primary"
-                                    Size="Size.Small"
-                                    OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/edit"))">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                       Href="@($"/admin/surveys/{context.Id}/edit")">
                                 Edit
                             </MudButton>
-                        }
-
-                        @if (Current.CanManage(context))
-                        {
-                            <MudButton Variant="Variant.Filled"
-                                    Color="Color.Primary"
-                                    Size="Size.Small"
-                                    OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/share"))">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                       Href="@($"/admin/surveys/{context.Id}/share")">
                                 Share
                             </MudButton>
                         }
 
-                        <MudButton Variant="Variant.Filled"
-                                Color="Color.Primary"
-                                Size="Size.Small"
-                                OnClick="@(_ => PreviewSurvey(context.Id))">
-                            Preview 
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   Href="@($"/admin/surveys/{context.Id}/preview")">
+                            Preview
                         </MudButton>
 
-                        <MudButton Variant="Variant.Filled"
-                                Color="Color.Secondary"
-                                Size="Size.Small"
-                                OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/results"))">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   Href="@($"/admin/surveys/{context.Id}/results")">
                             Results
                         </MudButton>
 
                         @if (Current.CanManage(context))
                         {
                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                    Color="Color.Error"
-                                    Size="Size.Small"
-                                    aria-label="@($"Delete {context.Title}")"
-                                    OnClick="@(_ => DeleteSurvey(context))" />
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           aria-label="@($"Delete {context.Title}")"
+                                           OnClick="@(_ => DeleteSurveyAsync(context))" />
                         }
-
                     </MudStack>
                 </MudTd>
             </RowTemplate>
 
             <PagerContent>
-                <MudTablePager RowsPerPageString="10" />
+                <MudTablePager RowsPerPageString="Rows per page:" />
             </PagerContent>
-    
         </MudTable>
     }
 </MudPaper>  
@@ -127,24 +112,21 @@
     /// <summary>Without a guard (in tests) the page shows an administrator's view.</summary>
     private AdminAccess Current => Access ?? AdminAccess.Administrator;
 
-    private List<SurveyDefinition>? managed;
+    private List<SurveyDefinition>? _managed;
+    private bool _loaded;
 
     // The server returns every survey for an administrator and their own for a professor. An
     // administrator previewing the professor view sees only the surveys they created themselves.
     // Filtered on each render, so switching the preview on this page updates the list.
-    private List<SurveyDefinition>? surveys => managed?.Where(Current.CanManage).ToList();
+    private List<SurveyDefinition>? Surveys => _managed?.Where(Current.CanManage).ToList();
 
     protected override async Task OnInitializedAsync()
     {
-        managed = await SurveyService.GetManagedSurveysAsync();
+        _managed = await SurveyService.GetManagedSurveysAsync();
+        _loaded = true;
     }
 
-    private void PreviewSurvey(Guid Id)
-    {
-        Nav.NavigateTo($"/admin/surveys/{Id}/preview");
-    }
-
-    private async Task DeleteSurvey(SurveyDefinition survey)
+    private async Task DeleteSurveyAsync(SurveyDefinition survey)
     {
         var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete survey",
@@ -158,7 +140,7 @@
         var (deleted, error) = await SurveyService.DeleteSurveyAsync(survey.Id);
         if (deleted)
         {
-            managed?.Remove(survey);
+            _managed?.Remove(survey);
             Snackbar.Add($"Deleted \"{survey.Title}\".", Severity.Success);
         }
         else

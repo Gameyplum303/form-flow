@@ -41,14 +41,7 @@ else
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
-    private bool IsAdminPage
-    {
-        get
-        {
-            var path = Nav.ToBaseRelativePath(Nav.Uri);
-            return path == "admin" || path.StartsWith("admin/") || path.StartsWith("admin?");
-        }
-    }
+    private bool IsAdminPage => Nav.IsAdminArea();
 
     private async Task BackToAdminAsync()
     {

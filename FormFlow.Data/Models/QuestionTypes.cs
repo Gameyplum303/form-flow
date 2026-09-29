@@ -37,6 +37,23 @@ namespace FormFlow.Data.Models
         /// <summary>The most stars a rating question can have.</summary>
         public const int MaxRatingScale = 10;
 
+        /// <summary>The name people see for a type, such as "Yes/No" for yes_no. Unknown types show as they are.</summary>
+        public static string DisplayName(string? type) => type?.ToLowerInvariant() switch
+        {
+            Text => "Text",
+            Number => "Number",
+            YesNo => "Yes/No",
+            Dropdown => "Dropdown",
+            Radio => "Radio",
+            Checkbox => "Checkbox",
+            Multiselect => "Multiselect",
+            LongText => "Long text",
+            Email => "Email",
+            Date => "Date",
+            Rating => "Rating",
+            _ => type ?? "",
+        };
+
         public static bool IsKnown(string? type) => type is not null && All.Contains(type.ToLowerInvariant());
 
         public static bool IsChoice(string? type) => type is not null && Choice.Contains(type.ToLowerInvariant());

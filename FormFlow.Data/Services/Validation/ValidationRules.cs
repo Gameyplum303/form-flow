@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FormFlow.Data.Validation;
 
 namespace FormFlow.Data.Services;
 
@@ -28,7 +29,7 @@ public static class ValidationRules
                 if (rule.ValueKind == JsonValueKind.Object
                     && rule.TryGetProperty("validationType", out var type)
                     && type.ValueKind == JsonValueKind.String
-                    && type.GetString() is "MaxValue" or "Range"
+                    && type.GetString() is ValidationTypes.MaxValue or ValidationTypes.Range
                     && rule.TryGetProperty("maxValue", out var max)
                     && max.TryGetDecimal(out var value))
                 {

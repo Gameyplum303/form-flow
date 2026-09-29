@@ -1,60 +1,35 @@
 @inherits QuestionComponentBase
 
-<MudPaper Elevation="1" Class="pa-4" Style="max-width:400px;">
-    <div style="margin-bottom: 1rem;">
-
-        @if (Question.Options is { Count: > 0 })
-        {
-            @* With options, each option is its own tick box. *@
-            <label style="font-weight:600; margin-bottom:4px; display:block;">
-                @Question.Label
-                @if (Question.Required)
-                {
-                    <span style="color:red">*</span>
-                }
-            </label>
-
+@* With options, each option is its own tick box. Without, the question is a single tick box
+   that carries the question's label. *@
+@if (Question.Options is { Count: > 0 })
+{
+    <QuestionField Question="Question" Error="@Error">
+        <div class="question-options">
             @foreach (var opt in Question.Options)
             {
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                    <MudCheckBox T="bool"
-                                 Value="@_selected.Contains(opt.Value)"
-                                 ValueChanged="@(isChecked => Toggle(opt.Value, isChecked))" />
-                    <span>@opt.Label</span>
-                </div>
-            }
-        }
-        else
-        {
-            @* Without options, the question is a single tick box. *@
-            <div style="display:flex; align-items:center; gap:8px;">
                 <MudCheckBox T="bool"
-                             Value="_checked"
-                             ValueChanged="OnCheckedChanged"
-                             Class="my-input" />
-
-                <label style="font-weight:600;">
-                    @Question.Label
-                    @if (Question.Required)
-                    {
-                        <span style="color:red">*</span>
-                    }
-                </label>
-            </div>
-        }
-
-        @if (!string.IsNullOrWhiteSpace(Question.HelpText))
-        {
-            <div style="font-size: 0.8rem; color: #666; margin-top: 4px;">
-                @Question.HelpText
-            </div>
-        }
-        @if (HasError)
-        {
-            <div class="question-error">@Error</div>
-        }
-    </div>
-</MudPaper>
+                             Value="@_selected.Contains(opt.Value)"
+                             ValueChanged="@(isChecked => ToggleOptionAsync(_selected, opt.Value, isChecked))"
+                             Color="Color.Primary"
+                             Dense="true"
+                             Label="@opt.Label" />
+            }
+        </div>
+    </QuestionField>
+}
+else
+{
+    <QuestionField Question="Question" Error="@Error" ShowLabel="false">
+        <MudCheckBox T="bool" Value="_checked" ValueChanged="OnCheckedChangedAsync" Color="Color.Primary" Dense="true">
+            <span class="question-label-inline">@Question.Label</span>
+            @if (Question.Required)
+            {
+                <span class="question-required">*</span>
+            }
+        </MudCheckBox>
+    </QuestionField>
+}
 
 @code {
     private bool _checked;
@@ -75,19 +50,9 @@
         _initialized = true;
     }
 
-    private Task OnCheckedChanged(bool value)
+    private Task OnCheckedChangedAsync(bool value)
     {
         _checked = value;
         return ReportAsync(value ? "true" : "false");
-    }
-
-    private Task Toggle(string value, bool isChecked)
-    {
-        if (isChecked)
-            _selected.Add(value);
-        else
-            _selected.Remove(value);
-
-        return ReportAsync(Question.Options.Select(o => o.Value).Where(_selected.Contains));
     }
 }

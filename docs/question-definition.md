@@ -87,11 +87,11 @@ Although `validationConfigs` is stored and transmitted as a  **string** , the co
   {
     "validationType": "string",          // One of: MinLength, MaxLength, MinValue, MaxValue, Range
 
-    "minLength": "integer (optional)",   // Required only for MinLength
-    "maxLength": "integer (optional)",   // Required only for MaxLength
+    "minLength": "integer (optional)",   // Required only for MinLength; 0 or more
+    "maxLength": "integer (optional)",   // Required only for MaxLength; 0 or more
 
-    "minValue": "integer (optional)",    // Required for MinValue or Range
-    "maxValue": "integer (optional)",    // Required for MaxValue or Range
+    "minValue": "number (optional)",     // Required for MinValue or Range; decimals allowed
+    "maxValue": "number (optional)",     // Required for MaxValue or Range; decimals allowed
 
     "message": "string (optional)"
   }
