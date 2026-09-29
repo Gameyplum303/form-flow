@@ -1,8 +1,8 @@
 using System.IO;
 using System.Text.Json;
-using Xunit;
 using FluentAssertions;
 using FormFlow.Data.Models;
+using Xunit;
 
 namespace FormFlow.Data.Tests.Models
 {

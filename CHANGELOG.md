@@ -32,6 +32,10 @@
 - Validation rules and "only show when" settings in the admin question editor.
 
 ### Fixed
+- The question editor no longer shows its form for a question that doesn't exist, and the survey and question editors can't save twice from a double click.
+- A validation rule with a non-numeric value (for example `"maxValue": "10"`) was saved and then made every submission fail with a 500. Rules are now checked when they are saved, and value rules accept decimals.
+- Blazor pages show a friendly message when the API can't be reached, instead of the error bar or "No questions found".
+- React: opening a second survey no longer shows the first survey's errors.
 - The Blazor preview page now sends the sign-in with its requests, so owners can preview their drafts.
 - Blazor: a text question now shows a new server error after someone edits the field. Before, the second error (for example a bad email after a missing one) was hidden.
 - Parallel API tests could fail with "Member … not found on BsonMapper" because LiteDB's shared mapper was built by several threads at once. Mappings are now built once before first use.
@@ -39,12 +43,18 @@
 - CI never ran on pull requests; `dotnet format` is now checked too.
 
 ### Changed
+- One look across the Blazor app: Roboto everywhere (Bootstrap is gone), one page title style, outlined inputs, the same card for every question type, one sidebar menu whose sign-in and account links match the other links, readable question type names, and real links for Edit, Share, Preview and Results. The React app uses the same font and is named FormFlow.
+- The API no longer shows who created a survey or question to people who aren't signed in as an administrator or professor, since a professor's username is their email address.
+- CORS: outside Development, the API only accepts browser requests from the origins in `Cors:AllowedOrigins` (render.yaml and docker compose list the React app).
+- Unhandled API errors are logged and returned as problem details. Question and survey ids in routes must be GUIDs (a malformed id is a 404).
+- Code review cleanup: one ownership check and one API error helper instead of copies, constants instead of repeated strings, the injected clock everywhere, logging instead of console output, consistent naming, and summaries on public types. CI uses a read-only token except for the coverage badge job, cancels superseded runs and caches NuGet packages.
 - The public survey list (`GET /api/surveys`) only shows published, listed surveys that haven't closed. The take-survey page no longer has a "Submit another response" button.
 - The Blazor results page downloads the CSV through the signed-in session instead of linking to the API.
 - Updated packages with known vulnerabilities (Microsoft.AspNetCore.OpenApi, bUnit and their dependencies).
 - The React `VisibleIf` type now matches the API (`key`, `shouldEqual`).
 
 ### Removed
+- Leftover template files: Create React App boilerplate and unused test libraries in the React app, the course's unfilled Copilot and skills templates, an unused sample JSON file, and tests that exercised a copy of the survey editor's logic instead of the page.
 - Empty Flutter, MAUI and React Native placeholder folders, unused classes and duplicate validation code.
 
 ## Course project (February to April 2026)

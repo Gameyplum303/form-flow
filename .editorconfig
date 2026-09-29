@@ -1,0 +1,17 @@
+# Editor settings shared by everyone who works on FormFlow. `dotnet format` (run in CI) reads them too.
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml,csproj,slnx,props,targets,xml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+# Keep `using` directives sorted with System first.
+dotnet_sort_system_directives_first = true
