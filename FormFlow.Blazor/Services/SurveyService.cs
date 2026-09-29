@@ -30,6 +30,31 @@ namespace FormFlow.Blazor.Services
                 : null;
         }
 
+        public async Task<SurveyDefinition?> GetSurveyByShareCodeAsync(string code)
+        {
+            var response = await Client.GetAsync($"api/share/{Uri.EscapeDataString(code)}");
+            return response.StatusCode == HttpStatusCode.OK
+                ? await response.Content.ReadFromJsonAsync<SurveyDefinition>()
+                : null;
+        }
+
+        public async Task<(SurveyDefinition? Survey, string? Error)> UpdateSharingAsync(Guid id, SurveySharing sharing)
+        {
+            var response = await Client.PutAsJsonAsync($"api/surveys/{id}/sharing", sharing);
+            return response.IsSuccessStatusCode
+                ? (await response.Content.ReadFromJsonAsync<SurveyDefinition>(), null)
+                : (null, await ReadErrorAsync(response));
+        }
+
+        public async Task<bool> HasAnsweredAsync(Guid surveyId, string respondentId)
+        {
+            var answered = await Client.GetFromJsonAsync<AnsweredResult>(
+                $"api/surveys/{surveyId}/answered?respondentId={Uri.EscapeDataString(respondentId)}");
+            return answered?.Answered == true;
+        }
+
+        private sealed record AnsweredResult(bool Answered);
+
         public async Task<List<QuestionDefinition>> GetSurveyQuestionsAsync(Guid id)
         {
             var response = await Client.GetAsync($"api/surveys/{id}/questions");
@@ -56,11 +81,12 @@ namespace FormFlow.Blazor.Services
             return response.IsSuccessStatusCode ? (true, null) : (false, await ReadErrorAsync(response));
         }
 
-        public async Task<SubmitResult> SubmitResponseAsync(Guid surveyId, Dictionary<string, List<string>> answers)
+        public async Task<SubmitResult> SubmitResponseAsync(Guid surveyId, Dictionary<string, List<string>> answers,
+            string? respondentId = null)
         {
             try
             {
-                var response = await Client.PostAsJsonAsync($"api/surveys/{surveyId}/responses", new { answers });
+                var response = await Client.PostAsJsonAsync($"api/surveys/{surveyId}/responses", new { answers, respondentId });
                 if (response.IsSuccessStatusCode)
                 {
                     return new SubmitResult(true, new Dictionary<string, string[]>());
@@ -75,7 +101,14 @@ namespace FormFlow.Blazor.Services
                     }
                 }
 
-                return new SubmitResult(false, new Dictionary<string, string[]>(), await ReadErrorAsync(response));
+                return response.StatusCode switch
+                {
+                    HttpStatusCode.NotFound => new SubmitResult(false, new Dictionary<string, string[]>(),
+                        "This survey is no longer available.", CanRetry: false),
+                    HttpStatusCode.Conflict => new SubmitResult(false, new Dictionary<string, string[]>(),
+                        await ReadErrorAsync(response), CanRetry: false),
+                    _ => new SubmitResult(false, new Dictionary<string, string[]>(), await ReadErrorAsync(response)),
+                };
             }
             catch (HttpRequestException)
             {

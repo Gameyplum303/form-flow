@@ -14,8 +14,8 @@ The app calls `http://localhost:5164` unless `REACT_APP_API_URL` is set.
 
 | File | Purpose |
 |---|---|
-| `src/App.tsx` | Survey list, take-survey screen, thank-you screen, and an "API unreachable" notice. The open survey is kept in the URL hash (`#/surveys/<id>`) so the back button and links work without a router library. |
-| `src/api.ts` | `getSurveys`, `getSurvey`, `getSurveyQuestions` and `submitResponse`. `submitResponse` returns `{ ok: true }` or `{ ok: false, errors, message }`, with `errors` taken from the API's problem details. |
+| `src/App.tsx` | Survey list, take-survey screen, thank-you screen, and an "API unreachable" notice. The open survey is kept in the URL hash (`#/surveys/<id>`, or `#/s/<code>` for a share link) so the back button and links work without a router library. A closed survey, or one this browser already answered, shows a message instead of the form. |
+| `src/api.ts` | `getSurveys`, `getSurvey`, `getSurveyByShareCode`, `getSurveyQuestions`, `hasAnswered` and `submitResponse`. `respondentId()` keeps this browser's random respondent id in `localStorage`. `submitResponse` returns `{ ok: true }` or `{ ok: false, errors, message, final? }`, with `errors` taken from the API's problem details and `final` set when the survey closed or was already answered. |
 | `src/components/SurveyForm.tsx` | Renders the visible questions and passes each one its value and error. |
 | `src/components/QuestionRenderer.tsx` | Renders one question with the right control. |
 | `src/logic/visibility.ts` | `visibleKeys(questions, answers)`, the TypeScript twin of the C# `VisibilityEvaluator`, and `parseBool`. |

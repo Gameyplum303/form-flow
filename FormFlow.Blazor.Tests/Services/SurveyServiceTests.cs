@@ -43,10 +43,10 @@ public class SurveyServiceTests
     public async Task SubmitResponseAsync_sends_the_answers_and_reports_success()
     {
         _http.Expect(HttpMethod.Post, $"http://api.test/api/surveys/{_id}/responses")
-            .WithContent("""{"answers":{"age":["30"]}}""")
+            .WithContent("""{"answers":{"age":["30"]},"respondentId":"browser-1"}""")
             .Respond(HttpStatusCode.Created);
 
-        var result = await _service.SubmitResponseAsync(_id, new() { ["age"] = ["30"] });
+        var result = await _service.SubmitResponseAsync(_id, new() { ["age"] = ["30"] }, "browser-1");
 
         result.Success.Should().BeTrue();
         _http.VerifyNoOutstandingExpectation();
@@ -156,5 +156,61 @@ public class SurveyServiceTests
         var (success, _) = await service.DeleteSurveyAsync(_id);
 
         success.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Conflict, """{"error":"You've already answered this survey. Thank you!"}""", "You've already answered this survey. Thank you!")]
+    [InlineData(HttpStatusCode.NotFound, "{}", "This survey is no longer available.")]
+    public async Task SubmitResponseAsync_reports_a_refusal_that_trying_again_wont_fix(HttpStatusCode status, string body, string message)
+    {
+        _http.When(HttpMethod.Post, $"http://api.test/api/surveys/{_id}/responses").Respond(status, Json(body));
+
+        var result = await _service.SubmitResponseAsync(_id, new() { ["age"] = ["30"] }, "browser-1");
+
+        result.Success.Should().BeFalse();
+        result.CanRetry.Should().BeFalse();
+        result.Message.Should().Be(message);
+    }
+
+    [Fact]
+    public async Task GetSurveyByShareCodeAsync_opens_the_survey_or_returns_null()
+    {
+        _http.When("http://api.test/api/share/k7m2p9qa")
+            .Respond(Json($$"""{"id":"{{_id}}","title":"Campus","description":"","questionIds":[],"createdAt":"2026-09-29T00:00:00Z","status":"published","shareCode":"k7m2p9qa"}"""));
+        _http.When("http://api.test/api/share/nope2345").Respond(HttpStatusCode.NotFound);
+
+        (await _service.GetSurveyByShareCodeAsync("k7m2p9qa"))!.Id.Should().Be(_id);
+        (await _service.GetSurveyByShareCodeAsync("nope2345")).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateSharingAsync_returns_the_saved_survey_or_the_servers_error()
+    {
+        _http.Expect(HttpMethod.Put, $"http://api.test/api/surveys/{_id}/sharing")
+            .WithPartialContent("\"status\":\"published\"")
+            .Respond(Json($$"""{"id":"{{_id}}","title":"Campus","description":"","questionIds":[],"createdAt":"2026-09-29T00:00:00Z","status":"published","listed":false}"""));
+
+        var (saved, error) = await _service.UpdateSharingAsync(_id, new SurveySharing { Status = SurveyStatuses.Published });
+
+        error.Should().BeNull();
+        saved!.IsPublished().Should().BeTrue();
+        saved.Listed.Should().BeFalse();
+        _http.VerifyNoOutstandingExpectation();
+
+        _http.Clear();
+        _http.When(HttpMethod.Put, $"http://api.test/api/surveys/{_id}/sharing")
+            .Respond(HttpStatusCode.BadRequest, Json("""{"error":"Status must be draft or published."}"""));
+        (await _service.UpdateSharingAsync(_id, new SurveySharing { Status = "secret" })).Error
+            .Should().Be("Status must be draft or published.");
+    }
+
+    [Fact]
+    public async Task HasAnsweredAsync_asks_about_this_browsers_respondent_id()
+    {
+        _http.When($"http://api.test/api/surveys/{_id}/answered")
+            .WithQueryString("respondentId", "browser-1")
+            .Respond(Json("""{"answered":true}"""));
+
+        (await _service.HasAnsweredAsync(_id, "browser-1")).Should().BeTrue();
     }
 }

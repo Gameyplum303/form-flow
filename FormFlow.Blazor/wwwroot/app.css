@@ -77,3 +77,15 @@ h1:focus {
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
+
+.share-qr svg {
+    width: 200px;
+    height: 200px;
+}
+
+.share-close-input {
+    padding: 10px 12px;
+    border: 1px solid rgba(0, 0, 0, 0.23);
+    border-radius: 4px;
+    font: inherit;
+}

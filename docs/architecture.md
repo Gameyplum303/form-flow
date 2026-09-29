@@ -55,9 +55,9 @@ flowchart LR
 
 ## Submitting a survey
 
-1. The client loads `GET /api/surveys/{id}/questions`, which returns the survey's questions in order.
+1. The client opens the survey by id or by its share link (`GET /api/share/{code}`), then loads `GET /api/surveys/{id}/questions`, which returns the survey's questions in order. Drafts are only served to the people who manage them, and a closed survey or one this browser already answered shows a message instead of the form.
 2. As the respondent answers, the client re-evaluates visibility after every change (`VisibilityEvaluator` in Blazor, `logic/visibility.ts` in React) so conditional questions appear and disappear immediately.
-3. The client posts all answers to `POST /api/surveys/{id}/responses`.
+3. The client posts all answers to `POST /api/surveys/{id}/responses`, with the browser's random respondent id. The API returns `409` if the survey has closed or that id already answered.
 4. The API converts the JSON answers to lists of strings, then `ResponseValidator`:
    - rejects keys that aren't in the survey,
    - drops answers to hidden questions,

@@ -53,8 +53,10 @@ test.describe("Blazor: taking a survey", () => {
         await page.getByRole("button", { name: "Submit" }).click();
         await expect(page.getByText("Thank you!")).toBeVisible();
 
-        await page.getByRole("button", { name: "Submit another response" }).click();
-        await expect(question(page, "first_name").locator("input")).toHaveValue("");
+        // One answer per browser: coming back shows a thank-you instead of the form.
+        await openBlazor(page, `/surveys/${survey.id}`);
+        await expect(page.locator("[data-survey-closed]")).toContainText("You've already answered this survey.");
+        await expect(page.getByRole("button", { name: "Submit" })).toHaveCount(0);
 
         const after = await (await request.get(`${urls.api}/api/surveys/${survey.id}/results`, { headers: await adminHeaders(request) })).json();
         expect(after.totalResponses).toBe(before.totalResponses + 1);

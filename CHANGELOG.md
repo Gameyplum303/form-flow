@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Added
+- Survey sharing. New surveys start as drafts that only their owner (and administrators) can open. The Blazor **Share** page publishes a survey, chooses whether it also shows on the public list or is reachable by its link only, sets an optional close date, and shows the share link (`/s/{code}`) with a copy button and a QR code. The survey list shows each survey's status. The React app opens share links as `#/s/{code}`. API: `PUT /api/surveys/{id}/sharing`, `GET /api/share/{code}`, and `GET /api/surveys/{id}/answered`. Surveys stored before this change stay published and listed.
+- One answer per browser. Respondents still have no account; each browser keeps a random respondent id that is sent with its answers, and the API returns 409 for a second answer, or for any answer once the survey has closed. Coming back to a survey shows a thank-you instead of the form.
 - Three roles: Administrator, Professor/Scientist and Student. Administrators manage every question and survey. Professors create questions and surveys and edit, delete and see results for only the ones they created, and can use anyone's questions in their surveys. Students take surveys. Questions and surveys record their creator, `GET /api/surveys/managed` lists the surveys a caller can manage, and responses from a signed-in account record who sent them (a `submitted_by` CSV column). Development and docker compose add a `professor` test account.
 - Professor/scientist sign-up at `/signup` (name, email, password, date of birth, organization, and how they'll use FormFlow). New accounts wait until an administrator approves them on the Blazor **Sign-ups** page (`GET /api/accounts/pending`, `POST /api/accounts/{id}/approve` and `/decline`); set `SignUp:RequireApproval` to `false` to skip approval. Students take surveys without an account, so there is no student test account.
 - Administrators can view the Blazor site as a professor or a student with **View as** in the menu, and switch back from a banner.
@@ -25,12 +27,14 @@
 - Validation rules and "only show when" settings in the admin question editor.
 
 ### Fixed
+- The Blazor preview page now sends the sign-in with its requests, so owners can preview their drafts.
 - Blazor: a text question now shows a new server error after someone edits the field. Before, the second error (for example a bad email after a missing one) was hidden.
 - Parallel API tests could fail with "Member … not found on BsonMapper" because LiteDB's shared mapper was built by several threads at once. Mappings are now built once before first use.
 - Radio and checkbox questions in Blazor didn't report their answers.
 - CI never ran on pull requests; `dotnet format` is now checked too.
 
 ### Changed
+- The public survey list (`GET /api/surveys`) only shows published, listed surveys that haven't closed. The take-survey page no longer has a "Submit another response" button.
 - The Blazor results page downloads the CSV through the signed-in session instead of linking to the API.
 - Updated packages with known vulnerabilities (Microsoft.AspNetCore.OpenApi, bUnit and their dependencies).
 - The React `VisibleIf` type now matches the API (`key`, `shouldEqual`).

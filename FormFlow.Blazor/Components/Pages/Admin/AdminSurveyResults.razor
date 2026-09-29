@@ -29,7 +29,7 @@ else
             </MudText>
         </div>
         <MudStack Row="true" Spacing="2">
-            <MudButton Variant="Variant.Outlined" Href="@($"/surveys/{Id}")" Target="_blank">Open survey</MudButton>
+            <MudButton Variant="Variant.Outlined" Href="@($"/admin/surveys/{Id}/share")">Share</MudButton>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Download"
@@ -42,7 +42,7 @@ else
 
     @if (_results.TotalResponses == 0)
     {
-        <MudAlert Severity="Severity.Info">No responses yet. Share the survey link to start collecting answers.</MudAlert>
+        <MudAlert Severity="Severity.Info">No responses yet. Publish the survey and share its link to start collecting answers.</MudAlert>
     }
     else
     {
