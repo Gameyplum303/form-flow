@@ -1,6 +1,5 @@
 @page "/admin/questions"
 @using FormFlow.Blazor.Services
-@inject IHttpClientFactory HttpClientFactory
 @inject IQuestionService QuestionService
 @inject NavigationManager Nav
 @inject IDialogService DialogService
@@ -94,8 +93,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var client = HttpClientFactory.CreateClient("AdminApi");
-        questions = await client.GetFromJsonAsync<List<QuestionDefinition>>("api/questions");
+        questions = await QuestionService.GetAllQuestionsAsync() ?? [];
     }
 
     private void EditQuestion(Guid id)

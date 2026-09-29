@@ -20,9 +20,21 @@ public sealed class FakeSurveyService : ISurveyService
     public Task<List<QuestionDefinition>> GetSurveyQuestionsAsync(Guid id) =>
         Task.FromResult(Questions.TryGetValue(id, out var q) ? q : new List<QuestionDefinition>());
 
-    public Task<(bool Success, string? Error)> CreateSurveyAsync(NewSurvey survey) => Task.FromResult((true, (string?)null));
+    public (bool Success, string? Error) NextSaveResult { get; set; } = (true, null);
+    public NewSurvey? LastCreated { get; private set; }
+    public (Guid Id, NewSurvey Survey)? LastUpdated { get; private set; }
 
-    public Task<(bool Success, string? Error)> UpdateSurveyAsync(Guid id, NewSurvey survey) => Task.FromResult((true, (string?)null));
+    public Task<(bool Success, string? Error)> CreateSurveyAsync(NewSurvey survey)
+    {
+        LastCreated = survey;
+        return Task.FromResult(NextSaveResult);
+    }
+
+    public Task<(bool Success, string? Error)> UpdateSurveyAsync(Guid id, NewSurvey survey)
+    {
+        LastUpdated = (id, survey);
+        return Task.FromResult(NextSaveResult);
+    }
 
     public Task<(bool Success, string? Error)> DeleteSurveyAsync(Guid id) => Task.FromResult((true, (string?)null));
 
