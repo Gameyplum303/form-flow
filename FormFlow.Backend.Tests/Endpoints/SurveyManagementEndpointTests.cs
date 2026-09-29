@@ -24,7 +24,7 @@ namespace FormFlow.Backend.Tests.Endpoints
         {
             var survey = await InMemoryApiFactory.GetDemoSurveyAsync(_client);
 
-            survey.QuestionIds.Should().HaveCount(13);
+            survey.QuestionIds.Should().HaveCount(16);
         }
 
         [Fact]
@@ -137,6 +137,53 @@ namespace FormFlow.Backend.Tests.Endpoints
             var response = await _client.DeleteAsync($"/api/surveys/{Guid.NewGuid()}");
 
             response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public async Task PageBreaks_RoundTrip_KeepingOnlyQuestionsThatStartAPage()
+        {
+            var first = await InMemoryApiFactory.GetQuestionAsync(_client, "first_name");
+            var last = await InMemoryApiFactory.GetQuestionAsync(_client, "last_name");
+            var email = await InMemoryApiFactory.GetQuestionAsync(_client, "email");
+            var age = await InMemoryApiFactory.GetQuestionAsync(_client, "age");
+
+            // The first question, a question that isn't in the survey, and a repeat are all dropped.
+            var created = await _client.PostAsJsonAsync("/api/surveys", new NewSurvey
+            {
+                Title = "Paged",
+                Description = "Two pages",
+                QuestionIds = [first.Id, last.Id, email.Id],
+                PageBreaks = [email.Id, first.Id, age.Id, email.Id, Guid.NewGuid()],
+            });
+            created.StatusCode.Should().Be(HttpStatusCode.Created);
+            var survey = (await created.Content.ReadFromJsonAsync<SurveyDefinition>())!;
+            survey.PageBreaks.Should().Equal(email.Id);
+            (await _client.GetFromJsonAsync<SurveyDefinition>($"/api/surveys/{survey.Id}"))!.PageBreaks.Should().Equal(email.Id);
+
+            var updated = await _client.PutAsJsonAsync($"/api/surveys/{survey.Id}", new NewSurvey
+            {
+                Title = "Paged",
+                Description = "Three pages",
+                QuestionIds = [first.Id, last.Id, email.Id, age.Id],
+                PageBreaks = [age.Id, last.Id],
+            });
+            updated.StatusCode.Should().Be(HttpStatusCode.OK);
+            var stored = await _client.GetFromJsonAsync<SurveyDefinition>($"/api/surveys/{survey.Id}");
+            stored!.PageBreaks.Should().Equal(last.Id, age.Id);
+
+            // Leaving page breaks out makes it one page again.
+            (await _client.PutAsJsonAsync($"/api/surveys/{survey.Id}", new { title = "Paged", description = "One page", questionIds = new[] { first.Id, last.Id } }))
+                .StatusCode.Should().Be(HttpStatusCode.OK);
+            (await _client.GetFromJsonAsync<SurveyDefinition>($"/api/surveys/{survey.Id}"))!.PageBreaks.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task DemoSurvey_HasNoPageBreaks()
+        {
+            var survey = await InMemoryApiFactory.GetDemoSurveyAsync(_client);
+
+            survey.PageBreaks.Should().BeEmpty();
+            survey.IsTemplate.Should().BeFalse();
         }
     }
 }

@@ -492,3 +492,6 @@ $RECYCLE.BIN/
 # Playwright
 FormFlow.E2E/test-results/
 FormFlow.E2E/playwright-report/
+
+# Claude Code worktrees
+.claude/worktrees/

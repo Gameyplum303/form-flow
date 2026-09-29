@@ -5,10 +5,10 @@ FormFlow has four unit and integration test projects and one browser test projec
 | Project | Framework | What it tests |
 |---|---|---|
 | `FormFlow.Data.Tests` | xUnit, FluentAssertions | `QuestionValidator` rules, `QuestionValidationEngine` (min/max length and value, range), `ResponseValidator`, and `VisibilityEvaluator` including chained and circular rules |
-| `FormFlow.Backend.Tests` | xUnit, FluentAssertions, Moq, `WebApplicationFactory` | Every endpoint over real HTTP against an in-memory LiteDB, sign-in and which endpoints need it, email verification, password reset and change (`AccountSecurityTests`, with a clock the tests move forward to expire links), drafts, share links, close dates and one answer per browser (`SharingTests`), results filters, dates and comparisons (`ResultsAnalyticsTests`, plus `SurveyResultsBuilderTests` for timelines in local days, weeks and months), rate limits, the repositories, database seeding, and CSV escaping |
-| `FormFlow.Blazor.Tests` | xUnit, bUnit, MudBlazor, RichardSzalay.MockHttp | Each question component, two-way binding through `QuestionRenderer`, the admin pages including the Share page, sign-in and the admin guard, the password and email pages, taking a survey by id or share link, and the results page with its filters, dates, timeline and comparisons |
-| `FormFlow.React.Tests` | Jest, ts-jest, React Testing Library | The visibility logic, the `SurveyForm` component, and the whole app against a mocked `fetch` |
-| `FormFlow.E2E` | Playwright | The running apps in a real browser: signing in, verifying an email, resetting and changing a password, the whole admin flow, taking surveys in Blazor and React, CSV download, and API security |
+| `FormFlow.Backend.Tests` | xUnit, FluentAssertions, Moq, `WebApplicationFactory` | Every endpoint over real HTTP against an in-memory LiteDB, sign-in and which endpoints need it, email verification, password reset and change (`AccountSecurityTests`, with a clock the tests move forward to expire links), drafts, share links, close dates and one answer per browser (`SharingTests`), templates and their seeding (`TemplateEndpointTests`), duplicating (`DuplicateSurveyTests`), results filters, dates and comparisons (`ResultsAnalyticsTests`, plus `SurveyResultsBuilderTests` for timelines in local days, weeks and months), rate limits, the repositories, database seeding, and CSV escaping |
+| `FormFlow.Blazor.Tests` | xUnit, bUnit, MudBlazor, RichardSzalay.MockHttp | Each question component, two-way binding through `QuestionRenderer`, the admin pages including the Share page, sign-in and the admin guard, the password and email pages, taking a survey by id or share link, page by page with saved answers (`PagedTakeSurveyTests`, with `FakeSurveyDrafts` for the browser storage), and the results page with its filters, dates, timeline and comparisons |
+| `FormFlow.React.Tests` | Jest, ts-jest, React Testing Library | The visibility and paging logic, the `SurveyForm` component, and the whole app against a mocked `fetch`, including paged surveys and saved answers (`PagedSurvey.test.tsx`) |
+| `FormFlow.E2E` | Playwright | The running apps in a real browser: signing in, verifying an email, resetting and changing a password, the whole admin flow including templates, pages, saved answers and duplicating, taking surveys in Blazor and React, CSV download, and API security |
 
 ## Running the tests
 
@@ -73,7 +73,7 @@ dotnet format FormFlow.slnx --verify-no-changes
 
 ## How the API tests work
 
-`FormFlow.Backend.Tests/Endpoints/InMemoryApiFactory.cs` starts the real API with `WebApplicationFactory<Program>` and swaps the LiteDB registration for one backed by a `MemoryStream`. Each test gets a fresh database (xUnit creates a new factory per test), the 13 sample questions and the demo survey are seeded exactly as in production, and tests call the API with a normal `HttpClient`. Helpers such as `GetDemoSurveyAsync` and `GetQuestionAsync` look up seeded data by key.
+`FormFlow.Backend.Tests/Endpoints/InMemoryApiFactory.cs` starts the real API with `WebApplicationFactory<Program>` and swaps the LiteDB registration for one backed by a `MemoryStream`. Each test gets a fresh database (xUnit creates a new factory per test), the 16 sample questions and the demo survey are seeded exactly as in production, and tests call the API with a normal `HttpClient`. Helpers such as `GetDemoSurveyAsync` and `GetQuestionAsync` look up seeded data by key.
 
 Tests that should start without the demo survey set `SeedData:DemoSurvey` to `false` with `UseSetting`.
 

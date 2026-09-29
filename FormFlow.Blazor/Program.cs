@@ -26,6 +26,9 @@ builder.Services.AddScoped<AdminSession>();
 // Someone taking surveys without an account, remembered per browser.
 builder.Services.AddScoped<IRespondentIdentity, RespondentIdentity>();
 
+// Answers not yet submitted, kept in the browser so a respondent can come back to them.
+builder.Services.AddScoped<ISurveyDrafts, SurveyDrafts>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

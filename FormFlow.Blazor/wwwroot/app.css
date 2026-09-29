@@ -85,6 +85,120 @@ h1:focus {
     color: var(--mud-palette-text-secondary);
 }
 
+/* The words or numbers at the two ends of an NPS scale or a slider, with an optional hint between. */
+.scale-ends {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 4px;
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* A likert grid: a row per statement, a column per point of the scale. It scrolls sideways inside
+   the card when the screen is too narrow, with the statements kept in view. */
+.likert-scroll {
+    overflow-x: auto;
+}
+
+.likert-grid {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.likert-row {
+    display: table-row;
+}
+
+.likert-statement,
+.likert-choices {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+.likert-statement {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    width: 100%;
+    min-width: 140px;
+    padding: 8px 12px 8px 0;
+    font-size: var(--mud-typography-body1-size);
+    line-height: var(--mud-typography-body1-lineheight);
+    background: var(--mud-palette-surface);
+}
+
+.likert-row:not(.likert-head) > .likert-statement,
+.likert-row:not(.likert-head) > .likert-choices {
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.likert-choices .mud-radio-group,
+.likert-head .likert-choices {
+    display: flex;
+}
+
+/* Every column is the same width, so the radio buttons line up under their headings. */
+.likert-column,
+.likert-choices .mud-radio-group > .mud-input-control {
+    flex: none;
+    width: 84px;
+    margin: 0;
+    align-items: center;
+    text-align: center;
+}
+
+.likert-head .likert-column {
+    padding: 0 4px 6px;
+    font-size: 0.8rem;
+    line-height: 1.25;
+    color: var(--mud-palette-text-secondary);
+}
+
+.likert-choices .mud-radio {
+    margin: 0;
+}
+
+/* NPS: eleven equal buttons that share the card's width. */
+.nps-scale {
+    display: grid;
+    grid-template-columns: repeat(11, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.question-card .nps-button {
+    min-width: 0;
+    padding: 6px 0;
+}
+
+.slider-field {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.slider-track {
+    flex: 1 1 auto;
+}
+
+.slider-value {
+    min-width: 3ch;
+    font-size: 1.1rem;
+    font-weight: 500;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Before the slider is moved its handle is faded, since it isn't an answer yet. */
+.slider-unanswered .mud-slider-input::-webkit-slider-thumb {
+    opacity: 0.45;
+}
+
+.slider-unanswered .mud-slider-input::-moz-range-thumb {
+    opacity: 0.45;
+}
+
 /* Validation messages, under questions and form fields. */
 .question-error {
     margin-top: 4px;
@@ -173,8 +287,19 @@ h1:focus {
     margin-top: 4px;
 }
 
-.comparison th, .comparison td {
+.comparison th, .comparison td,
+.likert-results th, .likert-results td {
     font-variant-numeric: tabular-nums;
+}
+
+/* The likert results table: statements on the left, a column per point of the scale. */
+.likert-results td {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.likert-results thead th:not(:first-child) {
+    text-align: center;
 }
 
 .comparison-n {
@@ -209,6 +334,57 @@ h1:focus {
 .question-bank {
     max-height: 300px;
     overflow-y: auto;
+}
+
+/* The template gallery on Create Survey: cards in a row share one height, with their buttons at the bottom. */
+.template-card {
+    height: 100%;
+}
+
+.template-card .mud-card-content {
+    flex-grow: 1;
+}
+
+/* Where a new page starts in the survey builder's list of selected questions. */
+.page-separator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 16px 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--mud-palette-primary);
+}
+
+.page-separator::after {
+    content: "";
+    flex: 1;
+    border-top: 1px dashed var(--mud-palette-lines-default);
+}
+
+.page-break-switch .mud-typography {
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* "Page 2 of 3" and its bar above a paged survey, and the Back / Next buttons below it. */
+.survey-progress {
+    margin-bottom: 16px;
+}
+
+.survey-progress-label {
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.survey-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
 }
 
 /* Keeps the line breaks people type, as in a sign-up's intended use. */

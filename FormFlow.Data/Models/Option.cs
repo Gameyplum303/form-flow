@@ -1,6 +1,6 @@
 namespace FormFlow.Data.Models
 {
-    /// <summary>One choice of a dropdown, radio, checkbox or multiselect question.</summary>
+    /// <summary>One choice of a dropdown, radio, checkbox or multiselect question, or a row or column of a likert grid.</summary>
     public class Option
     {
         public required string Label { get; set; }

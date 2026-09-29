@@ -23,6 +23,7 @@ public class TakeSurveyTests
         ctx.Services.AddMudServices();
         ctx.Services.AddSingleton<ISurveyService>(_service);
         ctx.Services.AddSingleton<IRespondentIdentity>(_respondent);
+        ctx.Services.AddSingleton<ISurveyDrafts>(new FakeSurveyDrafts());
         ctx.Render<MudPopoverProvider>();
         return ctx;
     }

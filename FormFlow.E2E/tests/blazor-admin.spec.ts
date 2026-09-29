@@ -1,13 +1,14 @@
 import { expect, Page, test } from "@playwright/test";
 import {
-    admin, answer, approvedProfessor, choose, demoSurveyTitle, emailedLink, headersFor, newSignUp, openBlazor, professor, question, runId, signIn,
-    submitSignIn, surveyByTitle, urls,
+    admin, adminHeaders, answer, approvedProfessor, choose, demoSurveyTitle, emailedLink, headersFor, newSignUp, openBlazor, professor, publish,
+    question, runId, signIn, submitSignIn, surveyByTitle, urls,
 } from "./helpers";
 
 const key = `campus_job_${runId}`;
 const label = `Which campus job do you have? (${runId})`;
 const editedLabel = `What campus job do you have? (${runId})`;
 const surveyTitle = `Campus Life ${runId}`;
+const templateSurveyTitle = `Course evaluation ${runId}`;
 /** The survey's share link, read from its Share page. */
 let shareLink = "";
 
@@ -269,6 +270,8 @@ test.describe.serial("Blazor: admin", () => {
         await openBlazor(page, "/admin/surveys");
         await page.getByRole("link", { name: "Create Survey" }).click();
         await expect(page.locator(".page[data-interactive=true]")).toBeVisible();
+        // A new survey starts from a template or a blank one.
+        await page.getByRole("button", { name: "Start blank" }).click();
         await page.getByLabel("Survey Title").fill(surveyTitle);
         await page.getByLabel("Description").fill("Short survey about campus life.");
 
@@ -384,6 +387,85 @@ test.describe.serial("Blazor: admin", () => {
 
         await confirmDelete(page, editedLabel);
         await expect(page.locator("td", { hasText: editedLabel })).toHaveCount(0);
+    });
+
+    test("starts a survey from a template, with its pages", async () => {
+        await openBlazor(page, "/admin/surveys");
+        await page.getByRole("link", { name: "Create Survey" }).click();
+        await expect(page.locator("[data-template-gallery]")).toBeVisible();
+        await expect(page.locator("[data-template='Course evaluation']")).toContainText("10 questions on 3 pages");
+
+        await page.getByRole("button", { name: "Use the Course evaluation template" }).click();
+        await expect(page).toHaveURL(/\/admin\/surveys\/[0-9a-f-]{36}\/edit$/);
+        await expect(page.getByText(/from the template as a draft/)).toBeVisible();
+        await expect(page.locator("[data-page-separator]")).toHaveText(["Page 1", "Page 2", "Page 3"]);
+
+        const title = page.getByLabel("Survey Title");
+        await expect(title).toHaveValue("Course evaluation");
+        await title.fill(templateSurveyTitle);
+        await title.press("Tab");
+        await page.getByRole("button", { name: "Save Changes" }).click();
+        await expect(page).toHaveURL(/\/admin\/surveys$/);
+        await expect(questionRow(page, templateSurveyTitle).locator("[data-survey-status]")).toHaveText("Draft");
+    });
+
+    test("a student answers the survey page by page, and comes back to saved answers", async ({ browser, request }) => {
+        const headers = await adminHeaders(request);
+        const managed: { id: string; title: string; shareCode: string }[] =
+            await (await request.get(`${urls.api}/api/surveys/managed`, { headers })).json();
+        const survey = managed.find(s => s.title === templateSurveyTitle)!;
+        await publish(request, survey.id, headers);
+
+        const student = await browser.newPage();
+        await openBlazor(student, `/s/${survey.shareCode}`);
+        await expect(student.locator("[data-page-label]")).toHaveText("Page 1 of 3");
+        await expect(student.locator("[data-survey-progress] .mud-progress-linear")).toBeVisible();
+
+        // Next checks this page's answers first.
+        await student.getByRole("button", { name: "Next" }).click();
+        await expect(student.getByText("This question is required.")).toHaveCount(2);
+        await answer(student, "course_eval_course", "SENG 3000");
+        await question(student, "course_eval_attendance").locator("label.mud-radio").nth(1).click();
+        await student.getByRole("button", { name: "Next" }).click();
+        await expect(student.locator("[data-page-label]")).toHaveText("Page 2 of 3");
+        await question(student, "course_eval_overall").locator(".mud-rating-item").nth(3).click();
+
+        // Coming back later picks up the answers, on the first page.
+        await openBlazor(student, `/s/${survey.shareCode}`);
+        await expect(student.locator("[data-resume-note]")).toContainText("We saved your answers on this device.");
+        await expect(question(student, "course_eval_course").locator("input")).toHaveValue("SENG 3000");
+        await student.getByRole("button", { name: "Next" }).click();
+        await expect(student.locator("[data-page-label]")).toHaveText("Page 2 of 3");
+        await expect(question(student, "course_eval_overall").getByText("4 of 5")).toBeVisible();
+        await question(student, "course_eval_teaching").locator(".mud-rating-item").nth(4).click();
+        await choose(student, question(student, "course_eval_workload").locator(".mud-select"), "About right");
+
+        await student.getByRole("button", { name: "Back" }).click();
+        await expect(question(student, "course_eval_course").locator("input")).toHaveValue("SENG 3000");
+        await student.getByRole("button", { name: "Next" }).click();
+        await student.getByRole("button", { name: "Next" }).click();
+        await expect(student.locator("[data-page-label]")).toHaveText("Page 3 of 3");
+        await expect(student.getByRole("button", { name: "Next" })).toHaveCount(0);
+        await question(student, "course_eval_recommend").locator("label.mud-radio").first().click();
+        await student.getByRole("button", { name: "Submit" }).click();
+        await expect(student.getByText("Thank you!")).toBeVisible();
+        await student.close();
+
+        const responses = await (await request.get(`${urls.api}/api/surveys/${survey.id}/responses`, { headers })).json();
+        expect(responses).toHaveLength(1);
+        expect(responses[0].answers).toMatchObject({
+            course_eval_course: ["SENG 3000"], course_eval_attendance: ["most"], course_eval_overall: ["4"],
+            course_eval_teaching: ["5"], course_eval_workload: ["right"], course_eval_recommend: ["true"],
+        });
+    });
+
+    test("duplicates the survey into a new draft", async () => {
+        await openBlazor(page, "/admin/surveys");
+        await page.getByRole("button", { name: `Duplicate ${templateSurveyTitle}` }).click();
+        await expect(page).toHaveURL(/\/admin\/surveys\/[0-9a-f-]{36}\/edit$/);
+        await expect(page.getByText(`Created "Copy of ${templateSurveyTitle}" as a draft.`)).toBeVisible();
+        await expect(page.getByLabel("Survey Title")).toHaveValue(`Copy of ${templateSurveyTitle}`);
+        await expect(page.locator("[data-page-separator]")).toHaveCount(3);
     });
 
     test("shows not found for a missing survey preview", async () => {

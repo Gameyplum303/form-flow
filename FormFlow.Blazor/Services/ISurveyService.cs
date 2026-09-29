@@ -39,6 +39,15 @@ namespace FormFlow.Blazor.Services
         Task<(bool Success, string? Error)> UpdateSurveyAsync(Guid id, NewSurvey survey);
         Task<(bool Success, string? Error)> DeleteSurveyAsync(Guid id);
 
+        /// <summary>Copies a survey into a new draft the signed-in account owns: the copy, or why it failed.</summary>
+        Task<(SurveyDefinition? Survey, string? Error)> DuplicateSurveyAsync(Guid id);
+
+        /// <summary>The ready-made surveys builders can start from, or null when they could not be loaded.</summary>
+        Task<List<SurveyTemplate>?> GetTemplatesAsync();
+
+        /// <summary>Starts a new draft from a template: the new survey, or why it failed.</summary>
+        Task<(SurveyDefinition? Survey, string? Error)> UseTemplateAsync(Guid templateId);
+
         /// <summary>Publishes or unpublishes a survey, lists it or not, and sets when it closes.</summary>
         Task<(SurveyDefinition? Survey, string? Error)> UpdateSharingAsync(Guid id, SurveySharing sharing);
 

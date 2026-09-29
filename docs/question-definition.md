@@ -34,7 +34,8 @@ Represents a single question in a dynamic form.
 | `Placeholder`       | `string?`      | No                 | Optional placeholder text.                            |
 | `DefaultValue`      | `string?`      | No                 | Optional default value.                               |
 | `HelpText`          | `string?`      | No                 | Optional guidance shown beneath the question.         |
-| `Options`           | `List<Option>` | No                 | Selectable options for dropdown/radio/checkbox types. |
+| `Options`           | `List<Option>` | No                 | Selectable options for dropdown/radio/checkbox types, or the scale (columns) of a likert grid. |
+| `Rows`              | `List<Option>` | No (default: empty) | The statements (rows) of a likert grid. JSON name `rows`. Empty for other types. |
 | `VisibleIf`         | `VisibleIf?`   | No                 | Conditional visibility rule.                          |
 | `ValidationConfigs` | `string?`      | No                 | JSON‑serialized array of validation rule objects.    |
 
@@ -42,7 +43,7 @@ Represents a single question in a dynamic form.
 
 ### **Option**
 
-Represents a selectable option for dropdown, radio, checkbox, or multiselect questions.
+Represents a selectable option for dropdown, radio, checkbox, or multiselect questions, or a row or column of a likert grid.
 
 | Property  | Type       | Required | Description                        |
 | --------- | ---------- | -------- | ---------------------------------- |
@@ -193,6 +194,24 @@ The following examples show valid JSON structures for option-based question type
 }
 ```
 
+### Likert grid
+
+Several statements rated on one shared scale. `rows` are the statements; `options` are the scale's columns. Without `options` the grid uses Strongly disagree (`1`), Disagree (`2`), Neutral (`3`), Agree (`4`) and Strongly agree (`5`). Row values can't contain `=`.
+
+```json
+{
+  "id": "e0b14c8e-4e4d-4fd5-8ec7-bd3c7a4d0014",
+  "key": "campus_services",
+  "label": "How much do you agree with these statements?",
+  "type": "likert",
+  "required": false,
+  "rows": [
+    { "value": "library", "label": "The library has the resources I need." },
+    { "value": "labs", "label": "Lab equipment is up to date." }
+  ]
+}
+```
+
 ---
 
 ## **Question Types and Answers**
@@ -210,8 +229,11 @@ The following examples show valid JSON structures for option-based question type
 | `email` | Email field | The address, which must look like `name@example.com` |
 | `date` | Date picker | An ISO date, e.g. `"2025-08-18"` |
 | `rating` | A row of stars, 1 to 5 by default | The number of stars as text, e.g. `"4"` |
+| `likert` | A grid of radio buttons, a row per statement | One `"rowValue=optionValue"` entry per answered row, in row order, e.g. `["library=4", "labs=2"]` |
+| `nps` | Eleven buttons, 0 ("Not likely") to 10 ("Extremely likely") | The score as text, e.g. `"9"` |
+| `slider` | A slider from its minimum to its maximum, 0 to 100 by default | The whole number chosen, e.g. `"12"` |
 
-`validationConfigs` rules apply to `text` and `long_text` (`MinLength`, `MaxLength`) and `number` (`MinValue`, `MaxValue`, `Range`) answers. For a `rating`, a `MaxValue` rule sets the number of stars (2 to 10; 5 when left out). The admin create page builds these rules for you.
+`validationConfigs` rules apply to `text` and `long_text` (`MinLength`, `MaxLength`) and `number` (`MinValue`, `MaxValue`, `Range`) answers. For a `rating`, a `MaxValue` rule sets the number of stars (2 to 10; 5 when left out). For a `slider`, `MinValue` and `MaxValue` rules (or a `Range`) set its ends, as whole numbers with the minimum below the maximum (0 and 100 when left out); it moves in steps of 1. A required `likert` grid needs every row answered; an optional one can leave rows blank. An unanswered slider sends nothing, so a required slider must be moved. The admin create page builds these rules for you.
 
 ---
 

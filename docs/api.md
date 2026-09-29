@@ -159,8 +159,10 @@ Returns every question in the question bank.
 
 Rules checked on create and update:
 
-- `key`, `label` and `type` are required, and `type` must be one of `text`, `number`, `yes_no`, `dropdown`, `radio`, `checkbox`, `multiselect`, `long_text`, `email`, `date`, `rating`.
+- `key`, `label` and `type` are required, and `type` must be one of `text`, `number`, `yes_no`, `dropdown`, `radio`, `checkbox`, `multiselect`, `long_text`, `email`, `date`, `rating`, `likert`, `nps`, `slider`.
 - A `rating` can set its number of stars with a `MaxValue` rule from 2 to 10.
+- A `likert` grid needs at least one row in `rows`, each with a label and a unique value that doesn't contain `=`. Its `options` are the scale; without them it uses Strongly disagree (`1`) to Strongly agree (`5`). Other types' `rows` are dropped.
+- A `slider` takes its range from `MinValue` and `MaxValue` (or `Range`) rules: whole numbers, with the minimum below the maximum. Without them it runs from 0 to 100.
 - `dropdown`, `radio` and `multiselect` need at least one option. A `checkbox` with no options is a single tick box.
 - Option labels and values are required and must be unique within the question.
 - `visibleIf.key` must name an existing `yes_no` question other than this one.
@@ -191,7 +193,7 @@ Same body and rules as `POST`.
 
 ## Surveys
 
-A survey is a title, a description and an ordered list of question ids. The API adds its sharing settings: `status` (`draft` or `published`), `listed`, `shareCode` and `closesAt`.
+A survey is a title, a description, an ordered list of question ids and, optionally, the page breaks. The API adds its sharing settings: `status` (`draft` or `published`), `listed`, `shareCode` and `closesAt`.
 
 ```json
 {
@@ -200,7 +202,8 @@ A survey is a title, a description and an ordered list of question ids. The API 
   "questionIds": [
     "b5d8f0e1-1c5b-4f7b-8cfa-6cab5f7fd001",
     "a12e5b95-5f5b-4d95-ae01-1ca3ea6d0005"
-  ]
+  ],
+  "pageBreaks": ["a12e5b95-5f5b-4d95-ae01-1ca3ea6d0005"]
 }
 ```
 
@@ -215,8 +218,28 @@ A survey is a title, a description and an ordered list of question ids. The API 
 | `PUT` | `/api/surveys/{id}` | Builder | 200 with the updated survey (keeps `createdAt` and the owner), 400, 403, or 404 |
 | `DELETE` | `/api/surveys/{id}` | Builder | 204, also deleting the survey's responses; 403 or 404 |
 | `PUT` | `/api/surveys/{id}/sharing` | Builder | 200 with the updated survey; 400 for an unknown status, 403 or 404 |
+| `POST` | `/api/surveys/{id}/duplicate` | Builder | 201 with a new draft copy (see below); 404 if the caller can't open the survey |
 
 A survey is rejected with 400 when the title or description is empty, when it has no questions, when a question appears twice, or when a question id doesn't exist.
+
+### Pages
+
+`pageBreaks` (optional) lists the ids of the questions that start a new page. Without it, a survey is one page. Ids that aren't in `questionIds`, repeats, and the first question are dropped when the survey is saved, and the list is stored in survey order. The Blazor and React apps show one page at a time, skip pages whose questions are all hidden by `visibleIf`, and check each page's required answers before moving on. The API still validates the whole response on submit, whatever the pages.
+
+### Duplicate
+
+`POST /api/surveys/{id}/duplicate` (no body) copies a survey the caller can open, whoever owns it, into a new survey titled "Copy of {title}". The copy has the same questions and page breaks, is a `draft`, unlisted, with a new `shareCode`, no `closesAt` and no responses, and belongs to the caller.
+
+### Templates
+
+Templates are ready-made surveys seeded at startup from `FormFlow.Backend/SeedData/templates.json`: Course evaluation, Customer satisfaction, Event feedback and Research study intake. They are read-only. They never appear in `GET /api/surveys` or `/managed`, and `GET /api/surveys/{id}`, the share, sharing, edit, delete and response endpoints treat them as missing (404). Their questions are ordinary questions (keys start with the template's prefix, such as `course_eval_`), so builders can reuse them, and they can't be deleted while a template uses them.
+
+| Method | Path | Access | Result |
+|---|---|---|---|
+| `GET` | `/api/templates` | Builder | The templates by title, each `{ "id", "title", "description", "questionCount", "pageCount" }` |
+| `POST` | `/api/templates/{id}/use` | Builder | 201 with a new draft survey titled like the template, with its questions and page breaks, owned by the caller; 404 for an unknown template |
+
+Seeding skips a template whose id is already stored and reuses questions whose key already exists, so restarting never adds copies. Set `SeedData:Templates` to `false` to seed none.
 
 ### Sharing
 
@@ -262,6 +285,8 @@ The server validates the whole submission against the survey's questions:
 - Unknown keys are rejected.
 - `number` answers must be numbers, `yes_no` answers must be `true`/`false` (or `yes`/`no`), and choice answers must be one of the question's option values with no duplicates.
 - `email` answers must look like an email address, `date` answers must be ISO dates (`YYYY-MM-DD`), and `rating` answers must be a whole number of stars from 1 to the question's maximum.
+- `likert` answers are a list of `"rowValue=optionValue"` entries, at most one per row, with known rows and scale options. A required grid needs every row answered. They're stored in row order.
+- `nps` answers must be a whole number from 0 to 10, and `slider` answers a whole number from the slider's minimum to its maximum.
 - Text, long text and number answers are checked against the question's `validationConfigs` rules.
 
 | Status | When |
@@ -318,7 +343,7 @@ Aggregated results for the admin results page:
 }
 ```
 
-Choice and yes/no questions get a count per option, number questions get min, max and average, and text questions get the five most recent answers. `lastSubmittedAt` is the newest response of all, whatever the filters.
+Choice, yes/no, rating and NPS questions get a count per option (ratings also get `numbers`), number and slider questions get min, max and average, and text questions get the five most recent answers. NPS questions also get `nps`: `{ "score": 25, "promoters": 2, "passives": 1, "detractors": 1 }`, where the score is the percentage of promoters (9 or 10) minus the percentage of detractors (0 to 6), rounded. Likert grids get `rows`, one per statement: `{ "value": "library", "label": "…", "answeredCount": 4, "options": [ { "value": "1", "label": "Strongly disagree", "count": 1 }, … ], "average": 3.25 }`, where `average` is null unless every scale value is a number. `lastSubmittedAt` is the newest response of all, whatever the filters.
 
 #### Filters, dates and comparisons
 
@@ -326,7 +351,7 @@ Optional query parameters narrow or split the results:
 
 | Parameter | Example | Effect |
 |---|---|---|
-| `filter` | `filter=is_student:true&filter=skills:sql` | Only responses that gave every listed answer (for multiselect, the answer is one of those chosen). Up to 10. Works on yes/no, choice, rating and single checkbox questions. |
+| `filter` | `filter=is_student:true&filter=skills:sql` | Only responses that gave every listed answer (for multiselect, the answer is one of those chosen). Up to 10. Works on yes/no, choice, rating, NPS and single checkbox questions. |
 | `from`, `to` | `from=2026-09-01T04:00:00Z&to=2026-09-08T04:00:00Z` | Only responses sent at or after `from` and before `to` (ISO 8601; without an offset, UTC) |
 | `compareBy` | `compareBy=is_student` | Adds a `comparison` with every question summarized separately for each answer to this question, plus a "No answer" group when some responses skipped it |
 | `utcOffset` | `utcOffset=-240` | Minutes ahead of UTC (-840 to 840), so the timeline counts the viewer's local days |
@@ -353,4 +378,4 @@ The response then also has:
 
 ### `GET /api/surveys/{id}/responses/export` (Builder)
 
-Downloads every response as `<survey-title>-responses.csv`, or only those matching `filter`, `from` and `to` when given (the same parameters as the results, with the same 400 for bad ones). Columns are `response_id`, `submitted_at`, `submitted_by`, then one column per question key in survey order. Multiple values are joined with `; `. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return (and aren't numbers) are prefixed with `'` so spreadsheets don't run them as formulas.
+Downloads every response as `<survey-title>-responses.csv`, or only those matching `filter`, `from` and `to` when given (the same parameters as the results, with the same 400 for bad ones). Columns are `response_id`, `submitted_at`, `submitted_by`, then one column per question key in survey order. A likert grid gets a column per row instead, named `key[rowValue]`, holding the option picked for that row. Multiple values are joined with `; `. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return (and aren't numbers) are prefixed with `'` so spreadsheets don't run them as formulas.

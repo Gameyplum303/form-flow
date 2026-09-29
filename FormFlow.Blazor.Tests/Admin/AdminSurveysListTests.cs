@@ -193,6 +193,56 @@ namespace FormFlow.Blazor.Tests.Admin
         }
 
         [Fact]
+        public async Task SurveyList_Duplicate_OpensTheNewDraftForEditing()
+        {
+            await using var ctx = CreateContext();
+            var survey = Survey("Survey A", 2);
+            _service.Surveys.Add(survey);
+            var snackbars = ctx.Render<MudSnackbarProvider>();
+            var cut = ctx.Render<AdminSurveysList>();
+            cut.WaitForAssertion(() => Assert.Contains("Survey A", cut.Markup));
+
+            cut.Find("button[aria-label='Duplicate Survey A']").Click();
+
+            cut.WaitForAssertion(() => _service.Duplicated.Should().Equal(survey.Id));
+            var copy = _service.Surveys.Single(s => s.Id != survey.Id);
+            copy.Title.Should().Be("Copy of Survey A");
+            ctx.Services.GetRequiredService<NavigationManager>().Uri.Should().EndWith($"/admin/surveys/{copy.Id}/edit");
+            snackbars.WaitForAssertion(() => snackbars.Markup.Should().Contain("Created \"Copy of Survey A\" as a draft."));
+        }
+
+        [Fact]
+        public async Task SurveyList_ProfessorsCanDuplicateTheirSurveys()
+        {
+            var me = Guid.NewGuid();
+            await using var ctx = CreateContext();
+            var mine = Survey("Mine");
+            mine.OwnerId = me;
+            _service.Surveys.Add(mine);
+
+            var cut = ctx.Render<AdminSurveysList>(p => p.AddCascadingValue(new AdminAccess("professor", me)));
+            cut.WaitForAssertion(() => Assert.Contains("Mine", cut.Markup));
+
+            cut.FindAll("button[aria-label='Duplicate Mine']").Should().ContainSingle();
+        }
+
+        [Fact]
+        public async Task SurveyList_FailedDuplicate_StaysAndShowsWhy()
+        {
+            await using var ctx = CreateContext();
+            _service.Surveys.Add(Survey("Survey A"));
+            _service.NextCopyError = "Could not reach the server. Please try again.";
+            var snackbars = ctx.Render<MudSnackbarProvider>();
+            var cut = ctx.Render<AdminSurveysList>();
+            cut.WaitForAssertion(() => Assert.Contains("Survey A", cut.Markup));
+
+            cut.Find("button[aria-label='Duplicate Survey A']").Click();
+
+            snackbars.WaitForAssertion(() => snackbars.Markup.Should().Contain("The survey could not be duplicated: Could not reach the server."));
+            ctx.Services.GetRequiredService<NavigationManager>().Uri.Should().NotContain("/edit");
+        }
+
+        [Fact]
         public async Task SurveyList_RefusedDelete_KeepsTheSurveyAndShowsWhy()
         {
             await using var ctx = CreateContext();
