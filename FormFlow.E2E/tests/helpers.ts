@@ -60,10 +60,10 @@ export async function surveyByTitle(request: APIRequestContext, title: string) {
 
 export const demoSurveyTitle = "Student Experience Survey";
 
-/** The admin account docker compose creates. Override with ADMIN_USERNAME and ADMIN_PASSWORD. */
+/** The test account docker compose creates. Override with ADMIN_USERNAME and ADMIN_PASSWORD. */
 export const admin = {
-    username: process.env.ADMIN_USERNAME ?? "admin",
-    password: process.env.ADMIN_PASSWORD ?? "formflow-admin",
+    username: process.env.ADMIN_USERNAME ?? "student",
+    password: process.env.ADMIN_PASSWORD ?? "password",
 };
 
 let adminToken: string | undefined;

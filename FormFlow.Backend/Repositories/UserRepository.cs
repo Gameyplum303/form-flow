@@ -13,18 +13,19 @@ namespace FormFlow.Backend.Repositories
         {
             LiteDbMappings.EnsureBuilt();
             _users = db.GetCollection<AdminUser>(CollectionName);
-            _users.EnsureIndex(u => u.Username, true);
+            _users.EnsureIndex(u => u.NormalizedUsername, true);
         }
 
         public AdminUser Insert(AdminUser user)
         {
-            user.Username = Normalize(user.Username);
+            user.Username = user.Username.Trim();
+            user.NormalizedUsername = Normalize(user.Username);
             _users.Insert(user);
             return user;
         }
 
         public AdminUser? FindByUsername(string username) =>
-            _users.FindOne(u => u.Username == Normalize(username));
+            _users.FindOne(u => u.NormalizedUsername == Normalize(username));
 
         public int Count() => _users.Count();
 
