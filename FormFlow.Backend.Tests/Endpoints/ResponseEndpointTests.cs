@@ -13,7 +13,7 @@ namespace FormFlow.Backend.Tests.Endpoints
 
         public ResponseEndpointTests()
         {
-            _client = _factory.CreateClient();
+            _client = _factory.CreateClient().AsAdmin();
         }
 
         public void Dispose() => _factory.Dispose();

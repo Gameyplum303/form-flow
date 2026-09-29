@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { answer, choose, demoSurveyTitle, openBlazor, question, surveyByTitle, urls } from "./helpers";
+import { adminHeaders, answer, choose, demoSurveyTitle, openBlazor, question, signIn, surveyByTitle, urls } from "./helpers";
 
 test.describe("Blazor: taking a survey", () => {
     test("shows the survey list from the home page", async ({ page }) => {
@@ -11,7 +11,7 @@ test.describe("Blazor: taking a survey", () => {
 
     test("validates on the server, then submits and updates the results", async ({ page, request }) => {
         const survey = await surveyByTitle(request, demoSurveyTitle);
-        const before = await (await request.get(`${urls.api}/api/surveys/${survey.id}/results`)).json();
+        const before = await (await request.get(`${urls.api}/api/surveys/${survey.id}/results`, { headers: await adminHeaders(request) })).json();
 
         await openBlazor(page, `/surveys/${survey.id}`);
         const isStudent = question(page, "is_student").locator("label.mud-radio");
@@ -48,7 +48,7 @@ test.describe("Blazor: taking a survey", () => {
         await page.getByRole("button", { name: "Submit another response" }).click();
         await expect(question(page, "first_name").locator("input")).toHaveValue("");
 
-        const after = await (await request.get(`${urls.api}/api/surveys/${survey.id}/results`)).json();
+        const after = await (await request.get(`${urls.api}/api/surveys/${survey.id}/results`, { headers: await adminHeaders(request) })).json();
         expect(after.totalResponses).toBe(before.totalResponses + 1);
     });
 
@@ -64,6 +64,7 @@ test.describe("Blazor: taking a survey", () => {
         });
         expect(submitted.status()).toBe(201);
 
+        await signIn(page);
         await openBlazor(page, `/admin/surveys/${survey.id}/results`);
         await expect(page.getByText(/^\d+ responses?, latest/)).toBeVisible();
         await expect(page.getByText("Average")).toBeVisible();

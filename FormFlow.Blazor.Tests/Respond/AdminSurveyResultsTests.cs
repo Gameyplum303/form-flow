@@ -22,7 +22,7 @@ public class AdminSurveyResultsTests
     }
 
     [Fact]
-    public async Task RendersCountsNumbersAndCsvLink()
+    public async Task RendersCountsAndNumbers()
     {
         await using var ctx = CreateContext();
         var id = Guid.NewGuid();
@@ -51,7 +51,42 @@ public class AdminSurveyResultsTests
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("4 responses"));
         cut.Markup.Should().Contain("3 (75%)");
         cut.Markup.Should().Contain("27.5");
-        cut.Find("a[href$='/responses/export']").Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DownloadCsv_saves_the_file_through_the_browser()
+    {
+        await using var ctx = CreateContext();
+        var id = Guid.NewGuid();
+        _service.Results = new SurveyResults { SurveyId = id, Title = "Campus survey", TotalResponses = 1 };
+        _service.Export = new CsvExport("campus-survey-responses.csv", [1, 2, 3]);
+        var download = ctx.JSInterop.SetupVoid("formFlow.downloadFile", _ => true);
+
+        var cut = ctx.Render<AdminSurveyResults>(p => p.Add(x => x.Id, id));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("1 response"));
+        cut.FindAll("button").Single(b => b.TextContent.Contains("Download CSV")).Click();
+
+        cut.WaitForAssertion(() => download.Invocations["formFlow.downloadFile"].Should().ContainSingle());
+        var args = download.Invocations["formFlow.downloadFile"][0].Arguments;
+        args[0].Should().Be("campus-survey-responses.csv");
+        args[1].Should().Be("text/csv");
+        ((byte[])args[2]!).Should().Equal(1, 2, 3);
+    }
+
+    [Fact]
+    public async Task DownloadCsv_reports_a_failed_download()
+    {
+        await using var ctx = CreateContext();
+        var id = Guid.NewGuid();
+        _service.Results = new SurveyResults { SurveyId = id, Title = "Campus survey", TotalResponses = 1 };
+        var cut = ctx.Render<AdminSurveyResults>(p => p.Add(x => x.Id, id));
+        ctx.Render<MudBlazor.MudSnackbarProvider>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("1 response"));
+
+        cut.FindAll("button").Single(b => b.TextContent.Contains("Download CSV")).Click();
+
+        ctx.Services.GetRequiredService<MudBlazor.ISnackbar>().ShownSnackbars
+            .Should().ContainSingle(s => s.Message == "The CSV could not be downloaded.");
     }
 
     [Fact]

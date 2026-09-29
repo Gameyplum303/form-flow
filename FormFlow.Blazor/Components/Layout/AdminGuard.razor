@@ -1,0 +1,50 @@
+@using FormFlow.Blazor.Services
+@implements IDisposable
+@inject AdminSession Session
+@inject NavigationManager Nav
+
+@* Admin pages render only for a signed-in admin. The sign-in is kept in browser storage,
+   which can only be read once the page is interactive, so the check runs after render. *@
+@if (!IsAdminPage || Session.IsSignedIn)
+{
+    @ChildContent
+}
+else
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" aria-label="Checking sign-in" />
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool IsAdminPage
+    {
+        get
+        {
+            var path = Nav.ToBaseRelativePath(Nav.Uri);
+            return path == "admin" || path.StartsWith("admin/") || path.StartsWith("admin?");
+        }
+    }
+
+    protected override void OnInitialized() => Session.Changed += OnSessionChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        await Session.RestoreAsync();
+
+        if (IsAdminPage && !Session.IsSignedIn)
+        {
+            var returnUrl = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+            Nav.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+        }
+    }
+
+    private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Session.Changed -= OnSessionChanged;
+}

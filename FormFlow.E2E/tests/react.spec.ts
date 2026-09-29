@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { demoSurveyTitle, surveyByTitle, urls } from "./helpers";
+import { adminHeaders, demoSurveyTitle, surveyByTitle, urls } from "./helpers";
 
 test.describe("React: taking a survey", () => {
     test("validates on the server and stores the answers", async ({ page, request }) => {
@@ -33,7 +33,7 @@ test.describe("React: taking a survey", () => {
         await expect(page.getByText(/Thank you/)).toBeVisible();
 
         const survey = await surveyByTitle(request, demoSurveyTitle);
-        const responses = await (await request.get(`${urls.api}/api/surveys/${survey.id}/responses`)).json();
+        const responses = await (await request.get(`${urls.api}/api/surveys/${survey.id}/responses`, { headers: await adminHeaders(request) })).json();
         const saved = responses.find((r: any) => r.answers.last_name?.[0] === lastName);
         expect(saved.answers).toMatchObject({
             is_student: ["true"],

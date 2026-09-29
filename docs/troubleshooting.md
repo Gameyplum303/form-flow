@@ -14,6 +14,14 @@ dotnet dev-certs https --trust
 
 To use HTTP instead, run the Blazor app with `dotnet run --BackendApi:BaseUrl=http://localhost:5164/`.
 
+**Sign-in fails with "Invalid username or password."**
+
+The admin account is created only when the database has no accounts. If you changed `Admin:Password` (or `FORMFLOW_ADMIN_PASSWORD` for docker compose) after the first start, the old password still applies. Delete `formflow.db`, or run `docker compose down --volumes`, to start over with the new one.
+
+**Admin pages keep sending me back to the sign-in page**
+
+Tokens are signed with `Jwt:Key`. When it isn't set, the API makes a new random key each time it starts, so restarting the API signs everyone out. Set `Jwt:Key` (at least 32 characters), or `FORMFLOW_JWT_KEY` for docker compose, to keep sign-ins across restarts.
+
 **The React app says it can't reach the API**
 
 It calls `http://localhost:5164` by default. Start the API, or set `REACT_APP_API_URL` before `npm start` if the API is somewhere else.

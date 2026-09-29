@@ -21,6 +21,15 @@ builder.Services.AddHttpClient<ISurveyService, SurveyService>(client =>
     client.BaseAddress = new Uri(url ?? throw new Exception("URL Missing!"));
 });
 
+// The signed-in admin for this circuit; the services above add its token to API calls.
+builder.Services.AddScoped<AdminSession>();
+
+builder.Services.AddHttpClient<IAuthService, AuthService>(client =>
+{
+    var url = builder.Configuration["BackendAPI:BaseUrl"];
+    client.BaseAddress = new Uri(url ?? throw new Exception("URL Missing!"));
+});
+
 builder.Services.AddHttpClient("AdminApi", client =>
 {
     var url = builder.Configuration["BackendAPI:BaseUrl"];

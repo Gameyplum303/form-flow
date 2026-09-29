@@ -5,12 +5,21 @@ using FormFlow.Data.Models;
 
 namespace FormFlow.Blazor.Services
 {
-    public class QuestionService(HttpClient httpClient) : IQuestionService
+    public class QuestionService(HttpClient httpClient, AdminSession? session = null) : IQuestionService
     {
+        /// <summary>The API client, carrying the signed-in admin's token when there is one.</summary>
+        private HttpClient Client
+        {
+            get
+            {
+                session?.Authorize(httpClient);
+                return httpClient;
+            }
+        }
 
         public async Task<List<QuestionDefinition>?> GetAllQuestionsAsync()
         {
-            var response = await httpClient.GetAsync("/api/questions");
+            var response = await Client.GetAsync("/api/questions");
 
             if (!response.IsSuccessStatusCode)
             {
@@ -27,20 +36,20 @@ namespace FormFlow.Blazor.Services
 
         public async Task<QuestionDefinition?> GetQuestionAsync(Guid id)
         {
-            var response = await httpClient.GetAsync($"/api/questions/{id}");
+            var response = await Client.GetAsync($"/api/questions/{id}");
             return response.StatusCode == HttpStatusCode.OK
                 ? await response.Content.ReadFromJsonAsync<QuestionDefinition>()
                 : null;
         }
 
         public Task<(bool Success, string? Error)> CreateQuestionAsync(NewQuestion newQuestion) =>
-            SendAsync(() => httpClient.PostAsJsonAsync("/api/questions", newQuestion));
+            SendAsync(() => Client.PostAsJsonAsync("/api/questions", newQuestion));
 
         public Task<(bool Success, string? Error)> UpdateQuestionAsync(Guid id, NewQuestion question) =>
-            SendAsync(() => httpClient.PutAsJsonAsync($"/api/questions/{id}", question));
+            SendAsync(() => Client.PutAsJsonAsync($"/api/questions/{id}", question));
 
         public Task<(bool Success, string? Error)> DeleteQuestionAsync(Guid id) =>
-            SendAsync(() => httpClient.DeleteAsync($"/api/questions/{id}"));
+            SendAsync(() => Client.DeleteAsync($"/api/questions/{id}"));
 
         private static async Task<(bool Success, string? Error)> SendAsync(Func<Task<HttpResponseMessage>> send)
         {

@@ -116,7 +116,7 @@ public class SurveyEndpointsTests : IClassFixture<WebApplicationFactory<Program>
                 // Replace real repo with mock
                 services.AddSingleton<ISurveyRepository>(mockRepo.Object);
             });
-        }).CreateClient();
+        }).CreateClient().AsAdmin();
 
         var seededQuestions = await client.GetFromJsonAsync<List<QuestionDefinition>>("/api/questions");
 
