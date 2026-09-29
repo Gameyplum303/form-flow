@@ -17,8 +17,6 @@ builder.Services.AddSingleton<ILiteDatabase>(sp =>
     return new LiteDatabase(connectionString);
 });
 
-// Register the QuestionInserter service
-builder.Services.AddSingleton<IQuestionInserter, QuestionInserter>();
 builder.Services.AddSingleton<IQuestionRepository, QuestionRepository>();
 builder.Services.AddSingleton<ISurveyRepository, SurveyRepository>();
 builder.Services.AddSingleton<QuestionValidator>();

@@ -1,9 +1,8 @@
-
 using System.Text;
 using System.Text.Json;
-using System.Linq;
+using FormFlow.Data.Models;
 
-namespace FormFlow.Data.Models
+namespace FormFlow.Data.Services
 {
     /// <summary>
     /// Provides detailed error information for API responses
