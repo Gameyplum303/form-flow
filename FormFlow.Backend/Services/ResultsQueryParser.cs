@@ -115,7 +115,7 @@ namespace FormFlow.Backend.Services
             var answers = SurveyResultsBuilder.FixedAnswers(question);
             if (answers is null)
             {
-                message = $"Only yes/no, choice and rating questions can {purpose}; '{key}' is a {question.Type} question.";
+                message = $"Only yes/no, choice, rating and NPS questions can {purpose}; '{key}' is a {question.Type} question.";
             }
             return answers;
         }

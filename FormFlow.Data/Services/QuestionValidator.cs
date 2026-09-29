@@ -5,8 +5,8 @@ using FormFlow.Data.Validation;
 namespace FormFlow.Data.Services
 {
     /// <summary>
-    /// Checks a question before it is saved: its required fields, type, options, visibility rule and
-    /// validation rules. Each problem becomes a <see cref="ValidationError"/> the API can return.
+    /// Checks a question before it is saved: its required fields, type, options, likert rows, visibility
+    /// rule and validation rules. Each problem becomes a <see cref="ValidationError"/> the API can return.
     /// </summary>
     public class QuestionValidator
     {
@@ -98,6 +98,19 @@ namespace FormFlow.Data.Services
                     AddError(result, "validationConfigs", "range",
                         $"A rating needs a whole number of stars from 2 to {QuestionTypes.MaxRatingScale}");
                 }
+                if (string.Equals(question.Type, QuestionTypes.Likert, StringComparison.OrdinalIgnoreCase))
+                {
+                    ValidateRows(question, result);
+                }
+                if (string.Equals(question.Type, QuestionTypes.Slider, StringComparison.OrdinalIgnoreCase))
+                {
+                    var (min, max) = QuestionTypes.SliderRange(question);
+                    if (min != Math.Floor(min) || max != Math.Floor(max) || min >= max)
+                    {
+                        AddError(result, "validationConfigs", "range",
+                            "A slider needs whole-number minimum and maximum values, with the minimum below the maximum");
+                    }
+                }
             }
 
             if (question.VisibleIf is not null)
@@ -138,6 +151,31 @@ namespace FormFlow.Data.Services
             else if (options.Select(o => o.Value).Distinct(StringComparer.Ordinal).Count() != options.Count)
             {
                 AddError(result, "options", "unique", "Option values must be unique");
+            }
+        }
+
+        /// <summary>
+        /// A likert grid needs at least one statement, each with a label and a unique value. Answers are
+        /// stored as "row=option", so a row's value can't contain the separator.
+        /// </summary>
+        private static void ValidateRows(QuestionDefinition question, ValidationResult result)
+        {
+            var rows = question.Rows ?? [];
+            if (rows.Count == 0)
+            {
+                AddError(result, "rows", "required", "A likert grid needs at least one row");
+            }
+            else if (rows.Any(r => string.IsNullOrWhiteSpace(r.Label) || string.IsNullOrWhiteSpace(r.Value)))
+            {
+                AddError(result, "rows", "required", "Each row needs a label and a value");
+            }
+            else if (rows.Any(r => r.Value.Contains(QuestionTypes.LikertSeparator)))
+            {
+                AddError(result, "rows", "format", $"Row values can't contain '{QuestionTypes.LikertSeparator}'");
+            }
+            else if (rows.Select(r => r.Value).Distinct(StringComparer.Ordinal).Count() != rows.Count)
+            {
+                AddError(result, "rows", "unique", "Row values must be unique");
             }
         }
 

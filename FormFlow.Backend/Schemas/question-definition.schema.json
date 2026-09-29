@@ -19,7 +19,7 @@
     },
     "type": {
       "type": "string",
-      "enum": ["text", "number", "yes_no", "dropdown", "radio", "checkbox", "multiselect", "long_text", "email", "date", "rating"],
+      "enum": ["text", "number", "yes_no", "dropdown", "radio", "checkbox", "multiselect", "long_text", "email", "date", "rating", "likert", "nps", "slider"],
       "description": "Type of input field (e.g., text, dropdown)."
     },
     "placeholder": {
@@ -39,10 +39,24 @@
     },
     "options": {
       "type": "array",
+      "description": "The choices of a choice question, or the scale (columns) of a likert grid. A likert grid without options uses Strongly disagree (1) to Strongly agree (5).",
       "items": {
         "type": "object",
         "properties": {
           "value": { "type": "string" },
+          "label": { "type": "string" }
+        },
+        "required": ["value", "label"]
+      }
+    },
+    "rows": {
+      "type": "array",
+      "description": "The statements of a likert grid, each rated on the scale in options. Answers are stored as \"rowValue=optionValue\", so a row value can't contain '='.",
+      "default": [],
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": { "type": "string", "pattern": "^[^=]+$" },
           "label": { "type": "string" }
         },
         "required": ["value", "label"]
@@ -79,12 +93,26 @@
     }
   },
   "required": ["id", "key", "label", "type"],
-  "if": {
-    "properties": { "type": { "enum": ["dropdown", "radio", "multiselect"] } },
-    "required": ["type"]
-  },
-  "then": {
-    "required": ["options"],
-    "properties": { "options": { "minItems": 1 } }
-  }
+  "allOf": [
+    {
+      "if": {
+        "properties": { "type": { "enum": ["dropdown", "radio", "multiselect"] } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["options"],
+        "properties": { "options": { "minItems": 1 } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "likert" } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["rows"],
+        "properties": { "rows": { "minItems": 1 } }
+      }
+    }
+  ]
 }

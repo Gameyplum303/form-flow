@@ -16,14 +16,14 @@ namespace FormFlow.Data.Services
 
         /// <summary>
         /// The answers to store: only visible questions, trimmed, with yes/no answers
-        /// normalized to "true"/"false". Only meaningful when <see cref="IsValid"/> is true.
+        /// normalized to "true"/"false" and likert rows in row order. Only meaningful when <see cref="IsValid"/> is true.
         /// </summary>
         public Dictionary<string, List<string>> Answers { get; } = new();
     }
 
     /// <summary>
-    /// Validates a respondent's answers against the survey's questions: required answers,
-    /// answer types, allowed options, conditional visibility, and each question's
+    /// Validates a respondent's answers against the survey's questions: required answers (for a
+    /// likert grid, every statement), answer types, allowed options and ranges, conditional visibility, and each question's
     /// <see cref="QuestionDefinition.ValidationConfigs"/> rules.
     /// </summary>
     public class ResponseValidator
@@ -130,6 +130,35 @@ namespace FormFlow.Data.Services
                     normalized = [stars.ToString(CultureInfo.InvariantCulture)];
                     break;
 
+                case QuestionTypes.Nps:
+                    if (!int.TryParse(values[0], NumberStyles.None, CultureInfo.InvariantCulture, out var score) || score > QuestionTypes.NpsMax)
+                    {
+                        errors.Add($"Answer must be a whole number from 0 to {QuestionTypes.NpsMax}.");
+                        return errors;
+                    }
+                    normalized = [score.ToString(CultureInfo.InvariantCulture)];
+                    break;
+
+                case QuestionTypes.Slider:
+                    // The slider moves in whole steps from its minimum to its maximum.
+                    var (min, max) = QuestionTypes.SliderRange(question);
+                    if (!decimal.TryParse(values[0], NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var position)
+                        || position != Math.Floor(position) || position < min || position > max)
+                    {
+                        errors.Add($"Answer must be a whole number from {Format(min)} to {Format(max)}.");
+                        return errors;
+                    }
+                    normalized = [Format(position)];
+                    break;
+
+                case QuestionTypes.Likert:
+                    normalized = ValidateLikert(question, values, errors);
+                    if (errors.Count > 0)
+                    {
+                        return errors;
+                    }
+                    break;
+
                 case QuestionTypes.Number:
                     if (!decimal.TryParse(values[0], NumberStyles.Number, CultureInfo.InvariantCulture, out _))
                     {
@@ -182,6 +211,45 @@ namespace FormFlow.Data.Services
 
             return errors;
         }
+
+        /// <summary>
+        /// Checks a likert grid's answers, one "row=option" entry per rated statement, and returns them
+        /// in row order. Every statement must be rated when the question is required.
+        /// </summary>
+        private static List<string> ValidateLikert(QuestionDefinition question, List<string> values, List<string> errors)
+        {
+            var rows = question.Rows.Select(r => r.Value).ToList();
+            var scale = QuestionTypes.LikertScale(question).Select(o => o.Value).ToHashSet(StringComparer.Ordinal);
+            var chosen = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            foreach (var value in values)
+            {
+                if (!QuestionTypes.TryParseLikertAnswer(value, out var row, out var option) || !rows.Contains(row))
+                {
+                    errors.Add($"'{value}' is not an answer to one of the statements.");
+                }
+                else if (!scale.Contains(option))
+                {
+                    errors.Add($"'{option}' is not one of the options.");
+                }
+                else if (!chosen.TryAdd(row, option))
+                {
+                    errors.Add("Each statement can only have one answer.");
+                }
+            }
+
+            if (errors.Count == 0 && question.Required && chosen.Count < rows.Count)
+            {
+                errors.Add("Please answer every statement.");
+            }
+
+            var distinct = errors.Distinct().ToList();
+            errors.Clear();
+            errors.AddRange(distinct);
+            return rows.Where(chosen.ContainsKey).Select(r => QuestionTypes.LikertAnswer(r, chosen[r])).ToList();
+        }
+
+        private static string Format(decimal value) => value.ToString("0.############", CultureInfo.InvariantCulture);
 
         /// <summary>Dates are stored and exchanged as ISO dates, the format HTML date inputs use.</summary>
         public const string DateFormat = "yyyy-MM-dd";

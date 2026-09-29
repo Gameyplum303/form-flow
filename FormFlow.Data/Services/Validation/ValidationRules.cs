@@ -9,7 +9,14 @@ namespace FormFlow.Data.Services;
 public static class ValidationRules
 {
     /// <summary>The question's maximum value (from a MaxValue or Range rule), or null when it has none.</summary>
-    public static decimal? MaxValue(string? validationConfigs)
+    public static decimal? MaxValue(string? validationConfigs) =>
+        Find(validationConfigs, ValidationTypes.MaxValue, "maxValue");
+
+    /// <summary>The question's minimum value (from a MinValue or Range rule), or null when it has none.</summary>
+    public static decimal? MinValue(string? validationConfigs) =>
+        Find(validationConfigs, ValidationTypes.MinValue, "minValue");
+
+    private static decimal? Find(string? validationConfigs, string ruleType, string property)
     {
         if (string.IsNullOrWhiteSpace(validationConfigs))
         {
@@ -29,9 +36,10 @@ public static class ValidationRules
                 if (rule.ValueKind == JsonValueKind.Object
                     && rule.TryGetProperty("validationType", out var type)
                     && type.ValueKind == JsonValueKind.String
-                    && type.GetString() is ValidationTypes.MaxValue or ValidationTypes.Range
-                    && rule.TryGetProperty("maxValue", out var max)
-                    && max.TryGetDecimal(out var value))
+                    && (type.GetString() == ruleType || type.GetString() == ValidationTypes.Range)
+                    && rule.TryGetProperty(property, out var limit)
+                    && limit.ValueKind == JsonValueKind.Number
+                    && limit.TryGetDecimal(out var value))
                 {
                     return value;
                 }

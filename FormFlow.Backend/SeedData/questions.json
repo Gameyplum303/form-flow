@@ -125,6 +125,33 @@
     "helpText": "1 star is poor, 5 stars is excellent."
   },
   {
+    "id": "e0b14c8e-4e4d-4fd5-8ec7-bd3c7a4d0014",
+    "key": "campus_services",
+    "label": "How much do you agree with these statements?",
+    "type": "likert",
+    "required": false,
+    "rows": [
+      { "value": "library", "label": "The library has the resources I need." },
+      { "value": "labs", "label": "Lab equipment is up to date." },
+      { "value": "advising", "label": "Advisors are easy to reach." }
+    ]
+  },
+  {
+    "id": "f1c25d9f-5f5e-4fe5-9fd8-ce4d8b5e0015",
+    "key": "recommend_score",
+    "label": "How likely are you to recommend this university to a friend?",
+    "type": "nps",
+    "required": false
+  },
+  {
+    "id": "a2d36e0a-6a6f-4ff5-a0e9-df5e9c6f0016",
+    "key": "study_hours",
+    "label": "How many hours a week do you study outside class?",
+    "type": "slider",
+    "required": false,
+    "validationConfigs": "[{\"validationType\":\"MinValue\",\"minValue\":0},{\"validationType\":\"MaxValue\",\"maxValue\":40}]"
+  },
+  {
     "id": "d9a03b7d-3d3c-4fc5-adb6-ac2b6f3c0013",
     "key": "comments",
     "label": "Anything else you would like to tell us?",

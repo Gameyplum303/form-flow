@@ -25,6 +25,9 @@ namespace FormFlow.Data.Models
 
         public List<Option> Options { get; set; } = new();
 
+        /// <summary>The statements of a likert grid, each rated on the scale in <see cref="Options"/>.</summary>
+        public List<Option> Rows { get; set; } = new();
+
         public VisibleIf? VisibleIf { get; set; }
 
         public string? ValidationConfigs { get; set; }

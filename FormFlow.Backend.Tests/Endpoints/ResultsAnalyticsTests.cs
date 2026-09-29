@@ -80,11 +80,11 @@ namespace FormFlow.Backend.Tests.Endpoints
         }
 
         [Theory]
-        [InlineData("filter=first_name:Ada", "filter", "Only yes/no, choice and rating questions")]
+        [InlineData("filter=first_name:Ada", "filter", "Only yes/no, choice, rating and NPS questions")]
         [InlineData("filter=nope:1", "filter", "no question with the key 'nope'")]
         [InlineData("filter=is_student:maybe", "filter", "'maybe' isn't one of the answers")]
         [InlineData("filter=is_student", "filter", "should be key:value")]
-        [InlineData("compareBy=age", "compareBy", "Only yes/no, choice and rating questions")]
+        [InlineData("compareBy=age", "compareBy", "Only yes/no, choice, rating and NPS questions")]
         [InlineData("from=yesterday", "from", "ISO 8601")]
         [InlineData("from=2026-09-02&to=2026-09-01", "to", "must be after")]
         [InlineData("utcOffset=9999", "utcOffset", "between -840 and 840")]
