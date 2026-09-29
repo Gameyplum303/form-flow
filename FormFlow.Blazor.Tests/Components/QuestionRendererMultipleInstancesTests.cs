@@ -6,24 +6,23 @@ using MudBlazor.Services;
 
 namespace FormFlow.Blazor.Tests.Components;
 
-public class QuestionRendererMultipleInstancesTests : BunitContext
+public class QuestionRendererMultipleInstancesTests
 {
-    public QuestionRendererMultipleInstancesTests()
+    [Fact]
+    public async Task MultipleInstancesInLoop_MaintainIndependentState()
     {
-        JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddMudServices();
-    }
+        // MudBlazor registers services that are only async-disposable, so the context is disposed with await using.
+        await using var ctx = new BunitContext();
+        ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        ctx.Services.AddMudServices();
 
-    [Fact(Skip = "Needs update after QuestionRenderer changes")]
-    public void MultipleInstancesInLoop_MaintainIndependentState()
-    {
         var questions = new List<QuestionDefinition>
         {
             CreateTextQuestion("first", "First", "First placeholder", "first default"),
             CreateTextQuestion("second", "Second", "Second placeholder", "second default")
         };
 
-        var cut = Render<QuestionRendererLoopHost>(parameters =>
+        var cut = ctx.Render<QuestionRendererLoopHost>(parameters =>
             parameters.Add(p => p.Questions, questions));
 
         var inputs = cut.FindAll("input");

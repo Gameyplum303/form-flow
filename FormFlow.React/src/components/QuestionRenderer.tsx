@@ -1,60 +1,181 @@
-import React from "react";
+import React, { useId, useState } from "react";
 import { QuestionDefinition } from "../types/QuestionDefinition";
+import { parseBool } from "../logic/visibility";
 
 export interface QuestionRendererProps {
     question: QuestionDefinition;
+    /** The current answer. Omit (with onChange) to let the component manage its own state. */
+    value?: string[];
+    onChange?: (values: string[]) => void;
+    /** A validation message to show under the question. */
+    error?: string;
 }
 
-export class QuestionRenderer extends React.PureComponent<QuestionRendererProps> {
-    private static nextInstanceNumber = 0;
+function initialValue(question: QuestionDefinition): string[] {
+    const raw = question.defaultValue;
+    return raw === undefined || raw === null || raw === "" ? [] : [String(raw)];
+}
 
-    private readonly instanceId: number;
+/**
+ * Renders one question with the input that fits its type. It works standalone or as a
+ * controlled input inside a form when `value` and `onChange` are passed.
+ */
+export function QuestionRenderer({ question, value, onChange, error }: QuestionRendererProps) {
+    const inputId = `question-${question.key}-${useId().replace(/:/g, "")}`;
+    const helpTextId = question.helpText ? `${inputId}-help` : undefined;
+    const errorId = error ? `${inputId}-error` : undefined;
+    const describedBy = [helpTextId, errorId].filter(Boolean).join(" ") || undefined;
 
-    public constructor(props: QuestionRendererProps) {
-        super(props);
-        QuestionRenderer.nextInstanceNumber += 1;
-        this.instanceId = QuestionRenderer.nextInstanceNumber;
-    }
+    const [ownValue, setOwnValue] = useState<string[]>(() => initialValue(question));
+    const controlled = onChange !== undefined;
+    const current = controlled ? value ?? [] : ownValue;
+    const single = current[0] ?? "";
 
-    public render(): React.ReactNode {
-        const { question } = this.props;
-        const inputId = `question-${question.id}-${question.key}-${this.instanceId}`;
-        const helpTextId = question.helpText ? `${inputId}-help` : undefined;
+    const update = (next: string[]) => {
+        const cleaned = next.filter((v) => v !== "");
+        if (controlled) {
+            onChange!(cleaned);
+        } else {
+            setOwnValue(cleaned);
+        }
+    };
 
-        return (
-            <div style={{
-                maxWidth: "400px",
-                marginBottom: "1rem",
-                padding: "16px",
-            }}>
-                <label htmlFor={inputId} style={{ display: "block", fontWeight: 600, marginBottom: "4px" }}>
-                    {question.label}
-                    {question.required && (
-                        <span style={{ color: "red", marginLeft: "4px" }}>*</span>
-                    )}
-                </label>
+    const toggle = (optionValue: string, checked: boolean) => {
+        const selected = new Set(current);
+        if (checked) {
+            selected.add(optionValue);
+        } else {
+            selected.delete(optionValue);
+        }
+        // Keep option order so stored answers are stable.
+        update((question.options ?? []).map((o) => o.value).filter((v) => selected.has(v)));
+    };
 
+    const requiredMark = question.required ? (
+        <span className="required" aria-hidden="true">*</span>
+    ) : null;
+
+    const type = question.type.toLowerCase();
+    const options = question.options ?? [];
+    const usesGroup = type === "yes_no" || type === "radio" || type === "multiselect"
+        || (type === "checkbox" && options.length > 0);
+
+    let input: React.ReactNode;
+    switch (type) {
+        case "number":
+        case "text":
+            input = (
                 <input
                     id={inputId}
-                    type="text"
+                    type={type === "number" ? "number" : "text"}
                     placeholder={question.placeholder}
                     required={question.required}
-                    defaultValue={question.defaultValue ?? undefined}
-                    aria-describedby={helpTextId}
-                    style={{
-                        padding: "8px",
-                        borderRadius: "4px",
-                        border: "1px solid #ccc",
-                        width: "100%"
-                    }}
+                    value={single}
+                    onChange={(e) => update([e.target.value])}
+                    aria-describedby={describedBy}
+                    aria-invalid={error ? true : undefined}
                 />
+            );
+            break;
+        case "dropdown":
+            input = (
+                <select
+                    id={inputId}
+                    required={question.required}
+                    value={single}
+                    onChange={(e) => update([e.target.value])}
+                    aria-describedby={describedBy}
+                    aria-invalid={error ? true : undefined}
+                >
+                    <option value="">{question.placeholder ?? "Select..."}</option>
+                    {options.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                </select>
+            );
+            break;
+        case "yes_no": {
+            const answer = parseBool(single);
+            input = [
+                { label: "Yes", value: "true", checked: answer === true },
+                { label: "No", value: "false", checked: answer === false },
+            ].map((o) => (
+                <label key={o.value} className="choice">
+                    <input type="radio" name={inputId} value={o.value} checked={o.checked}
+                        onChange={() => update([o.value])} />
+                    {o.label}
+                </label>
+            ));
+            break;
+        }
+        case "radio":
+            input = options.map((o) => (
+                <label key={o.value} className="choice">
+                    <input type="radio" name={inputId} value={o.value} checked={single === o.value}
+                        onChange={() => update([o.value])} />
+                    {o.label}
+                </label>
+            ));
+            break;
+        case "checkbox":
+            if (options.length === 0) {
+                // A checkbox without options is a single tick box.
+                input = (
+                    <input id={inputId} type="checkbox" checked={parseBool(single) === true}
+                        onChange={(e) => update([e.target.checked ? "true" : "false"])}
+                        aria-describedby={describedBy} />
+                );
+                break;
+            }
+            input = options.map((o) => (
+                <label key={o.value} className="choice">
+                    <input type="checkbox" value={o.value} checked={current.includes(o.value)}
+                        onChange={(e) => toggle(o.value, e.target.checked)} />
+                    {o.label}
+                </label>
+            ));
+            break;
+        case "multiselect":
+            input = options.map((o) => (
+                <label key={o.value} className="choice">
+                    <input type="checkbox" value={o.value} checked={current.includes(o.value)}
+                        onChange={(e) => toggle(o.value, e.target.checked)} />
+                    {o.label}
+                </label>
+            ));
+            break;
+        default:
+            input = <p className="error">Unsupported question type: {question.type}</p>;
+    }
 
-                {question.helpText && (
-                    <small id={helpTextId} style={{ display: "block", marginTop: "4px", color: "#666" }}>
-                        {question.helpText}
-                    </small>
-                )}
-            </div>
+    const footer = (
+        <>
+            {question.helpText && (
+                <small id={helpTextId} className="help">{question.helpText}</small>
+            )}
+            {error && (
+                <small id={errorId} className="error" role="alert">{error}</small>
+            )}
+        </>
+    );
+
+    if (usesGroup) {
+        return (
+            <fieldset className={`question${error ? " has-error" : ""}`} aria-describedby={describedBy}>
+                <legend>{question.label}{requiredMark}</legend>
+                <div className="choices">{input}</div>
+                {footer}
+            </fieldset>
         );
     }
+
+    return (
+        <div className={`question${error ? " has-error" : ""}`}>
+            <label htmlFor={inputId} className="question-label">
+                {question.label}{requiredMark}
+            </label>
+            {input}
+            {footer}
+        </div>
+    );
 }

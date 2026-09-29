@@ -138,7 +138,7 @@ namespace FormFlow.Blazor.Tests.Admin
             var cut = Render<AdminSurveyPreview>(parameters =>
                 parameters.Add(p => p.Id, surveyId));
 
-            cut.Markup.Should().Contain("mud-progress-circular");
+            cut.WaitForAssertion(() => cut.Markup.Should().Contain("Survey not found"));
         }
     }
 }

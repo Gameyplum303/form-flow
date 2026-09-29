@@ -6,6 +6,9 @@ namespace FormFlow.Blazor.Services
     public interface IQuestionService
     {
         Task<List<QuestionDefinition>?> GetAllQuestionsAsync();
+        Task<QuestionDefinition?> GetQuestionAsync(Guid id);
         Task<(bool Success, string? Error)> CreateQuestionAsync(NewQuestion newQuestion);
+        Task<(bool Success, string? Error)> UpdateQuestionAsync(Guid id, NewQuestion question);
+        Task<(bool Success, string? Error)> DeleteQuestionAsync(Guid id);
     }
 }

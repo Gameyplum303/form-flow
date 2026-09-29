@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using FormFlow.Data.Validation.Models;
@@ -23,7 +24,7 @@ public class QuestionValidationEngine
 
         foreach (var ruleObj in ruleObjects)
         {
-            JsonObject json = JsonNode.Parse(ruleObj?.ToString()?.Trim('"'))?.AsObject() ?? new JsonObject();
+            JsonObject json = JsonNode.Parse(ruleObj?.ToString()?.Trim('"') ?? "{}")?.AsObject() ?? new JsonObject();
 
             json.TryGetPropertyValue("validationType", out var typeNode);
             string? type = typeNode?.GetValue<string>();
@@ -43,7 +44,7 @@ public class QuestionValidationEngine
                     break;
 
                 case "MinValue":
-                    if (int.TryParse(response, out int minVal))
+                    if (TryParseNumber(response, out decimal minVal))
                     {
                         var minValCfg = JsonSerializer.Deserialize<MinValueValidationConfig>(json.ToJsonString(), options);
                         if (minValCfg != null && minVal < minValCfg.MinValue)
@@ -53,7 +54,7 @@ public class QuestionValidationEngine
                     break;
 
                 case "MaxValue":
-                    if (int.TryParse(response, out int maxVal))
+                    if (TryParseNumber(response, out decimal maxVal))
                     {
                         var maxValCfg = JsonSerializer.Deserialize<MaxValueValidationConfig>(json.ToJsonString(), options);
                         if (maxValCfg != null && maxVal > maxValCfg.MaxValue)
@@ -63,7 +64,7 @@ public class QuestionValidationEngine
                     break;
 
                 case "Range":
-                    if (int.TryParse(response, out int rangeVal))
+                    if (TryParseNumber(response, out decimal rangeVal))
                     {
                         var rangeCfg = JsonSerializer.Deserialize<RangeValidationConfig>(json.ToJsonString(), options);
                         if (rangeCfg != null && (rangeVal < rangeCfg.MinValue || rangeVal > rangeCfg.MaxValue))
@@ -80,4 +81,7 @@ public class QuestionValidationEngine
 
         return errorMessages.Count == 0;
     }
+
+    private static bool TryParseNumber(string? response, out decimal value) =>
+        decimal.TryParse(response, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
 }

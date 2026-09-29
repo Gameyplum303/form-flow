@@ -1,0 +1,107 @@
+@page "/admin/surveys/{Id:guid}/results"
+@using FormFlow.Blazor.Services
+@inject ISurveyService SurveyService
+
+<PageTitle>Survey Results</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_results is null)
+{
+    <MudAlert Severity="Severity.Warning">Survey not found.</MudAlert>
+}
+else
+{
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <div>
+            <MudText Typo="Typo.h4">@_results.Title</MudText>
+            <MudText Typo="Typo.subtitle1">
+                @_results.TotalResponses @(_results.TotalResponses == 1 ? "response" : "responses")
+                @if (_results.LastSubmittedAt is { } last)
+                {
+                    <span>, latest @last.ToLocalTime().ToString("g")</span>
+                }
+            </MudText>
+        </div>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Outlined" Href="@($"/surveys/{Id}")" Target="_blank">Open survey</MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Download"
+                       Href="@SurveyService.ExportUrl(Id)"
+                       Disabled="_results.TotalResponses == 0">
+                Download CSV
+            </MudButton>
+        </MudStack>
+    </MudStack>
+
+    @if (_results.TotalResponses == 0)
+    {
+        <MudAlert Severity="Severity.Info">No responses yet. Share the survey link to start collecting answers.</MudAlert>
+    }
+    else
+    {
+        <MudStack Spacing="3">
+            @foreach (var question in _results.Questions)
+            {
+                <MudPaper Class="pa-4" Elevation="1" data-result-key="@question.Key">
+                    <MudText Typo="Typo.h6">@question.Label</MudText>
+                    <MudText Typo="Typo.caption" Class="mb-2 d-block">
+                        @question.Type · answered by @question.AnsweredCount of @_results.TotalResponses
+                    </MudText>
+
+                    @if (question.Options.Count > 0)
+                    {
+                        var total = Math.Max(1, question.Options.Sum(o => o.Count));
+                        @foreach (var option in question.Options)
+                        {
+                            var percent = option.Count * 100.0 / total;
+                            <div class="result-row">
+                                <span class="result-label">@option.Label</span>
+                                <MudProgressLinear Value="percent" Color="Color.Primary" Size="Size.Large" Class="result-bar" />
+                                <span class="result-count">@option.Count (@percent.ToString("0")%)</span>
+                            </div>
+                        }
+                    }
+                    else if (question.Numbers is { } numbers)
+                    {
+                        <MudStack Row="true" Spacing="6">
+                            <div><MudText Typo="Typo.caption">Average</MudText><MudText Typo="Typo.h6">@numbers.Average</MudText></div>
+                            <div><MudText Typo="Typo.caption">Min</MudText><MudText Typo="Typo.h6">@numbers.Min</MudText></div>
+                            <div><MudText Typo="Typo.caption">Max</MudText><MudText Typo="Typo.h6">@numbers.Max</MudText></div>
+                        </MudStack>
+                    }
+                    else if (question.RecentAnswers.Count > 0)
+                    {
+                        <MudText Typo="Typo.caption">Most recent answers</MudText>
+                        <ul class="mb-0">
+                            @foreach (var answer in question.RecentAnswers)
+                            {
+                                <li>@answer</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2">No answers.</MudText>
+                    }
+                </MudPaper>
+            }
+        </MudStack>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private SurveyResults? _results;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _results = await SurveyService.GetResultsAsync(Id);
+        _loading = false;
+    }
+}

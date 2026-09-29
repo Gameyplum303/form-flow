@@ -20,6 +20,21 @@ file sealed class FakeQuestionService : IQuestionService
     public Task<List<QuestionDefinition>?> GetAllQuestionsAsync()
         => Task.FromResult<List<QuestionDefinition>?>(new());
 
+    public QuestionDefinition? Existing { get; set; }
+    public NewQuestion? LastUpdate { get; private set; }
+
+    public Task<QuestionDefinition?> GetQuestionAsync(Guid id)
+        => Task.FromResult(Existing?.Id == id ? Existing : null);
+
+    public Task<(bool Success, string? Error)> UpdateQuestionAsync(Guid id, NewQuestion question)
+    {
+        LastUpdate = question;
+        return Task.FromResult(NextResult);
+    }
+
+    public Task<(bool Success, string? Error)> DeleteQuestionAsync(Guid id)
+        => Task.FromResult(NextResult);
+
     public Task<(bool Success, string? Error)> CreateQuestionAsync(NewQuestion newQuestion)
     {
         LastPayload = newQuestion;
@@ -204,6 +219,33 @@ public class AdminCreateQuestionTests
             cut.FindComponents<MudAlert>()
                 .Where(a => a.Instance.Severity == Severity.Error)
                 .Should().BeEmpty());
+    }
+
+    [Fact]
+    public async Task EditMode_LoadsQuestion_AndSavesWithUpdate()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = new QuestionDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = "age",
+            Label = "Age",
+            Type = "number",
+            ValidationConfigs = """[{"validationType":"MinValue","minValue":0},{"validationType":"MaxValue","maxValue":120}]"""
+        };
+
+        var cut = ctx.Render<AdminCreateQuestion>(p => p.Add(x => x.Id, fake.Existing.Id));
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Edit Question"));
+        var save = () => cut.FindComponents<MudButton>().Single(b => b.Markup.Contains("Save Changes"));
+        cut.WaitForAssertion(() => save().Instance.Disabled.Should().BeFalse());
+
+        await cut.InvokeAsync(() => save().Find("button").Click());
+
+        fake.LastUpdate.Should().NotBeNull();
+        fake.LastUpdate!.Key.Should().Be("age");
+        fake.LastUpdate.ValidationConfigs.Should().Contain("\"maxValue\":120");
     }
 
     private static BunitContext CreateContext()

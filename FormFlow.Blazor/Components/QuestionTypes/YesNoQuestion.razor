@@ -25,6 +25,10 @@
                 @Question.HelpText
             </div>
         }
+        @if (HasError)
+        {
+            <div class="question-error">@Error</div>
+        }
     </div>
 </MudPaper>
 
@@ -33,7 +37,11 @@
 
     protected override void OnParametersSet()
     {
-        if (_value is null &&
+        if (Value is not null)
+        {
+            _value = VisibilityEvaluator.TryParseBool(BoundValue, out var bound) ? bound : null;
+        }
+        else if (_value is null &&
             !string.IsNullOrWhiteSpace(Question.DefaultValue) &&
             bool.TryParse(Question.DefaultValue, out var parsedValue))
         {
@@ -44,6 +52,6 @@
     private Task OnValueChanged(bool? value)
     {
         _value = value;
-        return Task.CompletedTask;
+        return ReportAsync(value switch { true => "true", false => "false", null => null });
     }
 }

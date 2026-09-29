@@ -1,23 +1,68 @@
-@backend_HostAddress = http://localhost:5164
+@host = http://localhost:5164
+@questionId = b5d8f0e1-1c5b-4f7b-8cfa-6cab5f7fd001
+@surveyId = 00000000-0000-0000-0000-000000000000
 
-GET {{backend_HostAddress}}/weatherforecast/
+### List questions
+GET {{host}}/api/questions
 Accept: application/json
 
-###
+### Get one question
+GET {{host}}/api/questions/{{questionId}}
 
-POST {{backend_HostAddress}}/api/questions
+### Create a question
+POST {{host}}/api/questions
 Content-Type: application/json
 
 {
-  "key": "test",
-  "label": "test",
-  "type": "text",
-  "required": true
+  "key": "favorite_language",
+  "label": "Favorite programming language",
+  "type": "radio",
+  "required": true,
+  "options": [
+    { "label": "C#", "value": "csharp" },
+    { "label": "TypeScript", "value": "typescript" }
+  ]
 }
 
-###
+### Create a question that only shows for students
+POST {{host}}/api/questions
+Content-Type: application/json
 
-GET {{backend_HostAddress}}/api/questions
-Accept: application/json
+{
+  "key": "graduation_year",
+  "label": "Expected graduation year",
+  "type": "number",
+  "visibleIf": { "key": "is_student", "shouldEqual": true },
+  "validationConfigs": "[{\"validationType\":\"Range\",\"minValue\":2020,\"maxValue\":2040}]"
+}
 
-###
+### List surveys (copy an id into @surveyId above)
+GET {{host}}/api/surveys
+
+### A survey's questions, in order
+GET {{host}}/api/surveys/{{surveyId}}/questions
+
+### Submit answers
+POST {{host}}/api/surveys/{{surveyId}}/responses
+Content-Type: application/json
+
+{
+  "answers": {
+    "first_name": "Ada",
+    "last_name": "Lovelace",
+    "email": "ada@example.com",
+    "age": 28,
+    "is_student": true,
+    "study_level": "master",
+    "contact_method": "email",
+    "subscribe_newsletter": true,
+    "skills": ["csharp", "sql"],
+    "campus_preference": "north"
+  }
+}
+
+### Aggregated results
+GET {{host}}/api/surveys/{{surveyId}}/results
+
+### Download responses as CSV
+GET {{host}}/api/surveys/{{surveyId}}/responses/export
