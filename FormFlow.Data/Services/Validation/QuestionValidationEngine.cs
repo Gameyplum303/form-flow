@@ -24,7 +24,7 @@ public class QuestionValidationEngine
 
         foreach (var ruleObj in ruleObjects)
         {
-            JsonObject json = JsonNode.Parse(ruleObj?.ToString()?.Trim('"'))?.AsObject() ?? new JsonObject();
+            JsonObject json = JsonNode.Parse(ruleObj?.ToString()?.Trim('"') ?? "{}")?.AsObject() ?? new JsonObject();
 
             json.TryGetPropertyValue("validationType", out var typeNode);
             string? type = typeNode?.GetValue<string>();

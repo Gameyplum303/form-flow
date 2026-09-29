@@ -24,7 +24,7 @@ public class QuestionValidatorTests
     {
         var result = _validator.ValidateJson(string.Empty);
         Assert.False(result.Valid);
-        Assert.Contains(result.Errors, e => e.Message.Contains("empty"));
+        Assert.Contains(result.Errors, e => e.Message != null && e.Message.Contains("empty"));
     }
 }
 

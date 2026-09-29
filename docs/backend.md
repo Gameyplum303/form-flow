@@ -10,7 +10,7 @@
 |---|---|---|
 | `ConnectionStrings:LiteDb` | `Filename=formflow.db;Connection=shared` | Where LiteDB stores data |
 | `SeedData:DemoSurvey` | `true` | Create the demo survey on first start |
-| `DisableHttpsRedirection` | not set | Set to `true` to serve plain HTTP without redirecting, for example behind a proxy that terminates TLS |
+| `DisableHttpsRedirection` | `true` in Development, otherwise not set | Serve plain HTTP without redirecting to HTTPS. On in Development so the React app can call `http://localhost:5164`; also useful behind a proxy that terminates TLS |
 
 Any setting can be overridden on the command line (`dotnet run --SeedData:DemoSurvey=false`) or with environment variables (`SeedData__DemoSurvey=false`).
 
