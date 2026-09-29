@@ -11,6 +11,7 @@ namespace FormFlow.Backend.Repositories
 
         public SurveyRepository(ILiteDatabase db)
         {
+            LiteDbMappings.EnsureBuilt();
             _surveys = db.GetCollection<SurveyDefinition>(CollectionName);
 
             _surveys.EnsureIndex(s => s.Id, true);
