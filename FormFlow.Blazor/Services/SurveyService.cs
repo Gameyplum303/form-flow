@@ -116,17 +116,17 @@ namespace FormFlow.Blazor.Services
             }
         }
 
-        public async Task<SurveyResults?> GetResultsAsync(Guid surveyId)
+        public async Task<SurveyResults?> GetResultsAsync(Guid surveyId, ResultsQuery? query = null)
         {
-            var response = await Client.GetAsync($"api/surveys/{surveyId}/results");
+            var response = await Client.GetAsync(WithQuery($"api/surveys/{surveyId}/results", query));
             return response.StatusCode == HttpStatusCode.OK
                 ? await response.Content.ReadFromJsonAsync<SurveyResults>()
                 : null;
         }
 
-        public async Task<CsvExport?> ExportResponsesAsync(Guid surveyId)
+        public async Task<CsvExport?> ExportResponsesAsync(Guid surveyId, ResultsQuery? query = null)
         {
-            var response = await Client.GetAsync($"api/surveys/{surveyId}/responses/export");
+            var response = await Client.GetAsync(WithQuery($"api/surveys/{surveyId}/responses/export", query));
             if (response.StatusCode != HttpStatusCode.OK)
             {
                 return null;
@@ -137,6 +137,9 @@ namespace FormFlow.Blazor.Services
             return new CsvExport(string.IsNullOrWhiteSpace(fileName) ? "responses.csv" : fileName,
                 await response.Content.ReadAsByteArrayAsync());
         }
+
+        private static string WithQuery(string path, ResultsQuery? query) =>
+            query?.ToQueryString() is { Length: > 0 } queryString ? $"{path}?{queryString}" : path;
 
         private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
         {

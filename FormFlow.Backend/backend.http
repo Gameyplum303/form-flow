@@ -97,8 +97,20 @@ Content-Type: application/json
 GET {{host}}/api/surveys/{{surveyId}}/results
 Authorization: Bearer {{token}}
 
+### Results for students only, compared by study level, with the timeline in US Eastern daylight time
+GET {{host}}/api/surveys/{{surveyId}}/results?filter=is_student:true&compareBy=study_level&utcOffset=-240
+Authorization: Bearer {{token}}
+
+### Results for one week
+GET {{host}}/api/surveys/{{surveyId}}/results?from=2026-09-01T00:00:00Z&to=2026-09-08T00:00:00Z
+Authorization: Bearer {{token}}
+
 ### Download responses as CSV
 GET {{host}}/api/surveys/{{surveyId}}/responses/export
+Authorization: Bearer {{token}}
+
+### Download only the students' responses as CSV
+GET {{host}}/api/surveys/{{surveyId}}/responses/export?filter=is_student:true
 Authorization: Bearer {{token}}
 
 ### Ask for a password reset link (without SMTP, read it from the outbox below)

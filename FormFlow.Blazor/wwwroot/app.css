@@ -78,6 +78,82 @@ h1:focus {
     font-variant-numeric: tabular-nums;
 }
 
+.analysis-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    align-items: flex-end;
+}
+
+.analysis-controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.analysis-input {
+    min-height: 40px;
+    min-width: 180px;
+    max-width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: var(--mud-default-borderradius);
+    background: var(--mud-palette-surface);
+    color: var(--mud-palette-text-primary);
+    font: inherit;
+    font-size: 0.95rem;
+}
+
+.analysis-input:focus {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 1px;
+}
+
+.timeline {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 140px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+}
+
+.timeline-slot {
+    flex: 1 1 0;
+    min-width: 2px;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+}
+
+.timeline-slot:hover .timeline-bar {
+    background: var(--mud-palette-primary-darken);
+}
+
+.timeline-bar {
+    width: 100%;
+    background: var(--mud-palette-primary);
+    border-radius: 2px 2px 0 0;
+}
+
+.timeline-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--mud-palette-text-secondary);
+    margin-top: 4px;
+}
+
+.comparison th, .comparison td {
+    font-variant-numeric: tabular-nums;
+}
+
+.comparison-n {
+    font-weight: normal;
+    color: var(--mud-palette-text-secondary);
+}
+
 .share-qr svg {
     width: 200px;
     height: 200px;

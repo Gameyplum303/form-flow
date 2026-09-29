@@ -87,9 +87,25 @@ public sealed class FakeSurveyService : ISurveyService
     public Task<bool> HasAnsweredAsync(Guid surveyId, string respondentId) =>
         Task.FromResult(Answered.Contains((surveyId, respondentId)));
 
-    public Task<SurveyResults?> GetResultsAsync(Guid surveyId) => Task.FromResult(Results);
+    /// <summary>Every query the results page asked for, in order.</summary>
+    public List<ResultsQuery?> ResultsQueries { get; } = new();
+
+    /// <summary>Answers each results request; defaults to returning <see cref="Results"/>.</summary>
+    public Func<ResultsQuery?, SurveyResults?>? ResultsFor { get; set; }
+
+    public Task<SurveyResults?> GetResultsAsync(Guid surveyId, ResultsQuery? query = null)
+    {
+        ResultsQueries.Add(query);
+        return Task.FromResult(ResultsFor is null ? Results : ResultsFor(query));
+    }
+
+    public ResultsQuery? LastExportQuery { get; private set; }
 
     public CsvExport? Export { get; set; }
 
-    public Task<CsvExport?> ExportResponsesAsync(Guid surveyId) => Task.FromResult(Export);
+    public Task<CsvExport?> ExportResponsesAsync(Guid surveyId, ResultsQuery? query = null)
+    {
+        LastExportQuery = query;
+        return Task.FromResult(Export);
+    }
 }
