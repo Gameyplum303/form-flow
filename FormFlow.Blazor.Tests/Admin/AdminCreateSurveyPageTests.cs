@@ -84,7 +84,8 @@ public class AdminCreateSurveyPageTests
         cut.WaitForAssertion(() => _surveys.LastCreated.Should().NotBeNull());
         _surveys.LastCreated!.Title.Should().Be("Campus life");
         _surveys.LastCreated.QuestionIds.Should().Equal(_isStudent.Id, _campus.Id);
-        ctx.Services.GetRequiredService<NavigationManager>().Uri.Should().EndWith("/admin/surveys");
+        var nav = ctx.Services.GetRequiredService<NavigationManager>();
+        cut.WaitForAssertion(() => nav.Uri.Should().EndWith("/admin/surveys"));
     }
 
     [Fact]
