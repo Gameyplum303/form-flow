@@ -39,6 +39,12 @@ namespace FormFlow.Data.Models
         public bool Listed { get; set; } = true;
         public string? ShareCode { get; set; }
         public DateTime? ClosesAt { get; set; }
+
+        // Ids of the questions that start a new page
+        public List<Guid> PageBreaks { get; set; } = [];
+
+        // A read-only template that builders copy (never listed, answered or shared)
+        public bool IsTemplate { get; set; }
     }
 }
 ```
@@ -48,9 +54,11 @@ namespace FormFlow.Data.Models
 * **Id** is the LiteDB primary key.
 * **QuestionIds** preserves question order — the order of GUIDs is the order questions appear in the survey.
 * All fields are **required** and enforced by C# 11 `required` properties.
-* Clients create and update surveys with the `NewSurvey` body (`title`, `description`, `questionIds`). The API sets `id` and `createdAt`. See [api.md](api.md#surveys).
+* Clients create and update surveys with the `NewSurvey` body (`title`, `description`, `questionIds`, optional `pageBreaks`). The API sets `id` and `createdAt`. See [api.md](api.md#surveys).
 * Missing required fields during JSON deserialization will throw a `JsonException`.
 * **Status**, **Listed**, **ShareCode** and **ClosesAt** are the sharing settings. The defaults (published and listed) describe surveys stored before sharing existed; the API creates new surveys as unlisted drafts. See [api.md](api.md#sharing).
+* **PageBreaks** lists the questions that start a new page. It is empty for a one-page survey, and the API keeps only questions in the survey other than the first, in survey order. See [api.md](api.md#pages).
+* **IsTemplate** marks the seeded templates. See [api.md](api.md#templates).
 
 ---
 
@@ -63,6 +71,8 @@ namespace FormFlow.Data.Models
 | `description` | `Description` | `string`     | Yes      | Survey description           |
 | `questionIds` | `QuestionIds` | `List<Guid>` | Yes      | Ordered list of question IDs |
 | `createdAt`   | `CreatedAt`   | `DateTime`   | Yes      | ISO 8601 timestamp           |
+| `pageBreaks`  | `PageBreaks`  | `List<Guid>` | No       | Questions that start a page  |
+| `isTemplate`  | `IsTemplate`  | `bool`       | No       | A seeded, read-only template |
 
 ### Casing Behavior
 
