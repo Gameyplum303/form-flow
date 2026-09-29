@@ -16,6 +16,15 @@
             ["Question"] = Question
         };
 
+        // Only bind when a parent form tracks the answer, so standalone
+        // components keep managing their own state.
+        if (ValueChanged.HasDelegate)
+        {
+            parameters["Value"] = Value ?? Array.Empty<string>();
+            parameters["ValueChanged"] = ValueChanged;
+            parameters["Error"] = Error;
+        }
+
         <DynamicComponent
             Type="componentType"
             @key="Question.Id"
@@ -26,5 +35,13 @@
 @code {
     [Parameter, EditorRequired]
     public QuestionDefinition? Question { get; set; }
-}
 
+    [Parameter]
+    public IReadOnlyList<string>? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<IReadOnlyList<string>> ValueChanged { get; set; }
+
+    [Parameter]
+    public string? Error { get; set; }
+}

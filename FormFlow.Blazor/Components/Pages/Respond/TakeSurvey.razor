@@ -1,0 +1,121 @@
+@page "/surveys/{Id:guid}"
+@using FormFlow.Blazor.Services
+@inject ISurveyService SurveyService
+
+<PageTitle>@(_survey?.Title ?? "Survey")</PageTitle>
+
+<MudPaper Class="pa-6" Elevation="2" MaxWidth="720px">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_survey is null)
+    {
+        <MudAlert Severity="Severity.Warning">This survey does not exist or is no longer available.</MudAlert>
+        <MudButton Class="mt-4" Variant="Variant.Text" Href="/surveys">Back to surveys</MudButton>
+    }
+    else if (_submitted)
+    {
+        <MudText Typo="Typo.h4" Class="mb-2">Thank you!</MudText>
+        <MudText Class="mb-4">Your answers to "@_survey.Title" were recorded.</MudText>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartOver">Submit another response</MudButton>
+            <MudButton Variant="Variant.Text" Href="/surveys">Back to surveys</MudButton>
+        </MudStack>
+    }
+    else
+    {
+        <MudText Typo="Typo.h4" Class="mb-1">@_survey.Title</MudText>
+        <MudText Typo="Typo.body1" Class="mb-4">@_survey.Description</MudText>
+
+        @if (_message is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_message</MudAlert>
+        }
+
+        <SurveyForm Questions="_questions" Answers="_answers" Errors="_errors" AnswersChanged="OnAnswersChanged" />
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="_submitting"
+                   OnClick="SubmitAsync"
+                   Class="mt-2">
+            @if (_submitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Submitting...</span>
+            }
+            else
+            {
+                <span>Submit</span>
+            }
+        </MudButton>
+    }
+</MudPaper>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private SurveyDefinition? _survey;
+    private List<QuestionDefinition> _questions = [];
+    private Dictionary<string, List<string>> _answers = new();
+    private IReadOnlyDictionary<string, string[]>? _errors;
+    private string? _message;
+    private bool _loading = true;
+    private bool _submitting;
+    private bool _submitted;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _survey = await SurveyService.GetSurveyAsync(Id);
+            if (_survey is not null)
+            {
+                _questions = await SurveyService.GetSurveyQuestionsAsync(Id);
+                StartOver();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _survey = null;
+        }
+        _loading = false;
+    }
+
+    private void StartOver()
+    {
+        _answers = new();
+        foreach (var question in _questions.Where(q => !string.IsNullOrWhiteSpace(q.DefaultValue)))
+        {
+            _answers[question.Key] = [question.DefaultValue!];
+        }
+        _errors = null;
+        _message = null;
+        _submitted = false;
+    }
+
+    private void OnAnswersChanged()
+    {
+        // Clear an error as soon as the respondent changes answers; the server re-checks on submit.
+        _message = null;
+    }
+
+    private async Task SubmitAsync()
+    {
+        _submitting = true;
+        _message = null;
+
+        var result = await SurveyService.SubmitResponseAsync(Id, _answers);
+        _submitting = false;
+
+        if (result.Success)
+        {
+            _submitted = true;
+            return;
+        }
+
+        _errors = result.Errors;
+        _message = result.Message ?? "Your answers could not be submitted.";
+    }
+}

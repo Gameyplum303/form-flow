@@ -10,8 +10,8 @@
             }
         </label>
         <MudRadioGroup T="string"
-                       @bind-SelectedOption="_value"
-                       Required="@Question.Required"
+                       Value="_value"
+                       ValueChanged="OnChanged"
                        Class="my-input">
 
             @if (Question.Options is not null)
@@ -24,6 +24,16 @@
                 }
             }
         </MudRadioGroup>
+        @if (!string.IsNullOrWhiteSpace(Question.HelpText))
+        {
+            <div style="font-size: 0.8rem; color: #666; margin-top: 4px;">
+                @Question.HelpText
+            </div>
+        }
+        @if (HasError)
+        {
+            <div class="question-error">@Error</div>
+        }
     </div>
 </MudPaper>
 @code {
@@ -31,9 +41,19 @@
   
     protected override void OnParametersSet()
     {
-        if (_value is null && Question.DefaultValue is not null)
+        if (Value is not null)
+        {
+            _value = BoundValue;
+        }
+        else if (_value is null && Question.DefaultValue is not null)
         {
             _value = Question.DefaultValue;
         }
+    }
+
+    private Task OnChanged(string? value)
+    {
+        _value = value;
+        return ReportAsync(value);
     }
 }

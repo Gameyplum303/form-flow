@@ -1,6 +1,10 @@
 @page "/admin/surveys"
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Survey Management</PageTitle>
 
 <MudPaper Class="pa-6" Elevation="2">
 
@@ -47,19 +51,34 @@
                 <MudTd>@context.QuestionIds.Count</MudTd>
 
                 <MudTd>
-                    <MudStack Row="true" Spacing="2" Class="mb-4" >
+                    <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
 
                         <MudButton Variant="Variant.Filled"
                                 Color="Color.Primary"
-                                OnClick="@(_ => { })">
-                            Edit        
+                                Size="Size.Small"
+                                OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/edit"))">
+                            Edit
                         </MudButton>
 
                         <MudButton Variant="Variant.Filled"
                                 Color="Color.Primary"
+                                Size="Size.Small"
                                 OnClick="@(_ => PreviewSurvey(context.Id))">
                             Preview 
                         </MudButton>
+
+                        <MudButton Variant="Variant.Filled"
+                                Color="Color.Secondary"
+                                Size="Size.Small"
+                                OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/results"))">
+                            Results
+                        </MudButton>
+
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                Color="Color.Error"
+                                Size="Size.Small"
+                                aria-label="@($"Delete {context.Title}")"
+                                OnClick="@(_ => DeleteSurvey(context))" />
 
                     </MudStack>
                 </MudTd>
@@ -82,9 +101,32 @@
         surveys = await client.GetFromJsonAsync<List<SurveyDefinition>>("api/surveys");
     }
 
-    private async Task PreviewSurvey(Guid Id)
+    private void PreviewSurvey(Guid Id)
     {
         Nav.NavigateTo($"/admin/surveys/{Id}/preview");
     }
+
+    private async Task DeleteSurvey(SurveyDefinition survey)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete survey",
+            $"Delete \"{survey.Title}\" and all of its responses? This cannot be undone.",
+            yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var client = HttpClientFactory.CreateClient("AdminApi");
+        var response = await client.DeleteAsync($"api/surveys/{survey.Id}");
+        if (response.IsSuccessStatusCode)
+        {
+            surveys?.Remove(survey);
+            Snackbar.Add($"Deleted \"{survey.Title}\".", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("The survey could not be deleted.", Severity.Error);
+        }
+    }
 }
-    

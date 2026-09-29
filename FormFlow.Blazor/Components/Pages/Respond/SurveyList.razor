@@ -1,0 +1,60 @@
+@page "/surveys"
+@using FormFlow.Blazor.Services
+@inject ISurveyService SurveyService
+
+<PageTitle>Surveys</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Available surveys</MudText>
+
+@if (_surveys is null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_loadError is not null)
+{
+    <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+}
+else if (_surveys.Count == 0)
+{
+    <MudText>There are no surveys to take yet.</MudText>
+}
+else
+{
+    <MudGrid>
+        @foreach (var survey in _surveys)
+        {
+            <MudItem xs="12" md="6">
+                <MudCard Elevation="2">
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">@survey.Title</MudText>
+                        <MudText Typo="Typo.body2" Class="mb-2">@survey.Description</MudText>
+                        <MudText Typo="Typo.caption">@survey.QuestionIds.Count questions</MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@($"/surveys/{survey.Id}")">
+                            Take survey
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    private List<SurveyDefinition>? _surveys;
+    private string? _loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _surveys = await SurveyService.GetSurveysAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _surveys = [];
+            _loadError = "Could not reach the server. Is the backend running?";
+        }
+    }
+}

@@ -1,0 +1,53 @@
+@*
+    Renders a survey's questions, tracks the answers, and shows or hides
+    conditional questions as answers change. Used by the respondent page
+    and the admin preview.
+*@
+
+@foreach (var question in VisibleQuestions)
+{
+    <div class="mb-3" data-question-key="@question.Key">
+        <QuestionRenderer @key="question.Id"
+                          Question="question"
+                          Value="ValueFor(question.Key)"
+                          ValueChanged="values => OnAnswerChanged(question.Key, values)"
+                          Error="@ErrorFor(question.Key)" />
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<QuestionDefinition> Questions { get; set; } = [];
+
+    /// <summary>Answers keyed by question key. The form updates this dictionary in place.</summary>
+    [Parameter, EditorRequired]
+    public Dictionary<string, List<string>> Answers { get; set; } = new();
+
+    /// <summary>Server-side validation errors keyed by question key.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string[]>? Errors { get; set; }
+
+    [Parameter]
+    public EventCallback AnswersChanged { get; set; }
+
+    private IEnumerable<QuestionDefinition> VisibleQuestions
+    {
+        get
+        {
+            var visible = VisibilityEvaluator.VisibleKeys(Questions, Answers);
+            return Questions.Where(q => visible.Contains(q.Key));
+        }
+    }
+
+    private IReadOnlyList<string> ValueFor(string key) =>
+        Answers.TryGetValue(key, out var values) ? values : Array.Empty<string>();
+
+    private string? ErrorFor(string key) =>
+        Errors is not null && Errors.TryGetValue(key, out var messages) ? string.Join(" ", messages) : null;
+
+    private Task OnAnswerChanged(string key, IReadOnlyList<string> values)
+    {
+        Answers[key] = values.ToList();
+        return AnswersChanged.InvokeAsync();
+    }
+}

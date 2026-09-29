@@ -58,3 +58,22 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+.question-error {
+    color: var(--mud-palette-error, #f44336);
+    font-size: 0.8rem;
+    margin-top: 4px;
+}
+
+.result-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) 3fr auto;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.result-count {
+    min-width: 80px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
