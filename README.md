@@ -152,7 +152,7 @@ npm test                                  # React tests
 |---|---|---|
 | `FormFlow.Data.Tests` | 39 | Question rules, response validation, visibility chains and cycles |
 | `FormFlow.Backend.Tests` | 82 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, repositories, seeding, CSV escaping |
-| `FormFlow.Blazor.Tests` | 78 | Each question component, two-way binding, admin pages, taking a survey, results page |
+| `FormFlow.Blazor.Tests` | 79 | Each question component, two-way binding, admin pages, taking a survey, results page |
 | `FormFlow.React.Tests` | 20 | Visibility logic, the form component, and the app against a mocked API |
 
 CI runs all of these plus ESLint and `dotnet format --verify-no-changes` on every push and pull request. See [docs/testing.md](docs/testing.md).
