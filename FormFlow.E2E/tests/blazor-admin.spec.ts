@@ -245,7 +245,7 @@ test.describe.serial("Blazor: admin", () => {
         await expect(row.locator("[data-survey-status]")).toHaveText("Draft");
         await row.getByRole("button", { name: "Share" }).click();
         await expect(page).toHaveURL(/\/share$/);
-        await expect(page.locator(".page[data-interactive=true]")).toBeVisible();
+        await expect(page.getByRole("button", { name: "Save sharing settings" })).toBeVisible();
 
         const linkField = page.locator("input[data-share-link], [data-share-link] input").first();
         shareLink = await linkField.inputValue();
@@ -293,7 +293,9 @@ test.describe.serial("Blazor: admin", () => {
     test("closes the survey", async ({ browser }) => {
         await openBlazor(page, "/admin/surveys");
         await questionRow(page, surveyTitle).getByRole("button", { name: "Share" }).click();
-        await expect(page.locator(".page[data-interactive=true]")).toBeVisible();
+        // The survey list has status chips too, so wait until the Share page has replaced it.
+        await expect(page).toHaveURL(/\/share$/);
+        await expect(page.getByRole("button", { name: "Save sharing settings" })).toBeVisible();
         await expect(page.locator("[data-survey-status]")).toHaveText("Published, link only");
         const closeField = page.getByLabel("Stop taking answers at");
         await closeField.fill("2020-01-01T09:00");
