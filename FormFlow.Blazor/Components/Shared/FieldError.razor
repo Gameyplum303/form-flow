@@ -1,0 +1,13 @@
+@* Shows a form field's errors under it, keyed by the field's name in the API. *@
+@if (Errors.TryGetValue(Field, out var messages))
+{
+    @foreach (var message in messages)
+    {
+        <div class="question-error" data-field-error="@Field">@message</div>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyDictionary<string, string[]> Errors { get; set; } = default!;
+    [Parameter, EditorRequired] public string Field { get; set; } = default!;
+}

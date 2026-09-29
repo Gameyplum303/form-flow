@@ -72,11 +72,17 @@ export const professor = {
     password: process.env.PROFESSOR_PASSWORD ?? "password",
 };
 
-/** The student test account, which can only take surveys. Override with STUDENT_USERNAME and STUDENT_PASSWORD. */
-export const student = {
-    username: process.env.STUDENT_USERNAME ?? "student",
-    password: process.env.STUDENT_PASSWORD ?? "password",
-};
+/** A new professor/scientist sign-up, with an email unique to this run. */
+export function newSignUp(name: string) {
+    return {
+        name,
+        email: `${name.toLowerCase().replace(/[^a-z]/g, "")}.${runId}@lab.example`,
+        password: "analytical",
+        dateOfBirth: "1990-12-10",
+        intendedUse: `Surveys for ${name}'s studies.`,
+        organization: "Analytical Engines Lab",
+    };
+}
 
 const tokens = new Map<string, string>();
 
@@ -104,10 +110,7 @@ export async function submitSignIn(page: Page, username: string, password: strin
     await page.getByRole("button", { name: "Sign in" }).click();
 }
 
-/**
- * Signs in through the Blazor sign-in page. Admins and professors land on the survey builder,
- * students on the list of surveys. The sign-in lasts for this tab, across page loads.
- */
+/** Signs in through the Blazor sign-in page, landing on the survey builder. The sign-in lasts for this tab, across page loads. */
 export async function signIn(page: Page, account = admin, landsOn = /\/admin\/surveys$/) {
     await openBlazor(page, "/login");
     await submitSignIn(page, account.username, account.password);

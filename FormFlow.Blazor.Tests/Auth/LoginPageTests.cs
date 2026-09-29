@@ -85,17 +85,6 @@ public class LoginPageTests
         Login.SafeReturnUrl(returnUrl).Should().Be(expected);
     }
 
-    private sealed class FakeAuthService : IAuthService
-    {
-        public (LoginResponse? Login, string? Error) Result { get; set; } = (FakeSessionStorage.Login(), null);
-        public (string Username, string Password)? LastAttempt { get; private set; }
-
-        public Task<(LoginResponse? Login, string? Error)> LoginAsync(string username, string password)
-        {
-            LastAttempt = (username, password);
-            return Task.FromResult(Result);
-        }
-    }
     [Fact]
     public async Task Students_go_to_the_survey_list_instead_of_the_builder()
     {

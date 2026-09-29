@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { admin, adminHeaders, demoSurveyTitle, headersFor, professor, runId, student, surveyByTitle, urls } from "./helpers";
+import { admin, adminHeaders, demoSurveyTitle, headersFor, newSignUp, professor, runId, surveyByTitle, urls } from "./helpers";
 
 test.describe("API", () => {
     test("serves Swagger UI and the OpenAPI document", async ({ request }) => {
@@ -28,19 +28,38 @@ test.describe("API", () => {
         expect(await me.json()).toEqual({ id: expect.any(String), username: admin.username, role: "admin" });
     });
 
-    test("lets students take surveys but nothing else", async ({ request }) => {
-        const survey = await surveyByTitle(request, demoSurveyTitle);
-        const headers = await headersFor(request, student);
-        expect(await (await request.get(`${urls.api}/api/auth/me`, { headers })).json())
-            .toEqual(expect.objectContaining({ username: student.username, role: "student" }));
+    test("lets professors sign up, then sign in once an administrator approves them", async ({ request }) => {
+        const signUp = newSignUp("Api Ada");
+        const created = await request.post(`${urls.api}/api/auth/signup`, { data: signUp });
+        expect(created.status()).toBe(201);
+        expect(await created.json()).toEqual({ status: "pending" });
+        expect((await request.post(`${urls.api}/api/auth/signup`, { data: signUp })).status()).toBe(409);
 
-        expect((await request.get(`${urls.api}/api/surveys/${survey.id}/questions`, { headers })).status()).toBe(200);
-        expect((await request.get(`${urls.api}/api/surveys/${survey.id}/results`, { headers })).status()).toBe(403);
-        expect((await request.get(`${urls.api}/api/surveys/managed`, { headers })).status()).toBe(403);
-        expect((await request.post(`${urls.api}/api/questions`, {
-            headers, data: { key: `student_${runId}`, label: "Student", type: "text" },
-        })).status()).toBe(403);
-        expect((await request.delete(`${urls.api}/api/surveys/${survey.id}`, { headers })).status()).toBe(403);
+        const credentials = { username: signUp.email, password: signUp.password };
+        const waiting = await request.post(`${urls.api}/api/auth/login`, { data: credentials });
+        expect(waiting.status()).toBe(403);
+        expect((await waiting.json()).title).toBe("Your account is waiting for an administrator's approval.");
+
+        // Professors can't review sign-ups; administrators can.
+        expect((await request.get(`${urls.api}/api/accounts/pending`, { headers: await headersFor(request, professor) })).status()).toBe(403);
+        const headers = await adminHeaders(request);
+        const pending: { id: string; email: string; organization: string }[] =
+            await (await request.get(`${urls.api}/api/accounts/pending`, { headers })).json();
+        const ada = pending.find(p => p.email === signUp.email)!;
+        expect(ada.organization).toBe(signUp.organization);
+        expect((await request.post(`${urls.api}/api/accounts/${ada.id}/approve`, { headers })).status()).toBe(204);
+
+        const signedIn = await request.post(`${urls.api}/api/auth/login`, { data: credentials });
+        expect(signedIn.status()).toBe(200);
+        expect((await signedIn.json()).role).toBe("professor");
+    });
+
+    test("rejects incomplete sign-ups field by field", async ({ request }) => {
+        const response = await request.post(`${urls.api}/api/auth/signup`, { data: { email: "nope", password: "short" } });
+        expect(response.status()).toBe(400);
+        expect(Object.keys((await response.json()).errors)).toEqual(expect.arrayContaining([
+            "name", "email", "password", "dateOfBirth", "intendedUse", "organization",
+        ]));
     });
 
     test("lets professors manage only the surveys they created", async ({ request }) => {
@@ -62,13 +81,16 @@ test.describe("API", () => {
             expect(managed.map(s => s.id)).toContain(survey.id);
             expect(managed.map(s => s.id)).not.toContain(demo.id);
 
-            // A signed-in student's answers record who sent them.
+            // Students answer without an account; answers sent while signed in record who sent them.
             expect((await request.post(`${urls.api}/api/surveys/${survey.id}/responses`, {
-                headers: await headersFor(request, student), data: { answers: { first_name: "Ada" } },
+                data: { answers: { first_name: "Ada" } },
             })).status()).toBe(201);
-            const responses: { submittedBy: string }[] =
+            expect((await request.post(`${urls.api}/api/surveys/${survey.id}/responses`, {
+                headers, data: { answers: { first_name: "Trying it out" } },
+            })).status()).toBe(201);
+            const responses: { submittedBy: string | null }[] =
                 await (await request.get(`${urls.api}/api/surveys/${survey.id}/responses`, { headers })).json();
-            expect(responses.map(r => r.submittedBy)).toEqual([student.username]);
+            expect(responses.map(r => r.submittedBy ?? null)).toEqual([null, professor.username]);
 
             // Administrators can see and manage every survey.
             const adminManaged: { id: string }[] =

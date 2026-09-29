@@ -1,0 +1,141 @@
+@page "/signup"
+@using FormFlow.Blazor.Services
+@using FormFlow.Data.Models
+@using FormFlow.Data.Services
+@inject IAuthService AuthService
+
+<PageTitle>Sign up</PageTitle>
+
+<MudPaper Class="pa-6 mx-auto mt-10" MaxWidth="560px" Elevation="3">
+    <MudText Typo="Typo.h5" Class="mb-2">Sign up as a Professor/Scientist</MudText>
+
+    @if (_result is { Succeeded: true } result)
+    {
+        @if (result.Status == AccountStatuses.Pending)
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-4" data-signup-done>
+                Thanks, @_form.Name.Trim(). An administrator will review your sign-up. Once it's approved, you
+                can sign in with @_form.Email.Trim().
+            </MudAlert>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-4" data-signup-done>
+                Your account is ready. Sign in with @_form.Email.Trim().
+            </MudAlert>
+        }
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/login">Go to sign in</MudButton>
+    }
+    else
+    {
+        <MudText Class="mb-4">
+            Professors and scientists can build surveys and see the answers. Students don't need an account:
+            they can <MudLink Href="/surveys">take a survey</MudLink> straight away.
+        </MudText>
+
+        <EditForm Model="_form" OnSubmit="SubmitAsync">
+            <MudStack Spacing="3">
+                <div>
+                    <MudTextField @bind-Value="_form.Name" Label="Full name" Variant="Variant.Outlined" autocomplete="name"
+                                  MaxLength="SignUpValidator.MaxNameLength" />
+                    <FieldError Errors="_errors" Field="name" />
+                </div>
+                <div>
+                    <MudTextField @bind-Value="_form.Email" Label="Email" InputType="InputType.Email" Variant="Variant.Outlined"
+                                  autocomplete="email" HelperText="You'll sign in with this." />
+                    <FieldError Errors="_errors" Field="email" />
+                </div>
+                <div>
+                    <MudTextField @bind-Value="_form.Password" Label="Password" InputType="InputType.Password"
+                                  Variant="Variant.Outlined" autocomplete="new-password"
+                                  HelperText="@($"At least {SignUpValidator.MinimumPasswordLength} characters.")" />
+                    <FieldError Errors="_errors" Field="password" />
+                </div>
+                <div>
+                    <MudTextField @bind-Value="_form.ConfirmPassword" Label="Confirm password" InputType="InputType.Password"
+                                  Variant="Variant.Outlined" autocomplete="new-password" />
+                    <FieldError Errors="_errors" Field="confirmPassword" />
+                </div>
+                <div>
+                    <MudTextField @bind-Value="_form.DateOfBirth" Label="Date of birth" InputType="InputType.Date"
+                                  Variant="Variant.Outlined" autocomplete="bday" ShrinkLabel="true" />
+                    <FieldError Errors="_errors" Field="dateOfBirth" />
+                </div>
+                <div>
+                    <MudTextField @bind-Value="_form.Organization" Label="Organization" Variant="Variant.Outlined"
+                                  autocomplete="organization" HelperText="Your university, lab or company."
+                                  MaxLength="SignUpValidator.MaxOrganizationLength" />
+                    <FieldError Errors="_errors" Field="organization" />
+                </div>
+                <div>
+                    <MudTextField @bind-Value="_form.IntendedUse" Label="How will you use FormFlow?" Variant="Variant.Outlined"
+                                  Lines="3" HelperText="For example, the studies or courses you'll run surveys for."
+                                  MaxLength="SignUpValidator.MaxIntendedUseLength" />
+                    <FieldError Errors="_errors" Field="intendedUse" />
+                </div>
+
+                @if (_result?.Error is { } error)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true">@error</MudAlert>
+                }
+
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy">
+                    Sign up
+                </MudButton>
+                <MudText Typo="Typo.body2">
+                    Already have an account? <MudLink Href="/login">Sign in</MudLink>
+                </MudText>
+            </MudStack>
+        </EditForm>
+    }
+</MudPaper>
+
+@code {
+    private readonly SignUpForm _form = new();
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private SignUpResult? _result;
+    private bool _busy;
+
+    private async Task SubmitAsync()
+    {
+        // The same checks the server makes, so most mistakes show without a round trip.
+        var request = _form.ToRequest();
+        var errors = SignUpValidator.Validate(request, DateOnly.FromDateTime(DateTime.Today));
+        if (_form.Password != _form.ConfirmPassword)
+        {
+            errors["confirmPassword"] = ["The passwords don't match."];
+        }
+        _errors = errors;
+        _result = null;
+        if (errors.Count > 0)
+        {
+            return;
+        }
+
+        _busy = true;
+        _result = await AuthService.SignUpAsync(request);
+        _errors = _result.FieldErrors;
+        _busy = false;
+    }
+
+    private sealed class SignUpForm
+    {
+        public string Name { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string ConfirmPassword { get; set; } = "";
+        public string DateOfBirth { get; set; } = "";
+        public string Organization { get; set; } = "";
+        public string IntendedUse { get; set; } = "";
+
+        public SignUpRequest ToRequest() => new()
+        {
+            Name = Name,
+            Email = Email,
+            Password = Password,
+            DateOfBirth = DateOfBirth,
+            IntendedUse = IntendedUse,
+            Organization = Organization,
+        };
+    }
+}

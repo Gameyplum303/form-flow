@@ -60,7 +60,9 @@ public class AccountPanelTests
     {
         await using var ctx = CreateContext(out _);
 
-        ctx.Render<AccountPanel>(p => p.Add(x => x.ShowSignIn, true)).Markup.Should().Contain("Sign in");
+        var signedOut = ctx.Render<AccountPanel>(p => p.Add(x => x.ShowSignIn, true));
+        signedOut.Find("a[href='/login']").TextContent.Should().Contain("Sign in");
+        signedOut.Find("a[href='/signup']").TextContent.Should().Contain("Professor sign-up");
         ctx.Render<AccountPanel>().Markup.Trim().Should().BeEmpty();
     }
 }
