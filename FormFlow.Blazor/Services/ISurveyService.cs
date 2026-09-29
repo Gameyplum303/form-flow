@@ -13,6 +13,9 @@ namespace FormFlow.Blazor.Services
         Task<List<SurveyDefinition>> GetSurveysAsync();
         Task<SurveyDefinition?> GetSurveyAsync(Guid id);
 
+        /// <summary>The surveys the signed-in account manages: every survey for an administrator, their own for a professor.</summary>
+        Task<List<SurveyDefinition>> GetManagedSurveysAsync();
+
         /// <summary>The survey's questions, in survey order.</summary>
         Task<List<QuestionDefinition>> GetSurveyQuestionsAsync(Guid id);
 

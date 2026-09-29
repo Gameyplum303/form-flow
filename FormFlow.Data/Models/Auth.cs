@@ -11,9 +11,12 @@ namespace FormFlow.Data.Models
     public class LoginResponse
     {
         public string Token { get; set; } = string.Empty;
+
+        /// <summary>The account's id, which surveys and questions record as their owner.</summary>
+        public Guid UserId { get; set; }
         public string Username { get; set; } = string.Empty;
 
-        /// <summary>"admin" can change questions and surveys; "viewer" can only look.</summary>
+        /// <summary>One of <see cref="Roles"/>.</summary>
         public string Role { get; set; } = string.Empty;
         public DateTime ExpiresAt { get; set; }
     }

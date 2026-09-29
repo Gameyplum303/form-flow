@@ -12,7 +12,7 @@
 
         <MudText Typo="Typo.h5" Class="mb-4">Survey Management</MudText>
 
-        @if (CanEdit)
+        @if (Current.CanBuild)
         {
             <MudButton Variant="Variant.Filled"
                     Color="Color.Primary"
@@ -45,6 +45,10 @@
                 <MudTh>Title</MudTh>
                 <MudTh>Description</MudTh>
                 <MudTh>Questions</MudTh>
+                @if (Current.IsAdmin)
+                {
+                    <MudTh>Created by</MudTh>
+                }
                 <MudTh></MudTh>
             </HeaderContent>
 
@@ -52,11 +56,15 @@
                 <MudTd>@context.Title</MudTd>
                 <MudTd>@context.Description</MudTd>
                 <MudTd>@context.QuestionIds.Count</MudTd>
+                @if (Current.IsAdmin)
+                {
+                    <MudTd>@AdminQuestions.OwnerLabel(context)</MudTd>
+                }
 
                 <MudTd>
                     <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
 
-                        @if (CanEdit)
+                        @if (Current.CanManage(context))
                         {
                             <MudButton Variant="Variant.Filled"
                                     Color="Color.Primary"
@@ -80,7 +88,7 @@
                             Results
                         </MudButton>
 
-                        @if (CanEdit)
+                        @if (Current.CanManage(context))
                         {
                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                     Color="Color.Error"
@@ -104,14 +112,19 @@
 @code {
     [CascadingParameter] public AdminAccess? Access { get; set; }
 
-    /// <summary>View-only accounts don't get create, edit or delete buttons. Without a guard (in tests) everything shows.</summary>
-    private bool CanEdit => Access?.CanEdit ?? true;
+    /// <summary>Without a guard (in tests) the page shows an administrator's view.</summary>
+    private AdminAccess Current => Access ?? AdminAccess.Administrator;
 
-    private List<SurveyDefinition>? surveys;
+    private List<SurveyDefinition>? managed;
+
+    // The server returns every survey for an administrator and their own for a professor. An
+    // administrator previewing the professor view sees only the surveys they created themselves.
+    // Filtered on each render, so switching the preview on this page updates the list.
+    private List<SurveyDefinition>? surveys => managed?.Where(Current.CanManage).ToList();
 
     protected override async Task OnInitializedAsync()
     {
-        surveys = await SurveyService.GetSurveysAsync();
+        managed = await SurveyService.GetManagedSurveysAsync();
     }
 
     private void PreviewSurvey(Guid Id)
@@ -133,7 +146,7 @@
         var (deleted, error) = await SurveyService.DeleteSurveyAsync(survey.Id);
         if (deleted)
         {
-            surveys?.Remove(survey);
+            managed?.Remove(survey);
             Snackbar.Add($"Deleted \"{survey.Title}\".", Severity.Success);
         }
         else

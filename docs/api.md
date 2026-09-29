@@ -20,12 +20,15 @@ All bodies are JSON with camelCase property names. Ids are GUIDs.
 
 Reading questions and surveys and submitting answers are public. Everything else needs a token from signing in, and every account has a role:
 
-| Role | Can |
-|---|---|
-| `admin` | Everything: change questions and surveys, and read responses and results |
-| `viewer` | Read responses and results and download CSVs, but not change anything |
+| Role | Shown as | Can |
+|---|---|---|
+| `admin` | Administrator | Everything: create, edit and delete any question or survey, and read every survey's responses and results |
+| `professor` | Professor/Scientist | Create questions and surveys, and edit, delete and read the responses and results of the ones they created |
+| `student` | Student | Take surveys only |
 
-Endpoints marked **Admin** need the `admin` role and return `403` for a viewer. Endpoints marked **Signed in** accept either role. Both return `401` without a valid token.
+Questions and surveys record who created them in `ownerId` and `ownerName`. The seeded demo data has no owner and belongs to administrators. Every professor can put any question in their surveys, but only change their own.
+
+Endpoints marked **Builder** need the `admin` or `professor` role and return `403` for a student; for a professor they also return `403` on a question or survey someone else created. Endpoints marked **Signed in** accept any role. Both return `401` without a valid token.
 
 ### `POST /api/auth/login`
 
@@ -35,7 +38,7 @@ Endpoints marked **Admin** need the `admin` role and return `403` for a viewer. 
 
 | Status | When |
 |---|---|
-| 200 | `{ "token": "eyJ…", "username": "Rogers", "role": "admin", "expiresAt": "2026-09-29T20:00:00Z" }` |
+| 200 | `{ "token": "eyJ…", "userId": "…", "username": "Rogers", "role": "admin", "expiresAt": "2026-09-29T20:00:00Z" }` |
 | 401 | Problem details titled "Invalid username or password." The same answer is given for an unknown user and a wrong password, and both take the same time. |
 | 429 | More than `RateLimits:LoginPerMinute` attempts from one IP address in a minute |
 
@@ -45,11 +48,11 @@ Send the token on admin requests:
 Authorization: Bearer eyJ…
 ```
 
-Tokens are signed JWTs carrying the account's role and last `Jwt:LifetimeMinutes` (8 hours by default). In Swagger UI, sign in with the login endpoint, then paste the token into **Authorize**.
+Tokens are signed JWTs carrying the account's id (`sub`), username and role and last `Jwt:LifetimeMinutes` (8 hours by default). In Swagger UI, sign in with the login endpoint, then paste the token into **Authorize**.
 
 ### `GET /api/auth/me` (Signed in)
 
-Returns `{ "username": "Rogers", "role": "admin" }` for the token's user, so a client can check that its token is still valid.
+Returns `{ "id": "…", "username": "Rogers", "role": "admin" }` for the token's user, so a client can check that its token is still valid.
 
 ### Accounts
 
@@ -71,7 +74,7 @@ Returns every question in the question bank.
 | 400 | `id` is not a GUID: `{ "error": "Invalid question id. Provide a non-empty GUID value." }` |
 | 404 | No question with that id |
 
-### `POST /api/questions` (Admin)
+### `POST /api/questions` (Builder)
 
 ```json
 {
@@ -91,7 +94,7 @@ Returns every question in the question bank.
 
 | Status | When |
 |---|---|
-| 201 | Created. Body is the stored question with its new `id`. |
+| 201 | Created. Body is the stored question with its new `id`, owned by the caller. |
 | 400 | `{ "errors": ["..."] }` listing every rule the question breaks (see below) |
 | 409 | A question with that `key` already exists |
 
@@ -104,7 +107,7 @@ Rules checked on create and update:
 - `visibleIf.key` must name an existing `yes_no` question other than this one.
 - `validationConfigs`, when present, must be a JSON array of rules with a known `validationType` (`MinLength`, `MaxLength`, `MinValue`, `MaxValue`, `Range`). See [question-definition.md](question-definition.md).
 
-### `PUT /api/questions/{id}` (Admin)
+### `PUT /api/questions/{id}` (Builder)
 
 Same body and rules as `POST`.
 
@@ -112,14 +115,16 @@ Same body and rules as `POST`.
 |---|---|
 | 200 | Updated question |
 | 400 | `{ "errors": [...] }` |
+| 403 | A professor editing a question someone else created |
 | 404 | No question with that id |
 | 409 | `{ "error": "..." }` when the new key belongs to another question, or when the key changes while a survey or another question's `visibleIf` still uses it. Stored answers are keyed by question key, so a key in use stays fixed. |
 
-### `DELETE /api/questions/{id}` (Admin)
+### `DELETE /api/questions/{id}` (Builder)
 
 | Status | When |
 |---|---|
 | 204 | Deleted |
+| 403 | A professor deleting a question someone else created |
 | 404 | No question with that id |
 | 409 | `{ "error": "..." }` naming the surveys that use it, or the questions whose `visibleIf` depends on it |
 
@@ -145,9 +150,10 @@ A survey is a title, a description and an ordered list of question ids.
 | `GET` | `/api/surveys` | Public | All surveys |
 | `GET` | `/api/surveys/{id}` | Public | One survey; 400 if `id` is not a GUID, 404 if missing |
 | `GET` | `/api/surveys/{id}/questions` | Public | The survey's questions in survey order, so a client can render it with one call; 404 if missing |
-| `POST` | `/api/surveys` | Admin | 201 with the stored survey, or 400 `{ "error": "..." }` |
-| `PUT` | `/api/surveys/{id}` | Admin | 200 with the updated survey (keeps `createdAt`), 400, or 404 |
-| `DELETE` | `/api/surveys/{id}` | Admin | 204, also deleting the survey's responses; 404 if missing |
+| `GET` | `/api/surveys/managed` | Builder | The surveys the caller can manage, newest first: every survey for an administrator, their own for a professor |
+| `POST` | `/api/surveys` | Builder | 201 with the stored survey, owned by the caller, or 400 `{ "error": "..." }` |
+| `PUT` | `/api/surveys/{id}` | Builder | 200 with the updated survey (keeps `createdAt` and the owner), 400, 403, or 404 |
+| `DELETE` | `/api/surveys/{id}` | Builder | 204, also deleting the survey's responses; 403 or 404 |
 
 A survey is rejected with 400 when the title or description is empty, when it has no questions, when a question appears twice, or when a question id doesn't exist.
 
@@ -182,7 +188,7 @@ The server validates the whole submission against the survey's questions:
 
 | Status | When |
 |---|---|
-| 201 | Stored. Body is the saved response with normalized answers. |
+| 201 | Stored. Body is the saved response with normalized answers. Taking a survey needs no account; when the request carries a token, `submittedBy` records the username. |
 | 400 | RFC 7807 validation problem, with one entry per question key |
 | 404 | No survey with that id |
 | 429 | More than `RateLimits:SubmissionsPerMinute` submissions from one IP address in a minute |
@@ -201,11 +207,11 @@ Example 400 body:
 }
 ```
 
-### `GET /api/surveys/{id}/responses` (Signed in)
+### `GET /api/surveys/{id}/responses` (Builder)
 
 All stored responses for the survey, oldest first. 404 if the survey doesn't exist.
 
-### `GET /api/surveys/{id}/results` (Signed in)
+### `GET /api/surveys/{id}/results` (Builder)
 
 Aggregated results for the admin results page:
 
@@ -235,6 +241,6 @@ Aggregated results for the admin results page:
 
 Choice and yes/no questions get a count per option, number questions get min, max and average, and text questions get the five most recent answers.
 
-### `GET /api/surveys/{id}/responses/export` (Signed in)
+### `GET /api/surveys/{id}/responses/export` (Builder)
 
-Downloads every response as `<survey-title>-responses.csv`. Columns are `response_id`, `submitted_at`, then one column per question key in survey order. Multiple values are joined with `; `. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return (and aren't numbers) are prefixed with `'` so spreadsheets don't run them as formulas.
+Downloads every response as `<survey-title>-responses.csv`. Columns are `response_id`, `submitted_at`, `submitted_by`, then one column per question key in survey order. Multiple values are joined with `; `. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return (and aren't numbers) are prefixed with `'` so spreadsheets don't run them as formulas.

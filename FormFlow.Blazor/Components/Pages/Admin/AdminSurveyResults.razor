@@ -12,7 +12,8 @@
 }
 else if (_results is null)
 {
-    <MudAlert Severity="Severity.Warning">Survey not found.</MudAlert>
+    @* The API answers 403 for someone else's survey and 404 for a missing one; both land here. *@
+    <MudAlert Severity="Severity.Warning">Survey not found, or it isn't one of your surveys.</MudAlert>
 }
 else
 {

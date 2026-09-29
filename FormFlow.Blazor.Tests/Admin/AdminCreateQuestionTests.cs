@@ -304,6 +304,21 @@ public class AdminCreateQuestionTests
         fake.LastUpdate!.ValidationConfigs.Should().Be("""[{"validationType":"MaxValue","maxValue":10}]""");
     }
 
+    [Fact]
+    public async Task EditMode_RefusesAProfessorWhoDidNotCreateTheQuestion()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = new QuestionDefinition { Id = Guid.NewGuid(), Key = "first_name", Label = "First Name", Type = "text" };
+
+        var cut = ctx.Render<AdminCreateQuestion>(p => p
+            .Add(x => x.Id, fake.Existing.Id)
+            .AddCascadingValue(new AdminAccess("professor", Guid.NewGuid())));
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("You can only edit questions you created."));
+        cut.Markup.Should().NotContain("Save Changes");
+    }
+
     private static BunitContext CreateContext()
     {
         var ctx = new BunitContext();

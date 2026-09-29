@@ -14,6 +14,9 @@ public sealed class FakeSurveyService : ISurveyService
 
     public Task<List<SurveyDefinition>> GetSurveysAsync() => Task.FromResult(Surveys.ToList());
 
+    /// <summary>Like the API for an administrator: every survey. Pages narrow it down for a professor.</summary>
+    public Task<List<SurveyDefinition>> GetManagedSurveysAsync() => Task.FromResult(Surveys.ToList());
+
     public Task<SurveyDefinition?> GetSurveyAsync(Guid id) =>
         Task.FromResult(Surveys.FirstOrDefault(s => s.Id == id));
 

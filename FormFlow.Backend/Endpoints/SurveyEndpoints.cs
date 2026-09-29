@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using FormFlow.Data.Models;
 using FormFlow.Backend.Auth;
 using FormFlow.Backend.Repositories;
@@ -18,6 +19,18 @@ namespace FormFlow.Backend.Endpoints
             })
             .WithName("GetAllSurveys")
             .Produces<List<SurveyDefinition>>(StatusCodes.Status200OK);
+
+            // GET the surveys the caller manages: all of them for an administrator, their own for a professor
+            group.MapGet("/managed", (ClaimsPrincipal principal, ISurveyRepository repo) =>
+            {
+                var user = CurrentUser.From(principal);
+                return Results.Ok(repo.FindAll().Where(user.CanManage).OrderByDescending(s => s.CreatedAt).ToList());
+            })
+            .WithName("GetManagedSurveys")
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
+            .Produces<List<SurveyDefinition>>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden);
 
             // GET survey by id
             group.MapGet("/{id}", (string id, ISurveyRepository repo) =>
@@ -57,7 +70,7 @@ namespace FormFlow.Backend.Endpoints
             .Produces<List<QuestionDefinition>>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
-            group.MapPost("", (NewSurvey dto, ISurveyRepository repo, IQuestionRepository questions) =>
+            group.MapPost("", (NewSurvey dto, ClaimsPrincipal principal, ISurveyRepository repo, IQuestionRepository questions) =>
             {
                 var error = Validate(dto, questions);
                 if (error is not null)
@@ -73,24 +86,30 @@ namespace FormFlow.Backend.Endpoints
                     QuestionIds = dto.QuestionIds,
                     CreatedAt = DateTime.UtcNow
                 };
+                CurrentUser.From(principal).Own(survey);
 
                 repo.Insert(survey);
 
                 return Results.Created($"/api/surveys/{survey.Id}", survey);
             })
             .WithName("CreateSurvey")
-            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces<SurveyDefinition>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest);
 
-            group.MapPut("/{id:guid}", (Guid id, NewSurvey dto, ISurveyRepository repo, IQuestionRepository questions) =>
+            group.MapPut("/{id:guid}", (Guid id, NewSurvey dto, ClaimsPrincipal principal, ISurveyRepository repo,
+                IQuestionRepository questions) =>
             {
                 var existing = repo.FindById(id);
                 if (existing is null)
                 {
                     return Results.NotFound();
+                }
+                if (!CurrentUser.From(principal).CanManage(existing))
+                {
+                    return CurrentUser.NotYours("surveys");
                 }
 
                 var error = Validate(dto, questions);
@@ -107,26 +126,34 @@ namespace FormFlow.Backend.Endpoints
                 return Results.Ok(existing);
             })
             .WithName("UpdateSurvey")
-            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces<SurveyDefinition>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound);
 
-            group.MapDelete("/{id:guid}", (Guid id, ISurveyRepository repo, IResponseRepository responses) =>
+            group.MapDelete("/{id:guid}", (Guid id, ClaimsPrincipal principal, ISurveyRepository repo,
+                IResponseRepository responses) =>
             {
-                if (!repo.Delete(id))
+                var existing = repo.FindById(id);
+                if (existing is null)
                 {
                     return Results.NotFound();
                 }
+                if (!CurrentUser.From(principal).CanManage(existing))
+                {
+                    return CurrentUser.NotYours("surveys");
+                }
+
+                repo.Delete(id);
 
                 // Responses are meaningless without their survey.
                 responses.DeleteBySurveyId(id);
                 return Results.NoContent();
             })
             .WithName("DeleteSurvey")
-            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status204NoContent)
