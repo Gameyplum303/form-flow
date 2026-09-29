@@ -37,15 +37,21 @@ public class AdminQuestionsPageTests
     }
 
     [Fact]
-    public async Task View_only_account_sees_the_questions_without_create_edit_or_delete()
+    public async Task Professor_can_edit_only_their_own_questions_but_sees_the_whole_bank()
     {
+        var me = Guid.NewGuid();
+        _questions.Questions[0].OwnerId = me;
+        _questions.Questions[0].OwnerName = "professor";
         await using var ctx = CreateContext();
-        var cut = ctx.Render<AdminQuestions>(p => p.AddCascadingValue(new AdminAccess(false)));
+        var cut = ctx.Render<AdminQuestions>(p => p.AddCascadingValue(new AdminAccess("professor", me)));
 
         cut.WaitForAssertion(() => cut.FindAll("tbody tr").Should().HaveCount(2));
-        cut.Markup.Should().NotContain("Create New Question");
-        cut.FindAll("button").Should().NotContain(b => b.TextContent.Trim() == "Edit");
-        cut.FindAll("button[aria-label^='Delete']").Should().BeEmpty();
+        cut.Markup.Should().Contain("Create New Question");
+        var rows = cut.FindAll("tbody tr");
+        rows[0].TextContent.Should().Contain("professor");
+        rows[0].QuerySelectorAll("button").Should().Contain(b => b.TextContent.Trim() == "Edit");
+        rows[1].TextContent.Should().Contain("Administrators", "the seeded questions belong to the administrators");
+        rows[1].QuerySelectorAll("button").Should().BeEmpty();
     }
 
     [Fact]

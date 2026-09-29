@@ -3,7 +3,6 @@ using FormFlow.Backend.Auth;
 using FormFlow.Backend.Repositories;
 using FormFlow.Data.Models;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace FormFlow.Backend.Endpoints
 {
@@ -37,10 +36,13 @@ namespace FormFlow.Backend.Endpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
-            group.MapGet("/me", (ClaimsPrincipal user) =>
-                Results.Ok(new { username = user.FindFirstValue(JwtRegisteredClaimNames.UniqueName), role = user.FindFirstValue("role") }))
-            .WithName("CurrentAdmin")
-            .RequireAuthorization(JwtSettings.ViewerPolicy)
+            group.MapGet("/me", (ClaimsPrincipal principal) =>
+            {
+                var user = CurrentUser.From(principal);
+                return Results.Ok(new { id = user.Id, username = user.Username, role = user.Role });
+            })
+            .WithName("CurrentUser")
+            .RequireAuthorization(JwtSettings.SignedInPolicy)
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
         }

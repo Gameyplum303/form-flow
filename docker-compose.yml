@@ -1,8 +1,8 @@
 # Runs the whole app: docker compose up --build
 #   API and Swagger UI  http://localhost:5164/swagger
-#   Blazor app          http://localhost:5224 (admin: Rogers / password, view-only: student / password)
+#   Blazor app          http://localhost:5224 (administrator: Rogers, professor: professor, student: student; all "password")
 #   React app           http://localhost:3000
-# Set FORMFLOW_ADMIN_PASSWORD (the Rogers account), FORMFLOW_STUDENT_PASSWORD and
+# Set FORMFLOW_ADMIN_PASSWORD (the Rogers account), FORMFLOW_PROFESSOR_PASSWORD, FORMFLOW_STUDENT_PASSWORD and
 # FORMFLOW_JWT_KEY (32+ characters) to change the defaults. Accounts are created the first
 # time the API sees them, so a new password for an existing account needs a fresh volume
 # (docker compose down --volumes). Set FORMFLOW_LOGIN_HINT= to hide the sign-in hint.
@@ -16,13 +16,16 @@ services:
     volumes:
       - formflow-data:/data
     environment:
-      # Rogers is the admin; student is a view-only test account.
+      # Rogers is the administrator; professor and student are test accounts for the other roles.
       Accounts__0__Username: Rogers
       Accounts__0__Password: ${FORMFLOW_ADMIN_PASSWORD:-password}
       Accounts__0__Role: admin
-      Accounts__1__Username: student
-      Accounts__1__Password: ${FORMFLOW_STUDENT_PASSWORD:-password}
-      Accounts__1__Role: viewer
+      Accounts__1__Username: professor
+      Accounts__1__Password: ${FORMFLOW_PROFESSOR_PASSWORD:-password}
+      Accounts__1__Role: professor
+      Accounts__2__Username: student
+      Accounts__2__Password: ${FORMFLOW_STUDENT_PASSWORD:-password}
+      Accounts__2__Role: student
       Jwt__Key: ${FORMFLOW_JWT_KEY:-}
     healthcheck:
       # The runtime image has no curl, so bash's /dev/tcp does the request.
@@ -39,7 +42,7 @@ services:
       - "5224:8080"
     environment:
       BackendApi__BaseUrl: http://api:8080/
-      LoginHint: "${FORMFLOW_LOGIN_HINT-View-only test account: student / password}"
+      LoginHint: "${FORMFLOW_LOGIN_HINT-Test accounts: professor / password and student / password}"
     depends_on:
       api:
         condition: service_healthy

@@ -208,7 +208,7 @@ namespace FormFlow.Backend.Tests.Endpoints
             response.Content.Headers.ContentType!.MediaType.Should().Be("text/csv");
             var lines = (await response.Content.ReadAsStringAsync()).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
             lines.Should().HaveCount(2);
-            lines[0].Should().StartWith("response_id,submitted_at,first_name");
+            lines[0].Should().StartWith("response_id,submitted_at,submitted_by,first_name");
             lines[1].Should().Contain("csharp; sql");
         }
     }

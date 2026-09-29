@@ -19,6 +19,9 @@ namespace FormFlow.Blazor.Services
         public async Task<List<SurveyDefinition>> GetSurveysAsync() =>
             await Client.GetFromJsonAsync<List<SurveyDefinition>>("api/surveys") ?? [];
 
+        public async Task<List<SurveyDefinition>> GetManagedSurveysAsync() =>
+            await Client.GetFromJsonAsync<List<SurveyDefinition>>("api/surveys/managed") ?? [];
+
         public async Task<SurveyDefinition?> GetSurveyAsync(Guid id)
         {
             var response = await Client.GetAsync($"api/surveys/{id}");
@@ -106,7 +109,7 @@ namespace FormFlow.Blazor.Services
         {
             if (response.StatusCode == HttpStatusCode.Forbidden)
             {
-                return QuestionService.ViewOnlyMessage;
+                return QuestionService.NotYoursMessage;
             }
 
             var body = await response.Content.ReadAsStringAsync();

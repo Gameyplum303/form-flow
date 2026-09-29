@@ -5,10 +5,13 @@ using FormFlow.Data.Validation;
 
 namespace FormFlow.Data.Models
 {
-    public class QuestionDefinition
+    public class QuestionDefinition : IOwned
     {
         [BsonId]
         public Guid Id { get; set; }
+
+        public Guid? OwnerId { get; set; }
+        public string? OwnerName { get; set; }
 
         public required string Key { get; set; }
 

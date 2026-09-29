@@ -14,6 +14,9 @@ namespace FormFlow.Data.Models
 
         public DateTime SubmittedAt { get; set; }
 
+        /// <summary>The signed-in account that submitted it, or null for an anonymous response.</summary>
+        public string? SubmittedBy { get; set; }
+
         /// <summary>
         /// Answers keyed by question key. Single-value questions hold one entry;
         /// checkbox and multiselect questions hold one entry per selected option.

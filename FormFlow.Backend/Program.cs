@@ -3,6 +3,7 @@ using FormFlow.Backend;
 using FormFlow.Backend.Auth;
 using FormFlow.Backend.Endpoints;
 using FormFlow.Backend.Repositories;
+using FormFlow.Data.Models;
 using FormFlow.Data.Services;
 
 using LiteDB;
@@ -44,8 +45,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters.RoleClaimType = "role";
     });
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy(JwtSettings.AdminPolicy, policy => policy.RequireRole(JwtSettings.AdminRole))
-    .AddPolicy(JwtSettings.ViewerPolicy, policy => policy.RequireRole(JwtSettings.AdminRole, JwtSettings.ViewerRole));
+    .AddPolicy(JwtSettings.BuilderPolicy, policy => policy.RequireRole(Roles.Admin, Roles.Professor))
+    .AddPolicy(JwtSettings.SignedInPolicy, policy => policy.RequireRole(Roles.All));
 
 // Limits per client address, to slow down password guessing and spam submissions.
 builder.Services.AddRateLimiter(options =>

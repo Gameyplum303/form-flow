@@ -153,4 +153,25 @@ public class AdminCreateSurveyPageTests
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Survey not found."));
     }
+    [Fact]
+    public async Task Edit_mode_refuses_a_professor_who_did_not_create_the_survey()
+    {
+        await using var ctx = CreateContext();
+        var survey = new SurveyDefinition
+        {
+            Id = Guid.NewGuid(),
+            Title = "Demo",
+            Description = "Seeded",
+            QuestionIds = [_isStudent.Id],
+            CreatedAt = DateTime.UtcNow
+        };
+        _surveys.Surveys.Add(survey);
+
+        var cut = ctx.Render<AdminCreateSurvey>(p => p
+            .Add(x => x.Id, survey.Id)
+            .AddCascadingValue(new AdminAccess("professor", Guid.NewGuid())));
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("You can only edit surveys you created."));
+        cut.FindAll("button").Should().NotContain(b => b.TextContent.Trim() == "Save Survey");
+    }
 }

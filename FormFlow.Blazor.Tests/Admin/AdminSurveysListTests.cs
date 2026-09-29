@@ -78,18 +78,63 @@ namespace FormFlow.Blazor.Tests.Admin
         }
 
         [Fact]
-        public async Task SurveyList_ViewOnlyAccount_HasNoCreateEditOrDelete()
+        public async Task SurveyList_ProfessorView_ShowsOnlyTheirOwnSurveys()
+        {
+            var me = Guid.NewGuid();
+            await using var ctx = CreateContext();
+            var mine = Survey("Mine");
+            mine.OwnerId = me;
+            _service.Surveys.AddRange([mine, Survey("Someone else's")]);
+
+            // An administrator previewing the professor view gets every survey from the API; the page keeps their own.
+            var cut = ctx.Render<AdminSurveysList>(p => p.AddCascadingValue(new AdminAccess("professor", me)));
+            cut.WaitForAssertion(() => Assert.Contains("Mine", cut.Markup));
+
+            cut.Markup.Should().NotContain("Someone else");
+            cut.Markup.Should().Contain("Create Survey");
+            cut.Markup.Should().NotContain("Created by", "only administrators see who made each survey");
+            cut.FindAll("button").Should().Contain(b => b.TextContent.Trim() == "Edit");
+            cut.FindAll("button").Should().Contain(b => b.TextContent.Trim() == "Results");
+        }
+
+        [Fact]
+        public async Task SurveyList_SwitchingToTheProfessorView_UpdatesTheList()
+        {
+            var me = Guid.NewGuid();
+            await using var ctx = CreateContext();
+            var mine = Survey("Mine");
+            mine.OwnerId = me;
+            _service.Surveys.AddRange([mine, Survey("Demo")]);
+
+            var cut = ctx.Render<CascadingValue<AdminAccess>>(p => p
+                .Add(c => c.Value, new AdminAccess("admin", me))
+                .AddChildContent<AdminSurveysList>());
+            cut.WaitForAssertion(() => Assert.Contains("Demo", cut.Markup));
+
+            cut.Render(p => p
+                .Add(c => c.Value, new AdminAccess("professor", me))
+                .AddChildContent<AdminSurveysList>());
+
+            cut.Markup.Should().Contain("Mine");
+            cut.Markup.Should().NotContain("Demo");
+        }
+
+        [Fact]
+        public async Task SurveyList_AdminView_ShowsWhoCreatedEachSurvey()
         {
             await using var ctx = CreateContext();
-            _service.Surveys.Add(Survey("Survey A"));
+            var theirs = Survey("Lab feedback");
+            theirs.OwnerId = Guid.NewGuid();
+            theirs.OwnerName = "professor";
+            _service.Surveys.AddRange([theirs, Survey("Demo")]);
 
-            var cut = ctx.Render<AdminSurveysList>(p => p.AddCascadingValue(new AdminAccess(false)));
-            cut.WaitForAssertion(() => Assert.Contains("Survey A", cut.Markup));
+            var cut = ctx.Render<AdminSurveysList>();
+            cut.WaitForAssertion(() => Assert.Contains("Lab feedback", cut.Markup));
 
-            cut.Markup.Should().NotContain("Create Survey");
-            cut.FindAll("button").Should().NotContain(b => b.TextContent.Trim() == "Edit");
-            cut.FindAll("button[aria-label='Delete Survey A']").Should().BeEmpty();
-            cut.FindAll("button").Should().Contain(b => b.TextContent.Trim() == "Results");
+            cut.Markup.Should().Contain("Created by");
+            cut.FindAll("tbody tr")[0].TextContent.Should().Contain("professor");
+            cut.FindAll("tbody tr")[1].TextContent.Should().Contain("Administrators");
+            cut.FindAll("button").Where(b => b.TextContent.Trim() == "Edit").Should().HaveCount(2);
         }
 
         [Fact]

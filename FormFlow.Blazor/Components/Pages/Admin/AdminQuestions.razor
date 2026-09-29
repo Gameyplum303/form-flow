@@ -15,7 +15,7 @@
 
         <MudText Typo="Typo.h5" Class="mb-2">Question Management</MudText>
 
-        @if (CanEdit)
+        @if (Current.CanBuild)
         {
             <MudButton Variant="Variant.Filled"
                         Color="Color.Primary"
@@ -49,6 +49,7 @@
                 <MudTh>Key</MudTh>
                 <MudTh>Type</MudTh>
                 <MudTh>Shown when</MudTh>
+                <MudTh>Created by</MudTh>
                 <MudTh></MudTh>
             </HeaderContent>
 
@@ -67,9 +68,11 @@
                     }
                 </MudTd>
 
+                <MudTd>@OwnerLabel(context)</MudTd>
+
                 <MudTd>
                     <MudStack Row="true" Spacing="2">
-                        @if (CanEdit)
+                        @if (Current.CanManage(context))
                         {
                             <MudButton Variant="Variant.Filled"
                                     Color="Color.Primary"
@@ -77,9 +80,6 @@
                                     OnClick="@(_ => EditQuestion(context.Id))">
                                 Edit        
                             </MudButton>
-                        }
-                        @if (CanEdit)
-                        {
                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                     Color="Color.Error"
                                     Size="Size.Small"
@@ -100,8 +100,11 @@
 @code {
     [CascadingParameter] public AdminAccess? Access { get; set; }
 
-    /// <summary>View-only accounts don't get create, edit or delete buttons. Without a guard (in tests) everything shows.</summary>
-    private bool CanEdit => Access?.CanEdit ?? true;
+    /// <summary>Everyone can use every question; only its creator or an administrator can change it. Without a guard (in tests) everything shows.</summary>
+    private AdminAccess Current => Access ?? AdminAccess.Administrator;
+
+    /// <summary>The seeded demo questions have no owner and belong to the administrators.</summary>
+    public static string OwnerLabel(IOwned item) => item.OwnerName ?? "Administrators";
 
     private List<QuestionDefinition>? questions;
 
