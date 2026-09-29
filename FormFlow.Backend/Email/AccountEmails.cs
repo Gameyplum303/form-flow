@@ -24,7 +24,7 @@ namespace FormFlow.Backend.Email
 
                 {settings.Link("verify-email", token)}
 
-                The link works for 2 days. If you didn't sign up, you can ignore this email.
+                The link works for {Describe(VerifyLinkLifetime)}. If you didn't sign up, you can ignore this email.
                 """);
         }
 
@@ -38,7 +38,7 @@ namespace FormFlow.Backend.Email
 
                 {settings.Link("reset-password", token)}
 
-                The link works for one hour and only once. If you didn't ask for this, you can ignore this email;
+                The link works for {Describe(ResetLinkLifetime)} and only once. If you didn't ask for this, you can ignore this email;
                 your password stays the same.
                 """);
         }
@@ -53,6 +53,13 @@ namespace FormFlow.Backend.Email
             {
                 logger.LogError(e, "Could not send \"{Subject}\" to account {UserId}.", subject, user.Id);
             }
+        }
+
+        /// <summary>A link lifetime in words, such as "2 days" or "one hour".</summary>
+        private static string Describe(TimeSpan lifetime)
+        {
+            var (count, unit) = lifetime.TotalDays >= 1 ? ((int)lifetime.TotalDays, "day") : ((int)lifetime.TotalHours, "hour");
+            return count == 1 ? $"one {unit}" : $"{count} {unit}s";
         }
 
         private static string Greeting(AdminUser user) => string.IsNullOrWhiteSpace(user.Name) ? user.Username : user.Name;

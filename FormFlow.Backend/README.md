@@ -14,8 +14,10 @@ dotnet run    # http://localhost:5164 and https://localhost:7209
 
 | Folder | Contents |
 |---|---|
-| `Endpoints/` | `QuestionEndpoints`, `SurveyEndpoints`, `ResponseEndpoints` |
-| `Repositories/` | LiteDB repositories for questions, surveys and responses |
-| `Services/` | `SurveyResultsBuilder` and `CsvExporter` |
-| `SeedData/` | The sample questions loaded into an empty database |
+| `Endpoints/` | `AuthEndpoints` (`/api/auth`), `AccountEndpoints` (`/api/accounts`), `QuestionEndpoints` (`/api/questions`), `SurveyEndpoints` (`/api/surveys`, `/api/share/{code}`) and `ResponseEndpoints` (`/api/surveys/{id}/responses`, `/results`, `/responses/export`) |
+| `Auth/` | JWT settings and tokens, `CurrentUser` ownership checks, accounts and the `AdminAccountSeeder` |
+| `Email/` | `AccountEmails` and the SMTP and in-memory outbox senders |
+| `Repositories/` | LiteDB repositories for questions, surveys, responses, users and account tokens |
+| `Services/` | `SurveyResultsBuilder`, `ResultsQueryParser`, `CsvExporter` and `SampleResponseGenerator` |
+| `SeedData/` | The sample questions loaded into an empty database (by `DatabaseSeeder.cs`) |
 | `Schemas/` | JSON schemas for question and survey documents |

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using FormFlow.Data.Models;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -16,6 +17,9 @@ namespace FormFlow.Backend.Auth
 
         public bool IsAdmin => IsSignedIn && Role == Roles.Admin;
 
+        /// <summary>Administrators and professors, who build questions and surveys.</summary>
+        public bool IsBuilder => IsSignedIn && Roles.CanBuild(Role);
+
         /// <summary>
         /// Administrators manage everything. Professors manage what they created. Items without an
         /// owner (the seeded demo data) belong to the administrators.
@@ -25,6 +29,32 @@ namespace FormFlow.Backend.Auth
 
         /// <summary>Published surveys are open to anyone with the link; drafts only to the people who manage them.</summary>
         public bool CanOpen(SurveyDefinition survey) => survey.IsPublished() || CanManage(survey);
+
+        /// <summary>
+        /// Whether the caller is turned away from managing an item: with 404 when it doesn't exist,
+        /// or 403 when it isn't theirs.
+        /// </summary>
+        public bool CannotManage<T>([NotNullWhen(false)] T? item, string what, [NotNullWhen(true)] out IResult? answer)
+            where T : class, IOwned
+        {
+            answer = item is null ? Results.NotFound() : CanManage(item) ? null : NotYours(what);
+            return answer is not null;
+        }
+
+        /// <summary>
+        /// Hides who created an item from callers who don't build surveys. A professor's username is
+        /// their email address, so it stays with the people who manage questions and surveys.
+        /// Repositories return a fresh copy on every read, so the stored item keeps its owner.
+        /// </summary>
+        public T ShowOwnerToBuilders<T>(T item) where T : IOwned
+        {
+            if (!IsBuilder)
+            {
+                item.OwnerId = null;
+                item.OwnerName = null;
+            }
+            return item;
+        }
 
         /// <summary>Marks a new item as created by this account.</summary>
         public void Own(IOwned item)

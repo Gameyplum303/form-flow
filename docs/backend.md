@@ -23,6 +23,7 @@
 | `RateLimits:LoginPerMinute` | `20` | Sign-in attempts allowed per IP address per minute |
 | `RateLimits:AccountPerMinute` | `20` | Sign-up, email link and password requests allowed per IP address per minute |
 | `RateLimits:SubmissionsPerMinute` | `60` | Survey submissions allowed per IP address per minute |
+| `Cors:AllowedOrigins` | Not set | The browser origins allowed to call the API, such as `https://gameyplum-formflow-react.onrender.com` for the React app (no trailing slash). Development allows any origin and ignores this list; elsewhere, an origin that isn't listed is refused. The Blazor app calls the API from its server, so it needs no entry. As environment variables: `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins__1`, and so on. |
 | `DisableHttpsRedirection` | `true` in Development, otherwise not set | Serve plain HTTP without redirecting to HTTPS. On in Development so the React app can call `http://localhost:5164`; also useful behind a proxy that terminates TLS |
 
 Any setting can be overridden on the command line (`dotnet run --SeedData:DemoSurvey=false`) or with environment variables (`SeedData__DemoSurvey=false`).
@@ -43,7 +44,7 @@ To reset, stop the API and delete `formflow.db`. It is recreated and reseeded on
 
 Emailed links use `AccountToken`s from `AccountTokenRepository` (the `account_tokens` collection): only a SHA-256 hash of each token is stored, each has a purpose and expiry, and redeeming one deletes it. `Email/` holds `AccountEmails`, which writes the verification and reset emails, and two `IEmailSender`s: `SmtpEmailSender` when `Email:Smtp:Host` is set, otherwise `OutboxEmailSender`. A failed send is logged rather than failing the request, so the person can ask for another link.
 
-The policy only checks the role. Ownership is checked inside each endpoint: questions and surveys implement `IOwned` (`OwnerId`, `OwnerName`), creating one records the caller as its owner, and `CurrentUser.CanManage` lets an administrator manage anything and a professor only what they own, returning `403` otherwise. Items with no owner, like the seeded demo data, belong to administrators. A submitted response stays anonymous unless the request carries a token, in which case `SubmittedBy` records the username.
+The policy only checks the role. Ownership is checked inside each endpoint: questions and surveys implement `IOwned` (`OwnerId`, `OwnerName`), creating one records the caller as its owner, and `CurrentUser.CanManage` lets an administrator manage anything and a professor only what they own, returning `403` otherwise. Items with no owner, like the seeded demo data, belong to administrators. `CurrentUser.ShowOwnerToBuilders` clears the owner fields for callers who aren't administrators or professors, since a professor's username is their email address. A submitted response stays anonymous unless the request carries a token, in which case `SubmittedBy` records the username.
 
 `OpenApiSecurity` marks the endpoints that need a token in the OpenAPI document so Swagger UI shows the lock and the **Authorize** button.
 
@@ -58,6 +59,7 @@ The policy only checks the role. Ownership is checked inside each endpoint: ques
 - Answer validation errors return `400` as RFC 7807 problem details (`Results.ValidationProblem`) with errors keyed by question key.
 - Conflicts (duplicate keys, deleting something that is in use) return `409` with a message saying what depends on the item.
 - Admin endpoints return `401` without a valid token, and rate-limited endpoints return `429`.
+- Unexpected errors are logged and return `500` as problem details. In Development the developer exception page adds the exception and stack trace.
 
 ## JSON schemas
 

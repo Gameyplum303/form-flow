@@ -55,11 +55,11 @@
         "type": "object",
         "properties": {
           "validationType": { "type": "string", "enum": ["MinValue", "MaxValue", "MinLength", "MaxLength", "Range"] },
-          "minValue": { "type": "integer" },
-          "maxValue": { "type": "integer" },
+          "minValue": { "type": "number" },
+          "maxValue": { "type": "number" },
 
-          "minLength": { "type": "integer"},
-          "maxLength": { "type": "integer"},
+          "minLength": { "type": "integer", "minimum": 0 },
+          "maxLength": { "type": "integer", "minimum": 0 },
 
           "message": { "type": "string"}
         },

@@ -21,6 +21,7 @@ namespace FormFlow.Backend.Endpoints
         public string? RespondentId { get; set; }
     }
 
+    /// <summary>Response endpoints: submitting answers, and the results and CSV export for a survey's builders.</summary>
     public static class ResponseEndpoints
     {
         public const string SubmitRateLimit = "submissions";
@@ -100,13 +101,9 @@ namespace FormFlow.Backend.Endpoints
                 IResponseRepository responses) =>
             {
                 var survey = surveys.FindById(surveyId);
-                if (survey is null)
+                if (CurrentUser.From(principal).CannotManage(survey, "surveys", out var denied))
                 {
-                    return Results.NotFound();
-                }
-                if (!CurrentUser.From(principal).CanManage(survey))
-                {
-                    return CurrentUser.NotYours("surveys");
+                    return denied;
                 }
                 return Results.Ok(responses.FindBySurveyId(surveyId).ToList());
             })
@@ -122,13 +119,9 @@ namespace FormFlow.Backend.Endpoints
                 ISurveyRepository surveys, IQuestionRepository questionRepository, IResponseRepository responses, TimeProvider clock) =>
             {
                 var survey = surveys.FindById(surveyId);
-                if (survey is null)
+                if (CurrentUser.From(principal).CannotManage(survey, "surveys", out var denied))
                 {
-                    return Results.NotFound();
-                }
-                if (!CurrentUser.From(principal).CanManage(survey))
-                {
-                    return CurrentUser.NotYours("surveys");
+                    return denied;
                 }
 
                 var questions = SurveyEndpoints.LoadQuestions(survey, questionRepository);
@@ -153,13 +146,9 @@ namespace FormFlow.Backend.Endpoints
                 ISurveyRepository surveys, IQuestionRepository questionRepository, IResponseRepository responses) =>
             {
                 var survey = surveys.FindById(surveyId);
-                if (survey is null)
+                if (CurrentUser.From(principal).CannotManage(survey, "surveys", out var denied))
                 {
-                    return Results.NotFound();
-                }
-                if (!CurrentUser.From(principal).CanManage(survey))
-                {
-                    return CurrentUser.NotYours("surveys");
+                    return denied;
                 }
 
                 var questions = SurveyEndpoints.LoadQuestions(survey, questionRepository);

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace FormFlow.Backend.Endpoints
 {
+    /// <summary>Account endpoints for everyone: signing in and up, email links and changing a password.</summary>
     public static class AuthEndpoints
     {
         public const string LoginRateLimit = "login";
@@ -91,7 +92,9 @@ namespace FormFlow.Backend.Endpoints
                 }
 
                 var email = request.Email.Trim();
-                if (users.FindByUsername(email) is not null)
+                // Sign-ups use their email as their username, but a configured account can have that
+                // email under another username.
+                if (users.FindByUsername(email) is not null || users.FindByEmail(email) is not null)
                 {
                     return EmailTaken();
                 }

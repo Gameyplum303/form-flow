@@ -39,7 +39,7 @@ namespace FormFlow.Backend.Services
             var responses = new List<SurveyResponse>();
             for (var attempt = 0; responses.Count < count && attempt < count * 5; attempt++)
             {
-                var answers = Answer(questions, random);
+                var answers = Answer(questions, random, now);
                 var result = validator.Validate(questions, answers);
                 if (!result.IsValid)
                 {
@@ -63,7 +63,7 @@ namespace FormFlow.Backend.Services
             return now.AddDays(-daysAgo).AddMinutes(-random.Next(0, 12 * 60));
         }
 
-        private static Dictionary<string, List<string>> Answer(IReadOnlyList<QuestionDefinition> questions, Random random)
+        private static Dictionary<string, List<string>> Answer(IReadOnlyList<QuestionDefinition> questions, Random random, DateTime now)
         {
             var student = random.NextDouble() < 0.7;
             var first = Pick(random, FirstNames);
@@ -79,7 +79,7 @@ namespace FormFlow.Backend.Services
                     QuestionTypes.Number => [Number(question.Key, student, random)],
                     QuestionTypes.Rating => [random.Next(student ? 3 : 2, QuestionTypes.RatingScale(question) + 1).ToString(CultureInfo.InvariantCulture)],
                     QuestionTypes.Email => [$"{first}.{last}@example.com".ToLowerInvariant()],
-                    QuestionTypes.Date => [DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-random.Next(30, 3 * 365)).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)],
+                    QuestionTypes.Date => [DateOnly.FromDateTime(now).AddDays(-random.Next(30, 3 * 365)).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)],
                     QuestionTypes.Multiselect or QuestionTypes.Checkbox => question.Options
                         .Where(_ => random.NextDouble() < 0.45).Select(o => o.Value).DefaultIfEmpty(Pick(random, question.Options).Value).ToList(),
                     var type when QuestionTypes.IsChoice(type) => [Choice(question, student, random)],

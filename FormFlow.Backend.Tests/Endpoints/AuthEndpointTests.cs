@@ -78,7 +78,7 @@ namespace FormFlow.Backend.Tests.Endpoints
                 ["Accounts:4:Role"] = "student",
             }).Build();
 
-            new AdminAccountSeeder(users, hasher, config, NullLogger<AdminAccountSeeder>.Instance).Seed();
+            new AdminAccountSeeder(users, hasher, config, NullLogger<AdminAccountSeeder>.Instance, TimeProvider.System).Seed();
 
             var professor = users.FindByUsername("professor")!;
             hasher.VerifyHashedPassword(professor, professor.PasswordHash, "password").Should().Be(PasswordVerificationResult.Success);

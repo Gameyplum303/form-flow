@@ -45,8 +45,11 @@ builder.Services.AddSingleton<IEmailSender>(sp => sp.GetRequiredService<EmailSet
 builder.Services.AddSingleton<AccountEmails>();
 
 // Admin endpoints need a bearer token from POST /api/auth/login; taking surveys stays anonymous.
-var startupLogger = LoggerFactory.Create(logging => logging.AddConsole()).CreateLogger("Startup");
-var jwt = JwtSettings.FromConfiguration(builder.Configuration, startupLogger);
+JwtSettings jwt;
+using (var startupLogging = LoggerFactory.Create(logging => logging.AddConsole()))
+{
+    jwt = JwtSettings.FromConfiguration(builder.Configuration, startupLogging.CreateLogger("Startup"));
+}
 builder.Services.AddSingleton(jwt);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -88,17 +91,31 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi(options => options.AddBearerTokenSecurity());
-builder.Services.AddCors(options =>
+
+// The React app calls the API from the browser, so its address must be listed in Cors:AllowedOrigins.
+// The Blazor app calls the API from its server and needs no entry. Development allows any origin.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    if (builder.Environment.IsDevelopment())
     {
-        policy.AllowAnyOrigin()
-                .AllowAnyMethod()
-                .AllowAnyHeader();
-    });
-});
+        policy.AllowAnyOrigin();
+    }
+    else
+    {
+        policy.WithOrigins(allowedOrigins);
+    }
+    policy.AllowAnyMethod().AllowAnyHeader();
+}));
 
 var app = builder.Build();
+
+// Unhandled errors are logged and answered with a 500 problem details body. Development keeps
+// ASP.NET Core's developer exception page, which adds the exception and stack trace.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler();
+}
 
 app.Services.GetRequiredService<DatabaseSeeder>().Seed();
 app.Services.GetRequiredService<AdminAccountSeeder>().Seed();
@@ -116,7 +133,7 @@ if (!app.Configuration.GetValue<bool>("DisableHttpsRedirection"))
 {
     app.UseHttpsRedirection();
 }
-app.UseCors("AllowAll");
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
