@@ -12,6 +12,8 @@ export interface SurveyDefinition {
     shareCode?: string;
     /** When the survey stops taking answers (UTC), if the owner set a close date. */
     closesAt?: string | null;
+    /** The ids of the questions that start a new page. Without any, the survey is one page. */
+    pageBreaks?: string[];
 }
 
 /** Answers keyed by question key; multi-select questions hold several values. */

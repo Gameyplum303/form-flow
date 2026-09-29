@@ -5,6 +5,9 @@ import {
 } from "./api";
 import { initialValue } from "./components/QuestionRenderer";
 import { SurveyForm } from "./components/SurveyForm";
+import { clearDraft, loadDraft, saveDraft } from "./logic/drafts";
+import { firstPageWithError, missingAnswers, shownPages, splitPages } from "./logic/pages";
+import { visibleKeys } from "./logic/visibility";
 import { QuestionDefinition } from "./types/QuestionDefinition";
 import { AnswerErrors, Answers, SurveyDefinition } from "./types/Survey";
 
@@ -92,6 +95,10 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
     const [message, setMessage] = useState<string | null>(null);
     const [status, setStatus] = useState<"loading" | "missing" | "ready" | "submitting" | "done" | "closed">("loading");
     const [respondent] = useState(respondentId);
+    /** The page last moved to, by its index among all pages. */
+    const [page, setPage] = useState(0);
+    /** Whether the answers came back from this browser's storage. */
+    const [restored, setRestored] = useState(false);
     const targetKey = "id" in target ? `id:${target.id}` : `code:${target.code}`;
 
     useEffect(() => {
@@ -105,13 +112,18 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
                 }
                 setSurvey(s);
                 setQuestions(q);
-                setAnswers(defaultAnswers(q));
                 if (isClosed(s) || answered) {
+                    setAnswers(defaultAnswers(q));
                     setMessage(isClosed(s) ? CLOSED_MESSAGE : ANSWERED_MESSAGE);
                     setStatus("closed");
-                } else {
-                    setStatus("ready");
+                    return;
                 }
+                // Pick up answers this browser saved earlier, for questions still in the survey.
+                const keys = new Set(q.map((question) => question.key));
+                const saved = Object.entries(loadDraft(s.id) ?? {}).filter(([key]) => keys.has(key));
+                setAnswers({ ...defaultAnswers(q), ...Object.fromEntries(saved) });
+                setRestored(saved.length > 0);
+                setStatus("ready");
             } catch {
                 if (active) {
                     setStatus("missing");
@@ -125,23 +137,81 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [targetKey, respondent]);
 
+    const pages = splitPages(questions, survey?.pageBreaks);
+    const paged = pages.length > 1;
+    const visible = visibleKeys(questions, answers);
+    const shown = shownPages(pages, visible);
+    // When answers hide the page last moved to, the next page that shows takes its place.
+    const current = shown.includes(page) ? page : shown.find((i) => i > page) ?? shown[shown.length - 1];
+    const position = shown.indexOf(current);
+    const lastPage = position === shown.length - 1;
+
+    const changeAnswers = (next: Answers) => {
+        setAnswers(next);
+        if (survey !== null) {
+            saveDraft(survey.id, next);
+        }
+    };
+
+    const goTo = (next: number) => {
+        setPage(next);
+        try {
+            window.scrollTo(0, 0);
+        } catch {
+            // Not every environment can scroll.
+        }
+    };
+
+    const startOver = () => {
+        if (survey !== null) {
+            clearDraft(survey.id);
+        }
+        setAnswers(defaultAnswers(questions));
+        setErrors({});
+        setMessage(null);
+        setRestored(false);
+        setPage(0);
+    };
+
+    /** Checks the page's required answers as the API would, then moves on when they're all there. */
+    const next = () => {
+        const onPage = new Set(pages[current].map((q) => q.key));
+        const missing = missingAnswers(pages[current], visible, answers);
+        const kept = Object.fromEntries(Object.entries(errors).filter(([key]) => !onPage.has(key)));
+        setErrors({ ...kept, ...missing });
+        if (Object.keys(missing).length === 0) {
+            goTo(shown[position + 1]);
+        }
+    };
+
     const submit = async (event: React.FormEvent) => {
         event.preventDefault();
         if (survey === null) {
+            return;
+        }
+        // Enter in a field on an earlier page moves on rather than submitting.
+        if (paged && !lastPage) {
+            next();
             return;
         }
         setStatus("submitting");
         try {
             const result = await submitResponse(survey.id, answers, respondent);
             if (result.ok) {
+                clearDraft(survey.id);
                 setStatus("done");
                 return;
             }
             setErrors(result.errors);
             setMessage(result.message);
             if (result.final) {
+                clearDraft(survey.id);
                 setStatus("closed");
                 return;
+            }
+            const withError = firstPageWithError(pages, result.errors);
+            if (paged && withError !== undefined) {
+                goTo(withError);
             }
         } catch {
             setMessage("Could not reach the server. Please try again.");
@@ -184,11 +254,33 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
             <button type="button" className="link" onClick={onBack}>&larr; All surveys</button>
             <h2>{survey.title}</h2>
             <p>{survey.description}</p>
+            {restored && (
+                <p className="notice" data-resume-note>
+                    We saved your answers on this device.{" "}
+                    <button type="button" className="link" onClick={startOver}>Start over</button>
+                </p>
+            )}
             {message && <p className="notice error" role="alert">{message}</p>}
-            <SurveyForm questions={questions} answers={answers} errors={errors} onChange={setAnswers} />
-            <button type="submit" disabled={status === "submitting"}>
-                {status === "submitting" ? "Submitting..." : "Submit"}
-            </button>
+            {paged && (
+                <div className="progress" data-survey-progress>
+                    <span className="progress-label" id="survey-progress-label">Page {position + 1} of {shown.length}</span>
+                    <progress value={position + 1} max={shown.length} aria-labelledby="survey-progress-label" />
+                </div>
+            )}
+            <SurveyForm questions={questions} answers={answers} errors={errors} onChange={changeAnswers}
+                page={paged ? pages[current] : undefined} />
+            <div className="survey-nav">
+                {paged && position > 0 && (
+                    <button type="button" className="secondary" onClick={() => goTo(shown[position - 1])}>Back</button>
+                )}
+                {paged && !lastPage ? (
+                    <button type="submit">Next</button>
+                ) : (
+                    <button type="submit" disabled={status === "submitting"}>
+                        {status === "submitting" ? "Submitting..." : "Submit"}
+                    </button>
+                )}
+            </div>
         </form>
     );
 }
