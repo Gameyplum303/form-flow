@@ -25,7 +25,19 @@
                 "format": "uuid"
             },
             "minItems": 1
-            
+
+        },
+        "pageBreaks": {
+            "type": "array",
+            "description": "Ids of the questions that start a new page. The first page needs none.",
+            "items": {
+                "type": "string",
+                "format": "uuid"
+            }
+        },
+        "isTemplate": {
+            "type": "boolean",
+            "description": "Whether this is a read-only template that builders copy into a new survey."
         },
         "version": {
             "type": "integer",

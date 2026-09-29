@@ -3,6 +3,7 @@
 @using FormFlow.Blazor.Services
 @inject ISurveyService SurveyService
 @inject IRespondentIdentity Respondent
+@inject ISurveyDrafts Drafts
 
 <PageTitle>@(_survey?.Title ?? "Survey")</PageTitle>
 
@@ -46,28 +47,29 @@
             </MudAlert>
         }
 
+        @if (_restored)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4" data-resume-note>
+                We saved your answers on this device.
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Class="ml-1"
+                           OnClick="StartOverAsync">Start over</MudButton>
+            </MudAlert>
+        }
+
         @if (_message is not null)
         {
             <MudAlert Severity="Severity.Error" Class="mb-4">@_message</MudAlert>
         }
 
-        <SurveyForm Questions="_questions" Answers="_answers" Errors="_errors" AnswersChanged="OnAnswersChanged" />
-
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   Disabled="_submitting"
-                   OnClick="SubmitAsync"
-                   Class="mt-2">
-            @if (_submitting)
-            {
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                <span>Submitting...</span>
-            }
-            else
-            {
-                <span>Submit</span>
-            }
-        </MudButton>
+        @* A new key starts the form afresh, on its first page, when answers are restored or cleared. *@
+        <PagedSurveyForm @key="_formVersion"
+                         Questions="_questions"
+                         PageBreaks="_survey.PageBreaks"
+                         Answers="_answers"
+                         Errors="_errors"
+                         AnswersChanged="OnAnswersChangedAsync"
+                         OnSubmit="SubmitAsync"
+                         Submitting="_submitting" />
     }
 </MudPaper>
 
@@ -86,6 +88,14 @@
     private bool _submitting;
     private bool _submitted;
     private bool _alreadyAnswered;
+
+    /// <summary>Whether the answers came back from this browser's storage.</summary>
+    private bool _restored;
+
+    /// <summary>Set once the answered check and saved answers have been read from the browser.</summary>
+    private bool _browserChecked;
+
+    private int _formVersion;
 
     /// <summary>A message that ends the survey for this person, or null while they can still answer.</summary>
     private string? _finalMessage;
@@ -111,15 +121,33 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // The respondent id lives in browser storage, which is only readable once the page is interactive.
-        if (!firstRender || _survey is null || !_survey.IsPublished())
+        // The respondent id and saved answers live in browser storage, which is only readable once the
+        // page is interactive. The survey may still be loading after the first render, so this runs
+        // after the first render that has it.
+        if (_browserChecked || _survey is null || _questions is null)
         {
             return;
         }
+        _browserChecked = true;
 
         // When the server can't say, this is false: it still refuses a second answer on submit.
-        _alreadyAnswered = await SurveyService.HasAnsweredAsync(_survey.Id, await Respondent.GetIdAsync());
-        if (_alreadyAnswered)
+        if (_survey.IsPublished())
+        {
+            _alreadyAnswered = await SurveyService.HasAnsweredAsync(_survey.Id, await Respondent.GetIdAsync());
+        }
+
+        if (ClosedMessage is null && await Drafts.LoadAsync(_survey.Id) is { Count: > 0 } saved)
+        {
+            var keys = _questions.Select(q => q.Key).ToHashSet();
+            foreach (var (key, values) in saved.Where(a => keys.Contains(a.Key)))
+            {
+                _answers[key] = values;
+            }
+            _restored = true;
+            _formVersion++;
+        }
+
+        if (_alreadyAnswered || _restored)
         {
             StateHasChanged();
         }
@@ -137,10 +165,20 @@
         _submitted = false;
     }
 
-    private void OnAnswersChanged()
+    private async Task OnAnswersChangedAsync()
     {
         // Clear an error as soon as the respondent changes answers; the server re-checks on submit.
         _message = null;
+        await Drafts.SaveAsync(_survey!.Id, _answers);
+    }
+
+    /// <summary>Forgets the saved answers and starts the survey again.</summary>
+    private async Task StartOverAsync()
+    {
+        await Drafts.ClearAsync(_survey!.Id);
+        StartOver();
+        _restored = false;
+        _formVersion++;
     }
 
     private async Task SubmitAsync()
@@ -154,11 +192,14 @@
         if (result.Success)
         {
             _submitted = true;
+            await Drafts.ClearAsync(_survey.Id);
             return;
         }
         if (!result.CanRetry)
         {
+            // Closed, gone or already answered: the saved answers can't be sent any more.
             _finalMessage = result.Message;
+            await Drafts.ClearAsync(_survey.Id);
             return;
         }
 

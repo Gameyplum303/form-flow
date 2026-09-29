@@ -9,15 +9,20 @@ export interface SurveyFormProps {
     answers: Answers;
     errors?: AnswerErrors;
     onChange: (answers: Answers) => void;
+    /**
+     * The questions of the page being shown, or all of them when omitted. Conditions still look at
+     * every question, so an answer on one page can show or hide questions on another.
+     */
+    page?: QuestionDefinition[];
 }
 
 /** Renders a survey's visible questions and reports every answer change. */
-export function SurveyForm({ questions, answers, errors, onChange }: SurveyFormProps) {
+export function SurveyForm({ questions, answers, errors, onChange, page }: SurveyFormProps) {
     const visible = visibleKeys(questions, answers);
 
     return (
         <>
-            {questions
+            {(page ?? questions)
                 .filter((q) => visible.has(q.key))
                 .map((q) => (
                     <QuestionRenderer

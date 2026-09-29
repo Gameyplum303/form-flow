@@ -51,6 +51,24 @@ namespace FormFlow.Blazor.Services
         public Task<(bool Success, string? Error)> DeleteSurveyAsync(Guid id) =>
             ApiErrors.SendAsync(() => Client.DeleteAsync($"api/surveys/{id}"));
 
+        public Task<(SurveyDefinition? Survey, string? Error)> DuplicateSurveyAsync(Guid id) =>
+            PostForSurveyAsync($"api/surveys/{id}/duplicate");
+
+        public Task<List<SurveyTemplate>?> GetTemplatesAsync() => GetOrNullAsync<List<SurveyTemplate>>("api/templates");
+
+        public Task<(SurveyDefinition? Survey, string? Error)> UseTemplateAsync(Guid templateId) =>
+            PostForSurveyAsync($"api/templates/{templateId}/use");
+
+        /// <summary>Sends a POST without a body that answers with a new survey.</summary>
+        private Task<(SurveyDefinition? Survey, string? Error)> PostForSurveyAsync(string url) =>
+            ApiErrors.TryAsync<(SurveyDefinition?, string?)>(async () =>
+            {
+                var response = await Client.PostAsync(url, null);
+                return response.IsSuccessStatusCode
+                    ? (await response.Content.ReadFromJsonAsync<SurveyDefinition>(), null)
+                    : (null, await ApiErrors.ReadMessageAsync(response));
+            }, (null, ApiErrors.Unreachable));
+
         public Task<SubmitResult> SubmitResponseAsync(Guid surveyId, Dictionary<string, List<string>> answers,
             string? respondentId = null) =>
             ApiErrors.TryAsync(async () =>
