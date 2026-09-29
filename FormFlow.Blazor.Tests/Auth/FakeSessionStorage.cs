@@ -39,11 +39,13 @@ public sealed class FakeSessionStorage : IJSRuntime
     public AdminSession CreateSession(IDataProtectionProvider? protection = null) =>
         new(new ProtectedSessionStorage(this, protection ?? new EphemeralDataProtectionProvider()));
 
-    public static LoginResponse Login(string username = "admin", TimeSpan? lifetime = null, string role = "admin") => new()
-    {
-        Token = "test-token",
-        Username = username,
-        Role = role,
-        ExpiresAt = DateTime.UtcNow + (lifetime ?? TimeSpan.FromHours(1))
-    };
+    public static LoginResponse Login(string username = "admin", TimeSpan? lifetime = null, string role = "admin",
+        Guid? userId = null) => new()
+        {
+            Token = "test-token",
+            UserId = userId ?? Guid.NewGuid(),
+            Username = username,
+            Role = role,
+            ExpiresAt = DateTime.UtcNow + (lifetime ?? TimeSpan.FromHours(1))
+        };
 }

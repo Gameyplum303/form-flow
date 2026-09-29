@@ -96,4 +96,29 @@ public class LoginPageTests
             return Task.FromResult(Result);
         }
     }
+    [Fact]
+    public async Task Students_go_to_the_survey_list_instead_of_the_builder()
+    {
+        await using var ctx = CreateContext();
+        _auth.Result = (FakeSessionStorage.Login("student", role: Roles.Student), null);
+        var nav = ctx.Services.GetRequiredService<NavigationManager>();
+        nav.NavigateTo("/login?returnUrl=%2Fadmin%2Fsurveys");
+
+        var cut = ctx.Render<Login>();
+        SignIn(cut, "student", "password");
+
+        cut.WaitForAssertion(() => nav.Uri.Should().EndWith("/surveys"));
+        nav.Uri.Should().NotContain("/admin");
+    }
+
+    [Theory]
+    [InlineData(null, true, "/admin/surveys")]
+    [InlineData(null, false, "/surveys")]
+    [InlineData("/admin/questions", false, "/surveys")]
+    [InlineData("/surveys/123", false, "/surveys/123")]
+    [InlineData("/admin/questions", true, "/admin/questions")]
+    public void Destination_depends_on_whether_the_account_builds_surveys(string? returnUrl, bool canBuild, string expected)
+    {
+        Login.Destination(returnUrl, canBuild).Should().Be(expected);
+    }
 }

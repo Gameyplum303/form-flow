@@ -8,7 +8,7 @@
 <PageTitle>Sign in</PageTitle>
 
 <MudPaper Class="pa-6 mx-auto mt-10" MaxWidth="420px" Elevation="3">
-    <MudText Typo="Typo.h5" Class="mb-4">Admin sign in</MudText>
+    <MudText Typo="Typo.h5" Class="mb-4">Sign in</MudText>
 
     @if (!string.IsNullOrWhiteSpace(Configuration["LoginHint"]))
     {
@@ -73,7 +73,14 @@
         }
 
         await Session.SignInAsync(login);
-        Nav.NavigateTo(SafeReturnUrl(ReturnUrl));
+        Nav.NavigateTo(Destination(ReturnUrl, Session.Access.CanBuild));
+    }
+
+    /// <summary>Students go to the surveys they can take; the survey builder is for administrators and professors.</summary>
+    public static string Destination(string? returnUrl, bool canBuild)
+    {
+        var url = SafeReturnUrl(returnUrl);
+        return canBuild || !(url == "/admin" || url.StartsWith("/admin/") || url.StartsWith("/admin?")) ? url : "/surveys";
     }
 
     /// <summary>Only local paths are allowed, so the sign-in page can't be used to send people to another site.</summary>

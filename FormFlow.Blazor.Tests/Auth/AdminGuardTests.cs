@@ -62,42 +62,86 @@ public class AdminGuardTests
         cut.Find("#secret").TextContent.Should().Be("admin page");
     }
 
-    [Fact]
-    public async Task View_only_account_sees_pages_with_a_notice_and_no_edit_rights()
-    {
-        await using var ctx = CreateContext("/admin/surveys", out var session);
-        await session.SignInAsync(FakeSessionStorage.Login("student", role: "viewer"));
-
-        var cut = ctx.Render<AdminGuard>(p => p.AddChildContent<AccessProbe>());
-
-        cut.Markup.Should().Contain("view-only account");
-        cut.Find("#can-edit").TextContent.Should().Be("False");
-    }
-
-    [Fact]
-    public async Task Admin_gets_edit_rights_and_no_notice()
-    {
-        await using var ctx = CreateContext("/admin/surveys", out var session);
-        await session.SignInAsync(FakeSessionStorage.Login("Rogers"));
-
-        var cut = ctx.Render<AdminGuard>(p => p.AddChildContent<AccessProbe>());
-
-        cut.Markup.Should().NotContain("view-only account");
-        cut.Find("#can-edit").TextContent.Should().Be("True");
-    }
-
     [Theory]
+    [InlineData("/admin/surveys")]
     [InlineData("/admin/questions/create")]
-    [InlineData("/admin/surveys/11111111-1111-1111-1111-111111111111/edit")]
-    public async Task View_only_account_cannot_open_create_or_edit_pages(string path)
+    [InlineData("/admin/surveys/11111111-1111-1111-1111-111111111111/results")]
+    public async Task Students_cannot_open_the_survey_builder(string path)
     {
         await using var ctx = CreateContext(path, out var session);
-        await session.SignInAsync(FakeSessionStorage.Login("student", role: "viewer"));
+        await session.SignInAsync(FakeSessionStorage.Login("student", role: "student"));
 
         var cut = RenderGuard(ctx);
 
         cut.FindAll("#secret").Should().BeEmpty();
-        cut.Markup.Should().Contain("Only admins can create or edit");
+        cut.Markup.Should().Contain("Students can take surveys but can't open the survey builder.");
+    }
+
+    [Fact]
+    public async Task Professors_get_the_builder_with_their_own_access()
+    {
+        var id = Guid.NewGuid();
+        await using var ctx = CreateContext("/admin/surveys", out var session);
+        await session.SignInAsync(FakeSessionStorage.Login("professor", role: "professor", userId: id));
+
+        var cut = ctx.Render<AdminGuard>(p => p.AddChildContent<AccessProbe>());
+
+        cut.Find("#access").TextContent.Should().Be($"professor {id}");
+        cut.FindAll("[data-view-as-banner]").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Admin_previewing_the_professor_view_gets_professor_access_and_a_way_back()
+    {
+        var id = Guid.NewGuid();
+        await using var ctx = CreateContext("/admin/surveys", out var session);
+        await session.SignInAsync(FakeSessionStorage.Login("Rogers", userId: id));
+        await session.SetViewAsAsync("professor");
+        var nav = ctx.Services.GetRequiredService<NavigationManager>();
+
+        var cut = ctx.Render<AdminGuard>(p => p.AddChildContent<AccessProbe>());
+
+        cut.Find("#access").TextContent.Should().Be($"professor {id}");
+        cut.Find("[data-view-as-banner]").TextContent.Should().Contain("You're viewing the site as a Professor/Scientist.");
+
+        await cut.InvokeAsync(() => cut.FindAll("button").Single(b => b.TextContent.Contains("Back to Administrator view")).Click());
+
+        cut.WaitForAssertion(() => cut.Find("#access").TextContent.Should().Be($"admin {id}"));
+        session.ViewAs.Should().BeNull();
+        nav.Uri.Should().EndWith("/admin/surveys");
+    }
+
+    [Fact]
+    public async Task Admin_previewing_the_student_view_is_kept_out_of_the_builder()
+    {
+        await using var ctx = CreateContext("/admin/questions", out var session);
+        await session.SignInAsync(FakeSessionStorage.Login("Rogers"));
+        await session.SetViewAsAsync("student");
+
+        var cut = RenderGuard(ctx);
+
+        cut.FindAll("#secret").Should().BeEmpty();
+        cut.Markup.Should().Contain("You're viewing the site as a Student.");
+    }
+
+    [Fact]
+    public async Task The_preview_survives_a_reload_but_only_for_an_admin()
+    {
+        var protection = new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider();
+        var admin = _storage.CreateSession(protection);
+        await admin.SignInAsync(FakeSessionStorage.Login("Rogers"));
+        await admin.SetViewAsAsync("student");
+
+        var reloaded = _storage.CreateSession(protection);
+        await reloaded.RestoreAsync();
+        reloaded.EffectiveRole.Should().Be("student");
+        reloaded.IsAdmin.Should().BeTrue("the preview only changes what the pages show");
+
+        var professor = new FakeSessionStorage().CreateSession();
+        await professor.SignInAsync(FakeSessionStorage.Login("professor", role: "professor"));
+        await professor.SetViewAsAsync("student");
+        professor.ViewAs.Should().BeNull();
+        professor.EffectiveRole.Should().Be("professor");
     }
 
     [Fact]
@@ -132,8 +176,8 @@ public class AdminGuardTests
         protected override void BuildRenderTree(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
         {
             builder.OpenElement(0, "span");
-            builder.AddAttribute(1, "id", "can-edit");
-            builder.AddContent(2, Access?.CanEdit.ToString() ?? "none");
+            builder.AddAttribute(1, "id", "access");
+            builder.AddContent(2, Access is null ? "none" : $"{Access.Role} {Access.UserId}");
             builder.CloseElement();
         }
     }

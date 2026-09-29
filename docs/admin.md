@@ -4,16 +4,28 @@ The admin area is part of the Blazor app and uses its own layout and menu (`Admi
 
 ## Signing in
 
-Every `/admin` page needs an admin sign-in. `AdminGuard` (in `MainLayout`) sends a signed-out visitor to `/login?returnUrl=…` and brings them back to the page they asked for once they sign in. Development and docker compose create two accounts: `Rogers` / `password`, an admin, and `student` / `password`, a view-only test account. The sign-in page shows the test account when the `LoginHint` setting is set.
+Every `/admin` page needs a sign-in. `AdminGuard` (in `MainLayout`) sends a signed-out visitor to `/login?returnUrl=…` and brings them back to the page they asked for once they sign in. Development and docker compose create three accounts, all with the password `password`: `Rogers` (Administrator), `professor` (Professor/Scientist) and `student` (Student). The sign-in page shows the test accounts when the `LoginHint` setting is set.
 
-A view-only account can open every admin page except the create and edit pages, sees a notice that it is view-only, and gets no Create, Edit or Delete buttons. It can still preview surveys, see results and download CSVs. The API enforces the same rule, so a view-only token gets `403` on any change.
+## Roles
 
-The API issues the token (see [api.md](api.md#authentication)). `AdminSession` keeps it in the browser's session storage, encrypted with ASP.NET Core data protection, so reloading a page keeps the admin signed in and closing the tab signs them out. `QuestionService` and `SurveyService` add it to every API call. **Sign out** at the bottom of the admin menu clears it.
+| Role | In the Blazor app |
+|---|---|
+| Administrator | Every admin page, with Edit and Delete on every question and survey, a **Created by** column, and results for every survey. Can switch to another role's view (below). |
+| Professor/Scientist | The survey builder, showing only the surveys they created. The question bank lists every question, so any of them can go in a survey, but Edit and Delete appear only on their own. Opening someone else's survey or question for editing shows "You can only edit…" instead of the form. |
+| Student | Takes surveys. Signing in lands on `/surveys`, the menu has no **Survey Builder** link, and `/admin` pages say that students can't open the survey builder. |
+
+The API enforces the same rules (see [api.md](api.md#authentication)), so hiding a button is only a convenience. When a student is signed in, their responses record their username in `submittedBy`, which shows in the CSV export. How surveys will be shared with students isn't decided yet, so every survey is still listed for everyone.
+
+### Viewing the site as another role
+
+An administrator's menu has a **View as** list under their name. Choosing Professor/Scientist or Student shows the site as that role would see it, with a banner and a **Back to Administrator view** button on every page. As a professor, an administrator sees only the surveys and questions they created themselves. The choice lasts for the tab, across page loads, and signing out clears it. It only changes what the pages show: the API still treats the account as an administrator.
+
+The API issues the token (see [api.md](api.md#authentication)). `AdminSession` keeps it in the browser's session storage, encrypted with ASP.NET Core data protection, so reloading a page keeps the account signed in and closing the tab signs it out. `QuestionService` and `SurveyService` add it to every API call. **Sign out** in either menu clears it, along with any View as choice.
 
 | Route | Page | Purpose |
 |---|---|---|
 | `/login` | `Login` | Admin sign-in |
-| `/admin/surveys` | `AdminSurveysList` | All surveys, with Edit, Preview, Results and Delete |
+| `/admin/surveys` | `AdminSurveysList` | The surveys you manage (every survey for an administrator), with Edit, Preview, Results and Delete |
 | `/admin/surveys/create` | `AdminCreateSurvey` | Build a new survey |
 | `/admin/surveys/{id}/edit` | `AdminCreateSurvey` | Edit an existing survey |
 | `/admin/surveys/{id}/preview` | `AdminSurveyPreview` | See the survey as a respondent would, with conditional questions working |
@@ -22,11 +34,11 @@ The API issues the token (see [api.md](api.md#authentication)). `AdminSession` k
 | `/admin/questions/create` | `AdminCreateQuestion` | Create a question |
 | `/admin/questions/{id}/edit` | `AdminCreateQuestion` | Edit a question |
 
-**Respondent view** in the admin menu goes back to the public survey list at `/surveys`.
+**Take a Survey** in the admin menu goes back to the public survey list at `/surveys`.
 
 ## Question bank (`/admin/questions`)
 
-A table of every question showing its label, key, type, and when it is shown ("Always", or for example "is_student is yes"). Edit opens the question in the editor. Delete asks for confirmation, and the API refuses if a survey uses the question or another question's visibility depends on it; the page shows that message.
+A table of every question showing its label, key, type, when it is shown ("Always", or for example "is_student is yes"), and who created it. Edit opens the question in the editor. Delete asks for confirmation, and the API refuses if a survey uses the question or another question's visibility depends on it; the page shows that message.
 
 ## Create or edit a question
 

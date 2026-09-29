@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using FormFlow.Backend.Auth;
 using FormFlow.Backend.Repositories;
 using FormFlow.Data.Models;
@@ -42,9 +43,11 @@ namespace FormFlow.Backend.Endpoints
             .WithName("GetAllQuestions")
             .Produces<List<QuestionDefinition>>(StatusCodes.Status200OK);
 
-            group.MapPost("", (NewQuestion newQuestion, IQuestionRepository repository, QuestionValidator validator) =>
+            group.MapPost("", (NewQuestion newQuestion, ClaimsPrincipal principal, IQuestionRepository repository,
+                QuestionValidator validator) =>
             {
                 var question = ToDefinition(Guid.NewGuid(), newQuestion);
+                CurrentUser.From(principal).Own(question);
 
                 var errors = Validate(question, repository, validator);
                 if (errors.Count > 0)
@@ -75,14 +78,14 @@ namespace FormFlow.Backend.Endpoints
                 }
             })
             .WithName("CreateQuestion")
-            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces<QuestionDefinition>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status409Conflict);
 
-            group.MapPut("/{id:guid}", (Guid id, NewQuestion update, IQuestionRepository repository,
+            group.MapPut("/{id:guid}", (Guid id, NewQuestion update, ClaimsPrincipal principal, IQuestionRepository repository,
                 ISurveyRepository surveys, QuestionValidator validator) =>
             {
                 var existing = repository.FindById(id);
@@ -90,8 +93,14 @@ namespace FormFlow.Backend.Endpoints
                 {
                     return Results.NotFound();
                 }
+                if (!CurrentUser.From(principal).CanManage(existing))
+                {
+                    return CurrentUser.NotYours("questions");
+                }
 
                 var question = ToDefinition(id, update);
+                question.OwnerId = existing.OwnerId;
+                question.OwnerName = existing.OwnerName;
 
                 var errors = Validate(question, repository, validator);
                 if (errors.Count > 0)
@@ -119,7 +128,7 @@ namespace FormFlow.Backend.Endpoints
                 return Results.Ok(question);
             })
             .WithName("UpdateQuestion")
-            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces<QuestionDefinition>(StatusCodes.Status200OK)
@@ -127,12 +136,17 @@ namespace FormFlow.Backend.Endpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict);
 
-            group.MapDelete("/{id:guid}", (Guid id, IQuestionRepository repository, ISurveyRepository surveys) =>
+            group.MapDelete("/{id:guid}", (Guid id, ClaimsPrincipal principal, IQuestionRepository repository,
+                ISurveyRepository surveys) =>
             {
                 var existing = repository.FindById(id);
                 if (existing is null)
                 {
                     return Results.NotFound();
+                }
+                if (!CurrentUser.From(principal).CanManage(existing))
+                {
+                    return CurrentUser.NotYours("questions");
                 }
 
                 var usedBy = surveys.FindByQuestionId(id).Select(s => s.Title).ToList();
@@ -160,7 +174,7 @@ namespace FormFlow.Backend.Endpoints
                 return Results.NoContent();
             })
             .WithName("DeleteQuestion")
-            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status204NoContent)

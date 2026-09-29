@@ -1,6 +1,4 @@
 @using FormFlow.Blazor.Services
-@implements IDisposable
-@inject AdminSession Session
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -30,31 +28,11 @@
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="/surveys">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span>
-                Respondent view
+                Take a Survey
             </NavLink>
         </div>
 
-        @if (Session.IsSignedIn)
-        {
-            <div class="nav-item px-3 signed-in">
-                <span class="signed-in-as">Signed in as @Session.Username@(Session.IsAdmin ? "" : " (view only)")</span>
-                <button type="button" class="nav-link sign-out" @onclick="SignOutAsync" @onclick:stopPropagation="true">
-                    <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span>
-                    Sign out
-                </button>
-            </div>
-        }
+        <AccountPanel />
 
     </nav>
 </div>
-
-@code {
-    protected override void OnInitialized() => Session.Changed += OnSessionChanged;
-
-    // AdminGuard sees the change and sends the browser to the sign-in page.
-    private Task SignOutAsync() => Session.SignOutAsync();
-
-    private void OnSessionChanged() => InvokeAsync(StateHasChanged);
-
-    public void Dispose() => Session.Changed -= OnSessionChanged;
-}

@@ -14,7 +14,7 @@ namespace FormFlow.Backend.Services
         {
             var sb = new StringBuilder();
 
-            var header = new List<string> { "response_id", "submitted_at" };
+            var header = new List<string> { "response_id", "submitted_at", "submitted_by" };
             header.AddRange(questions.Select(q => q.Key));
             AppendRow(sb, header);
 
@@ -23,7 +23,8 @@ namespace FormFlow.Backend.Services
                 var row = new List<string>
                 {
                     response.Id.ToString(),
-                    response.SubmittedAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    response.SubmittedAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    response.SubmittedBy ?? string.Empty
                 };
                 row.AddRange(questions.Select(q =>
                     response.Answers.TryGetValue(q.Key, out var values) ? string.Join("; ", values) : string.Empty));

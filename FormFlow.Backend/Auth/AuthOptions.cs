@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using FormFlow.Data.Models;
 using Microsoft.IdentityModel.Tokens;
 
 namespace FormFlow.Backend.Auth
@@ -7,16 +8,14 @@ namespace FormFlow.Backend.Auth
     /// <summary>Settings for the tokens the API issues, read from the "Jwt" configuration section.</summary>
     public class JwtSettings
     {
-        /// <summary>Changing questions and surveys: admins only.</summary>
-        public const string AdminPolicy = "Admin";
+        /// <summary>
+        /// Building questions and surveys: administrators and professors. Endpoints then check that a
+        /// professor owns what they change or read (see <see cref="CurrentUser.CanManage"/>).
+        /// </summary>
+        public const string BuilderPolicy = "Builder";
 
-        /// <summary>Reading responses and results: admins and view-only accounts.</summary>
-        public const string ViewerPolicy = "Viewer";
-
-        public const string AdminRole = "admin";
-        public const string ViewerRole = "viewer";
-
-        public static bool IsKnownRole(string? role) => role is AdminRole or ViewerRole;
+        /// <summary>Any signed-in account.</summary>
+        public const string SignedInPolicy = "SignedIn";
 
         public string Issuer { get; init; } = "FormFlow";
         public string Audience { get; init; } = "FormFlow";
