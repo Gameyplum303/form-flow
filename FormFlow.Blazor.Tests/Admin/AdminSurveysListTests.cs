@@ -73,7 +73,23 @@ namespace FormFlow.Blazor.Tests.Admin
             cut.WaitForAssertion(() => Assert.Contains("Survey A", cut.Markup));
             cut.FindAll("button").First(b => b.TextContent.Contains("Preview", StringComparison.OrdinalIgnoreCase)).Click();
 
-            Assert.Equal($"admin/surveys/{survey.Id}/preview", nav.Uri.Replace(nav.BaseUri, ""));
+            // The click can be dispatched after Click() returns while the table is still rendering, so wait for it.
+            cut.WaitForAssertion(() => Assert.Equal($"admin/surveys/{survey.Id}/preview", nav.Uri.Replace(nav.BaseUri, "")));
+        }
+
+        [Fact]
+        public async Task SurveyList_ViewOnlyAccount_HasNoCreateEditOrDelete()
+        {
+            await using var ctx = CreateContext();
+            _service.Surveys.Add(Survey("Survey A"));
+
+            var cut = ctx.Render<AdminSurveysList>(p => p.AddCascadingValue(new AdminAccess(false)));
+            cut.WaitForAssertion(() => Assert.Contains("Survey A", cut.Markup));
+
+            cut.Markup.Should().NotContain("Create Survey");
+            cut.FindAll("button").Should().NotContain(b => b.TextContent.Trim() == "Edit");
+            cut.FindAll("button[aria-label='Delete Survey A']").Should().BeEmpty();
+            cut.FindAll("button").Should().Contain(b => b.TextContent.Trim() == "Results");
         }
 
         [Fact]

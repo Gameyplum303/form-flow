@@ -7,6 +7,7 @@ namespace FormFlow.Backend.Repositories
         AdminUser Insert(AdminUser user);
         /// <summary>Finds a user by name, ignoring case.</summary>
         AdminUser? FindByUsername(string username);
+        bool Update(AdminUser user);
         int Count();
     }
 }

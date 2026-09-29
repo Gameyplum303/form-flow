@@ -37,7 +37,7 @@
         @if (Session.IsSignedIn)
         {
             <div class="nav-item px-3 signed-in">
-                <span class="signed-in-as">Signed in as @Session.Username</span>
+                <span class="signed-in-as">Signed in as @Session.Username@(Session.IsAdmin ? "" : " (view only)")</span>
                 <button type="button" class="nav-link sign-out" @onclick="SignOutAsync" @onclick:stopPropagation="true">
                     <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span>
                     Sign out

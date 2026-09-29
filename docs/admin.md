@@ -4,7 +4,9 @@ The admin area is part of the Blazor app and uses its own layout and menu (`Admi
 
 ## Signing in
 
-Every `/admin` page needs an admin sign-in. `AdminGuard` (in `MainLayout`) sends a signed-out visitor to `/login?returnUrl=…` and brings them back to the page they asked for once they sign in. Development and docker compose create two accounts: `Rogers` / `password` and the test account `student` / `password`. The sign-in page shows the test account when the `LoginHint` setting is set.
+Every `/admin` page needs an admin sign-in. `AdminGuard` (in `MainLayout`) sends a signed-out visitor to `/login?returnUrl=…` and brings them back to the page they asked for once they sign in. Development and docker compose create two accounts: `Rogers` / `password`, an admin, and `student` / `password`, a view-only test account. The sign-in page shows the test account when the `LoginHint` setting is set.
+
+A view-only account can open every admin page except the create and edit pages, sees a notice that it is view-only, and gets no Create, Edit or Delete buttons. It can still preview surveys, see results and download CSVs. The API enforces the same rule, so a view-only token gets `403` on any change.
 
 The API issues the token (see [api.md](api.md#authentication)). `AdminSession` keeps it in the browser's session storage, encrypted with ASP.NET Core data protection, so reloading a page keeps the admin signed in and closing the tab signs them out. `QuestionService` and `SurveyService` add it to every API call. **Sign out** at the bottom of the admin menu clears it.
 

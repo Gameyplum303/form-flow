@@ -44,7 +44,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters.RoleClaimType = "role";
     });
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy(JwtSettings.AdminPolicy, policy => policy.RequireRole(JwtSettings.AdminRole));
+    .AddPolicy(JwtSettings.AdminPolicy, policy => policy.RequireRole(JwtSettings.AdminRole))
+    .AddPolicy(JwtSettings.ViewerPolicy, policy => policy.RequireRole(JwtSettings.AdminRole, JwtSettings.ViewerRole));
 
 // Limits per client address, to slow down password guessing and spam submissions.
 builder.Services.AddRateLimiter(options =>

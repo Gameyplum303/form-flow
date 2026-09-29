@@ -33,7 +33,8 @@ namespace FormFlow.Backend.Tests.Endpoints
         {
             var login = await AdminClient.LoginAsync(_client);
 
-            login.Username.Should().Be("student");
+            login.Username.Should().Be("Rogers");
+            login.Role.Should().Be("admin");
             login.Token.Should().NotBeNullOrWhiteSpace();
             login.ExpiresAt.Should().BeAfter(DateTime.UtcNow.AddHours(7));
         }
@@ -50,36 +51,45 @@ namespace FormFlow.Backend.Tests.Endpoints
         public async Task EveryConfiguredAccount_CanSignIn()
         {
             (await AdminClient.LoginAsync(_client, "Rogers", "password")).Token.Should().NotBeNullOrWhiteSpace();
-            (await AdminClient.LoginAsync(_client, "STUDENT", "password")).Username.Should().Be("student");
+            var student = await AdminClient.LoginAsync(_client, "STUDENT", "password");
+            student.Username.Should().Be("student");
+            student.Role.Should().Be("viewer");
         }
 
         [Fact]
-        public void Seeder_AddsNewAccounts_AndLeavesExistingPasswordsAlone()
+        public void Seeder_AddsNewAccounts_UpdatesRoles_AndLeavesExistingPasswordsAlone()
         {
             var users = _factory.Services.GetRequiredService<IUserRepository>();
             var hasher = _factory.Services.GetRequiredService<IPasswordHasher<AdminUser>>();
             var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["AdminAccounts:0:Username"] = "student",
-                ["AdminAccounts:0:Password"] = "changed",
-                ["AdminAccounts:1:Username"] = " Grace ",
-                ["AdminAccounts:1:Password"] = "hopper",
-                ["AdminAccounts:2:Username"] = "no-password",
+                ["Accounts:0:Username"] = "student",
+                ["Accounts:0:Password"] = "changed",
+                ["Accounts:0:Role"] = "admin",
+                ["Accounts:1:Username"] = " Grace ",
+                ["Accounts:1:Password"] = "hopper",
+                ["Accounts:2:Username"] = "no-password",
+                ["Accounts:3:Username"] = "odd-role",
+                ["Accounts:3:Password"] = "x",
+                ["Accounts:3:Role"] = "superuser",
             }).Build();
 
             new AdminAccountSeeder(users, hasher, config, NullLogger<AdminAccountSeeder>.Instance).Seed();
 
             var student = users.FindByUsername("student")!;
             hasher.VerifyHashedPassword(student, student.PasswordHash, "password").Should().Be(PasswordVerificationResult.Success);
+            student.Role.Should().Be("admin");
             var grace = users.FindByUsername("grace")!;
             grace.Username.Should().Be("Grace");
+            grace.Role.Should().Be("viewer", "accounts without a role are view-only");
             hasher.VerifyHashedPassword(grace, grace.PasswordHash, "hopper").Should().Be(PasswordVerificationResult.Success);
             users.FindByUsername("no-password").Should().BeNull();
+            users.FindByUsername("odd-role").Should().BeNull();
             users.Count().Should().Be(3);
         }
 
         [Theory]
-        [InlineData("student", "wrong-password")]
+        [InlineData("Rogers", "wrong-password")]
         [InlineData("nobody", "password")]
         [InlineData("", "")]
         public async Task Login_WithBadCredentials_Returns401WithoutSayingWhichPartWasWrong(string username, string password)
@@ -94,7 +104,7 @@ namespace FormFlow.Backend.Tests.Endpoints
         public void Password_IsStoredHashed()
         {
             var users = _factory.Services.GetRequiredService<IUserRepository>();
-            var admin = users.FindByUsername("student")!;
+            var admin = users.FindByUsername("Rogers")!;
 
             admin.PasswordHash.Should().NotContain("password");
             _factory.Services.GetRequiredService<IPasswordHasher<AdminUser>>()
@@ -109,7 +119,8 @@ namespace FormFlow.Backend.Tests.Endpoints
 
             _client.AsAdmin();
             var me = await _client.GetFromJsonAsync<JsonElement>("/api/auth/me");
-            me.GetProperty("username").GetString().Should().Be("student");
+            me.GetProperty("username").GetString().Should().Be("Rogers");
+            me.GetProperty("role").GetString().Should().Be("admin");
         }
 
         [Theory]
@@ -124,17 +135,52 @@ namespace FormFlow.Backend.Tests.Endpoints
         [InlineData("GET", "/api/surveys/{survey}/responses/export")]
         public async Task AdminEndpoints_RejectAnonymousCalls(string method, string path)
         {
+            var response = await _client.SendAsync(await RequestAsync(method, path));
+
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        }
+
+        [Theory]
+        [InlineData("POST", "/api/questions")]
+        [InlineData("PUT", "/api/questions/{question}")]
+        [InlineData("DELETE", "/api/questions/{question}")]
+        [InlineData("POST", "/api/surveys")]
+        [InlineData("PUT", "/api/surveys/{survey}")]
+        [InlineData("DELETE", "/api/surveys/{survey}")]
+        public async Task ViewOnlyAccount_CannotChangeAnything(string method, string path)
+        {
+            var request = await RequestAsync(method, path);
+            _client.AsViewer();
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        }
+
+        [Theory]
+        [InlineData("/api/surveys/{survey}/responses")]
+        [InlineData("/api/surveys/{survey}/results")]
+        [InlineData("/api/surveys/{survey}/responses/export")]
+        [InlineData("/api/auth/me")]
+        public async Task ViewOnlyAccount_CanReadResponsesAndResults(string path)
+        {
+            var request = await RequestAsync("GET", path);
+            _client.AsViewer();
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        private async Task<HttpRequestMessage> RequestAsync(string method, string path)
+        {
             var survey = await InMemoryApiFactory.GetDemoSurveyAsync(_client);
             var question = await InMemoryApiFactory.GetQuestionAsync(_client, "first_name");
-            var request = new HttpRequestMessage(new HttpMethod(method),
+            return new HttpRequestMessage(new HttpMethod(method),
                 path.Replace("{survey}", survey.Id.ToString()).Replace("{question}", question.Id.ToString()))
             {
                 Content = method is "POST" or "PUT" ? new StringContent("{}", Encoding.UTF8, "application/json") : null
             };
-
-            var response = await _client.SendAsync(request);
-
-            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
 
         [Fact]
@@ -173,7 +219,7 @@ namespace FormFlow.Backend.Tests.Endpoints
             var statuses = new List<HttpStatusCode>();
             for (var i = 0; i < 4; i++)
             {
-                var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest { Username = "student", Password = "wrong" });
+                var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest { Username = "Rogers", Password = "wrong" });
                 statuses.Add(response.StatusCode);
             }
 
