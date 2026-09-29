@@ -1,6 +1,6 @@
 import { expect, Page, test } from "@playwright/test";
 import {
-    admin, answer, choose, demoSurveyTitle, headersFor, openBlazor, professor, question, runId, signIn, student, submitSignIn, surveyByTitle, urls,
+    admin, answer, choose, demoSurveyTitle, headersFor, newSignUp, openBlazor, professor, question, runId, signIn, submitSignIn, surveyByTitle, urls,
 } from "./helpers";
 
 const key = `campus_job_${runId}`;
@@ -50,14 +50,54 @@ test.describe("Blazor: signing in", () => {
 });
 
 test.describe("Blazor: roles", () => {
-    test("students can take surveys but can't open the survey builder", async ({ page }) => {
-        await signIn(page, student, /\/surveys$/);
-        await expect(page.getByText(`Signed in as ${student.username} (Student)`)).toBeVisible();
-        await expect(page.getByRole("link", { name: "Survey Builder" })).toHaveCount(0);
+    test("a professor signs up, waits for approval, then signs in", async ({ browser }) => {
+        const signUp = newSignUp("Blazor Grace");
+        const page = await browser.newPage();
+        await openBlazor(page, "/login");
+        await page.getByRole("link", { name: "Sign up" }).click();
+        await expect(page).toHaveURL(/\/signup$/);
+        await expect(page.locator(".page[data-interactive=true]")).toBeVisible();
 
-        await openBlazor(page, "/admin/surveys");
-        await expect(page.getByText("Students can take surveys but can't open the survey builder.")).toBeVisible();
-        await expect(page.getByText("+ Create Survey")).toHaveCount(0);
+        const fill = async (selector: string, value: string) => {
+            await page.locator(selector).fill(value);
+            await page.locator(selector).press("Tab");
+        };
+        await fill("input[autocomplete=name]", signUp.name);
+        await fill("input[autocomplete=email]", signUp.email);
+        await fill("input[type=password] >> nth=0", signUp.password);
+        await fill("input[type=password] >> nth=1", "not the same");
+        await fill("input[type=date]", signUp.dateOfBirth);
+        await fill("input[autocomplete=organization]", signUp.organization);
+        await fill("textarea", signUp.intendedUse);
+        await page.getByRole("button", { name: "Sign up" }).click();
+        await expect(page.locator("[data-field-error=confirmPassword]")).toHaveText("The passwords don't match.");
+
+        await fill("input[type=password] >> nth=1", signUp.password);
+        await page.getByRole("button", { name: "Sign up" }).click();
+        await expect(page.locator("[data-signup-done]")).toContainText("An administrator will review your sign-up");
+
+        await openBlazor(page, "/login");
+        await submitSignIn(page, signUp.email, signUp.password);
+        await expect(page.getByText("Your account is waiting for an administrator's approval.")).toBeVisible();
+
+        // An administrator approves the sign-up from the Sign-ups page.
+        const adminPage = await browser.newPage();
+        await signIn(adminPage);
+        await adminPage.getByRole("link", { name: "Sign-ups" }).click();
+        await expect(adminPage).toHaveURL(/\/admin\/signups$/);
+        const row = adminPage.locator("tr", { hasText: signUp.email });
+        await expect(row).toContainText(signUp.organization);
+        await expect(row).toContainText(signUp.intendedUse);
+        await row.getByRole("button", { name: "Approve" }).click();
+        await expect(adminPage.getByText(`Approved ${signUp.name}. They can sign in now.`)).toBeVisible();
+        await expect(row).toHaveCount(0);
+        await adminPage.close();
+
+        await submitSignIn(page, signUp.email, signUp.password);
+        await expect(page).toHaveURL(/\/admin\/surveys$/);
+        await expect(page.getByText(`Signed in as ${signUp.email} (Professor/Scientist)`)).toBeVisible();
+        await expect(page.getByRole("link", { name: "Sign-ups" })).toHaveCount(0);
+        await page.close();
     });
 
     test("professors see and manage only their own surveys", async ({ page, request }) => {

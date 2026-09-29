@@ -20,6 +20,18 @@ namespace FormFlow.Backend.Auth
         /// the default when the field is missing.
         /// </summary>
         public string Role { get; set; } = Roles.Admin;
+
+        /// <summary>One of <see cref="AccountStatuses"/>. Accounts stored before sign-up existed are active.</summary>
+        public string Status { get; set; } = AccountStatuses.Active;
         public DateTime CreatedAt { get; set; }
+
+        // Filled in by professors and scientists when they sign up; empty for accounts from configuration.
+        public string? Name { get; set; }
+        public string? Email { get; set; }
+
+        /// <summary>An ISO date (YYYY-MM-DD). Stored as text because LiteDB has no date-only type.</summary>
+        public string? DateOfBirth { get; set; }
+        public string? IntendedUse { get; set; }
+        public string? Organization { get; set; }
     }
 }

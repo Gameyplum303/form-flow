@@ -45,6 +45,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters.RoleClaimType = "role";
     });
 builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(JwtSettings.AdminPolicy, policy => policy.RequireRole(Roles.Admin))
     .AddPolicy(JwtSettings.BuilderPolicy, policy => policy.RequireRole(Roles.Admin, Roles.Professor))
     .AddPolicy(JwtSettings.SignedInPolicy, policy => policy.RequireRole(Roles.All));
 
@@ -94,6 +95,7 @@ app.UseRateLimiter();
 
 app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 app.MapAuthEndpoints();
+app.MapAccountEndpoints();
 app.MapQuestionEndpoints();
 app.MapSurveyEndpoints();
 app.MapResponseEndpoints();

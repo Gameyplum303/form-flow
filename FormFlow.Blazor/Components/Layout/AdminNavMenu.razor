@@ -1,4 +1,6 @@
 @using FormFlow.Blazor.Services
+@implements IDisposable
+@inject AdminSession Session
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -25,6 +27,16 @@
             </NavLink>
         </div>
 
+        @if (Session.Access.IsAdmin)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/admin/signups">
+                    <span class="bi bi-person-plus-nav-menu" aria-hidden="true"></span>
+                    Sign-ups
+                </NavLink>
+            </div>
+        }
+
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="/surveys">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span>
@@ -36,3 +48,11 @@
 
     </nav>
 </div>
+
+@code {
+    protected override void OnInitialized() => Session.Changed += OnSessionChanged;
+
+    private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Session.Changed -= OnSessionChanged;
+}

@@ -188,7 +188,8 @@ namespace FormFlow.Data.Services
 
         private static readonly Regex EmailPattern = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.CultureInvariant);
 
-        private static bool IsEmail(string value) => value.Length <= 254 && EmailPattern.IsMatch(value);
+        /// <summary>A light check (something@something.something, at most 254 characters), used for answers and sign-ups.</summary>
+        public static bool IsEmail(string value) => value.Length <= 254 && EmailPattern.IsMatch(value);
 
         private static Dictionary<string, List<string>> Clean(IReadOnlyDictionary<string, List<string>> submitted)
         {
