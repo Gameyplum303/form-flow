@@ -261,7 +261,8 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
                 </p>
             )}
             {message && <p className="notice error" role="alert">{message}</p>}
-            {paged && (
+            {/* "Page 1 of 1" says nothing, so the progress shows once answers leave more than one page. */}
+            {paged && shown.length > 1 && (
                 <div className="progress" data-survey-progress>
                     <span className="progress-label" id="survey-progress-label">Page {position + 1} of {shown.length}</span>
                     <progress value={position + 1} max={shown.length} aria-labelledby="survey-progress-label" />
