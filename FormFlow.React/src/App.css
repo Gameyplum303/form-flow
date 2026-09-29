@@ -1,38 +1,125 @@
-.App {
-  text-align: center;
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  color: #1f2330;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.app header h1 {
+  margin-bottom: 4px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.app header p {
+  margin-top: 0;
+  color: #5b6070;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.card {
+  border: 1px solid #e1e3ea;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: #fff;
+}
+
+.card h2 {
+  margin-top: 0;
+}
+
+.survey-list {
+  list-style: none;
+  padding: 0;
+}
+
+button {
+  font: inherit;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  background: #594ae2;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.link {
+  background: none;
+  color: #594ae2;
+  padding: 0;
+}
+
+.question {
+  border: 1px solid #e1e3ea;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 0 0 16px;
+}
+
+.question.has-error {
+  border-color: #d32f2f;
+}
+
+.question legend,
+.question-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.question input[type="text"],
+.question input[type="number"],
+.question select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid #c4c7d0;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.choices {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+}
+
+.choice {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  gap: 8px;
 }
 
-.App-link {
-  color: #61dafb;
+.required {
+  color: #d32f2f;
+  margin-left: 4px;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.help,
+.error {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
+
+.help {
+  color: #5b6070;
+}
+
+.error {
+  color: #d32f2f;
+}
+
+.notice {
+  padding: 12px 16px;
+  border-radius: 6px;
+  background: #f1f2f6;
+}
+
+.notice.error {
+  background: #fdecea;
 }

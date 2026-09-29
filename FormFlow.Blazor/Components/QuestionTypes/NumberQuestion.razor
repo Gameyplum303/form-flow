@@ -14,8 +14,10 @@
                type="number"
                @bind="_value"
                @bind:event="oninput"
+               @bind:after="OnChanged"
                required="@Question.Required"
                placeholder="@Question.Placeholder"
+               aria-invalid="@(HasError ? "true" : "false")"
                class="form-control my-input" />
 
         @if (!string.IsNullOrWhiteSpace(Question.HelpText))
@@ -23,6 +25,10 @@
             <div style="font-size: 0.8rem; color: #666; margin-top: 4px;">
                 @Question.HelpText
             </div>
+        }
+        @if (HasError)
+        {
+            <div class="question-error">@Error</div>
         }
     </div>
 </MudPaper>
@@ -33,9 +39,15 @@
 
     protected override void OnParametersSet()
     {
-        if (_value is null && !string.IsNullOrWhiteSpace(Question.DefaultValue))
+        if (Value is not null)
+        {
+            _value = BoundValue;
+        }
+        else if (_value is null && !string.IsNullOrWhiteSpace(Question.DefaultValue))
         {
             _value = Question.DefaultValue;
         }
     }
+
+    private Task OnChanged() => ReportAsync(_value);
 }

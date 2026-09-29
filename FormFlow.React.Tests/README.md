@@ -1,13 +1,15 @@
 # FormFlow.React.Tests
 
-Basic test folder scaffold for React-specific tests.
+Jest and React Testing Library tests for [`FormFlow.React`](../FormFlow.React). They import the app's source directly from `../FormFlow.React/src`.
 
-## Current Structure
+```bash
+npm install
+npm test
+```
 
-- Components/
-  - QuestionRenderer.test.tsx
+| Folder | Tests |
+|---|---|
+| `Components/` | `QuestionRenderer`, `SurveyForm`, and `App` against a mocked `fetch` |
+| `Logic/` | The visibility rules in `logic/visibility.ts` |
 
-## Notes
-
-- This folder is intentionally minimal and ready for additional test suites.
-- Add new tests under feature-focused subfolders (for example: Components, Pages, Services).
+See [docs/testing.md](../docs/testing.md#how-the-react-tests-work) for how the setup works.

@@ -3,20 +3,45 @@
 <MudPaper Elevation="1" Class="pa-4" Style="max-width:400px;">
     <div style="margin-bottom: 1rem;">
 
-        <div style="display:flex; align-items:center; gap:8px;">
-            <MudCheckBox
-                T="bool"
-                @bind-Checked="_value"
-                Class="my-input" />
-
-            <label style="font-weight:600;">
+        @if (Question.Options is { Count: > 0 })
+        {
+            @* With options, each option is its own tick box. *@
+            <label style="font-weight:600; margin-bottom:4px; display:block;">
                 @Question.Label
                 @if (Question.Required)
                 {
                     <span style="color:red">*</span>
                 }
             </label>
-        </div>
+
+            @foreach (var opt in Question.Options)
+            {
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                    <MudCheckBox T="bool"
+                                 Value="@_selected.Contains(opt.Value)"
+                                 ValueChanged="@(isChecked => Toggle(opt.Value, isChecked))" />
+                    <span>@opt.Label</span>
+                </div>
+            }
+        }
+        else
+        {
+            @* Without options, the question is a single tick box. *@
+            <div style="display:flex; align-items:center; gap:8px;">
+                <MudCheckBox T="bool"
+                             Value="_checked"
+                             ValueChanged="OnCheckedChanged"
+                             Class="my-input" />
+
+                <label style="font-weight:600;">
+                    @Question.Label
+                    @if (Question.Required)
+                    {
+                        <span style="color:red">*</span>
+                    }
+                </label>
+            </div>
+        }
 
         @if (!string.IsNullOrWhiteSpace(Question.HelpText))
         {
@@ -24,9 +49,45 @@
                 @Question.HelpText
             </div>
         }
+        @if (HasError)
+        {
+            <div class="question-error">@Error</div>
+        }
     </div>
 </MudPaper>
 
 @code {
-    private bool _value = false;
+    private bool _checked;
+    private bool _initialized;
+    private HashSet<string> _selected = new();
+
+    protected override void OnParametersSet()
+    {
+        if (Value is not null)
+        {
+            _selected = Value.ToHashSet();
+            _checked = VisibilityEvaluator.TryParseBool(BoundValue, out var ticked) && ticked;
+        }
+        else if (!_initialized && VisibilityEvaluator.TryParseBool(Question.DefaultValue, out var byDefault))
+        {
+            _checked = byDefault;
+        }
+        _initialized = true;
+    }
+
+    private Task OnCheckedChanged(bool value)
+    {
+        _checked = value;
+        return ReportAsync(value ? "true" : "false");
+    }
+
+    private Task Toggle(string value, bool isChecked)
+    {
+        if (isChecked)
+            _selected.Add(value);
+        else
+            _selected.Remove(value);
+
+        return ReportAsync(Question.Options.Select(o => o.Value).Where(_selected.Contains));
+    }
 }

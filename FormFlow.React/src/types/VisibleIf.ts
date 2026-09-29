@@ -1,4 +1,5 @@
+/** Show a question only when the yes/no question `key` was answered with `shouldEqual`. */
 export interface VisibleIf {
-    questionKey: string;
-    equals: boolean;
+    key: string;
+    shouldEqual: boolean;
 }

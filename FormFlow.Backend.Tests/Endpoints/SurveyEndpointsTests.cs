@@ -19,6 +19,7 @@ public class SurveyEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     {
         _factory = factory.WithWebHostBuilder(builder =>
         {
+            builder.UseSetting("SeedData:DemoSurvey", "false");
             builder.ConfigureServices(services =>
             {
                 // Replace LiteDB with in-memory instance
@@ -60,7 +61,7 @@ public class SurveyEndpointsTests : IClassFixture<WebApplicationFactory<Program>
             CreatedAt = DateTime.UtcNow
         };
 
-        repo.Surveys.Insert(survey);
+        repo.Insert(survey);
 
         var client = _factory.CreateClient();
 
@@ -105,9 +106,6 @@ public class SurveyEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         // Arrange
         var mockRepo = new Mock<ISurveyRepository>();
 
-        var mockCollection = new Mock<ILiteCollection<SurveyDefinition>>();
-
-        mockRepo.Setup(r => r.Surveys).Returns(mockCollection.Object);
         mockRepo.Setup(r => r.Insert(It.IsAny<SurveyDefinition>()))
                 .Returns((SurveyDefinition s) => s);
 
@@ -120,11 +118,13 @@ public class SurveyEndpointsTests : IClassFixture<WebApplicationFactory<Program>
             });
         }).CreateClient();
 
+        var seededQuestions = await client.GetFromJsonAsync<List<QuestionDefinition>>("/api/questions");
+
         var newSurvey = new NewSurvey
         {
             Title = "Test Survey",
             Description = "A unit test survey",
-            QuestionIds = new List<Guid> { Guid.NewGuid() }
+            QuestionIds = new List<Guid> { seededQuestions![0].Id }
         };
 
         // Act

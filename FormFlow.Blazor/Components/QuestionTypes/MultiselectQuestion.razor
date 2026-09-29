@@ -30,19 +30,34 @@
                 @Question.HelpText
             </div>
         }
+        @if (HasError)
+        {
+            <div class="question-error">@Error</div>
+        }
     </div>
 </MudPaper>
 
 @code {
     private HashSet<string> _selected = new();
 
+    protected override void OnParametersSet()
+    {
+        if (Value is not null)
+        {
+            _selected = Value.ToHashSet();
+        }
+    }
+
     private bool IsSelected(string value) => _selected.Contains(value);
 
-    private void ToggleSelection(string value, bool isChecked)
+    private Task ToggleSelection(string value, bool isChecked)
     {
         if (isChecked)
             _selected.Add(value);
         else
             _selected.Remove(value);
+
+        // Report in option order so stored answers are stable.
+        return ReportAsync(Question.Options.Select(o => o.Value).Where(_selected.Contains));
     }
 }

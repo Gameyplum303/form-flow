@@ -1,9 +1,20 @@
 @page "/admin/questions/create"
+@page "/admin/questions/{Id:guid}/edit"
+@using System.Text.Json
+@using System.Text.Json.Nodes
 @using FormFlow.Blazor.Services
 @inject IQuestionService QuestionService
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>@(IsEdit ? "Edit Question" : "Create Question")</PageTitle>
 
 <MudPaper Class="pa-6" MaxWidth="600px">
-    <MudText Typo="Typo.h5" Class="mb-4">Create Question</MudText>
+    <MudText Typo="Typo.h5" Class="mb-4">@(IsEdit ? "Edit Question" : "Create Question")</MudText>
+    @if (_notFound)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">Question not found.</MudAlert>
+    }
     @if (_successMessage is not null)
     {
         <MudAlert Severity="Severity.Success" 
@@ -125,6 +136,59 @@
             </MudButton>
         }
 
+        @if (HasLengthRules || HasValueRules)
+        {
+            <MudText Typo="Typo.subtitle1" Class="mb-2">Answer rules</MudText>
+            <MudGrid Class="mb-4">
+                @if (HasLengthRules)
+                {
+                    <MudItem xs="6">
+                        <MudNumericField T="int?" Label="Minimum length" @bind-Value="_minLength" Min="0" Clearable="true" />
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudNumericField T="int?" Label="Maximum length" @bind-Value="_maxLength" Min="0" Clearable="true" />
+                    </MudItem>
+                }
+                else
+                {
+                    <MudItem xs="6">
+                        <MudNumericField T="int?" Label="Minimum value" @bind-Value="_minValue" Clearable="true" />
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudNumericField T="int?" Label="Maximum value" @bind-Value="_maxValue" Clearable="true" />
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Visibility</MudText>
+        @if (YesNoQuestions.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="mb-4">
+                Always shown. Add a yes/no question to make other questions conditional.
+            </MudText>
+        }
+        else
+        {
+            <MudGrid Class="mb-4">
+                <MudItem xs="7">
+                    <MudSelect T="string" Label="Only show when" @bind-Value="_visibleIfKey" Clearable="true"
+                               Placeholder="Always shown">
+                        @foreach (var q in YesNoQuestions)
+                        {
+                            <MudSelectItem T="string" Value="@q.Key">@q.Label</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="5">
+                    <MudSelect T="bool" Label="is answered" @bind-Value="_visibleIfEquals" Disabled="@(_visibleIfKey is null)">
+                        <MudSelectItem T="bool" Value="true">Yes</MudSelectItem>
+                        <MudSelectItem T="bool" Value="false">No</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        }
+
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    Disabled="@(!CanCreate)"
@@ -139,7 +203,7 @@
                 <span> Saving...</span>
             }else
             {
-                <span>Create Question</span>
+                <span>@(IsEdit ? "Save Changes" : "Create Question")</span>
             }
             
         </MudButton>
@@ -147,6 +211,8 @@
 </MudPaper>
 
 @code {
+    [Parameter] public Guid? Id { get; set; }
+
     private MudForm? _form;
     private bool _isValid;
 
@@ -154,8 +220,19 @@
 
     private string? _errorMessage;
     private string? _successMessage;
+    private bool _notFound;
 
     private NewQuestion newQuestion = new();
+    private List<QuestionDefinition> _bank = new();
+
+    private int? _minLength;
+    private int? _maxLength;
+    private int? _minValue;
+    private int? _maxValue;
+    private string? _visibleIfKey;
+    private bool _visibleIfEquals = true;
+
+    private bool IsEdit => Id is not null;
 
     private static readonly HashSet<string> OptionBasedTypes =
         new(StringComparer.OrdinalIgnoreCase) { "dropdown", "radio", "checkbox", "multiselect" };
@@ -168,12 +245,99 @@
             !string.IsNullOrWhiteSpace(o.Label) && 
             !string.IsNullOrWhiteSpace(o.Value)));
 
+    private bool HasLengthRules => string.Equals(newQuestion.Type, "text", StringComparison.OrdinalIgnoreCase);
+    private bool HasValueRules => string.Equals(newQuestion.Type, "number", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Yes/no questions this one could depend on (never itself).</summary>
+    private List<QuestionDefinition> YesNoQuestions =>
+        _bank.Where(q => q.Type == "yes_no" && q.Id != Id).ToList();
+
+    // MudForm only reports valid once every required field has been touched, which a
+    // loaded question never is, so edit mode relies on the explicit checks below.
     private bool CanCreate =>
-        _isValid &&
+        (_isValid || IsEdit) &&
         AreOptionsValid &&
         !string.IsNullOrWhiteSpace(newQuestion.Label) &&
         !string.IsNullOrWhiteSpace(newQuestion.Key) &&
         !string.IsNullOrWhiteSpace(newQuestion.Type);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _bank = await QuestionService.GetAllQuestionsAsync() ?? new();
+
+        if (Id is { } id)
+        {
+            var existing = await QuestionService.GetQuestionAsync(id);
+            if (existing is null)
+            {
+                _notFound = true;
+                return;
+            }
+            Load(existing);
+        }
+    }
+
+    private void Load(QuestionDefinition q)
+    {
+        newQuestion = new NewQuestion
+        {
+            Label = q.Label,
+            Key = q.Key,
+            Type = q.Type,
+            Required = q.Required,
+            Placeholder = q.Placeholder,
+            DefaultValue = q.DefaultValue,
+            HelpText = q.HelpText,
+            Options = q.Options.Select(o => new Option { Label = o.Label, Value = o.Value }).ToList()
+        };
+        _visibleIfKey = q.VisibleIf?.Key;
+        _visibleIfEquals = q.VisibleIf?.ShouldEqual ?? true;
+        ReadRules(q.ValidationConfigs);
+    }
+
+    private void ReadRules(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return;
+        }
+        try
+        {
+            foreach (var rule in JsonNode.Parse(json)?.AsArray() ?? new JsonArray())
+            {
+                int? Get(string name) => rule?[name]?.GetValue<int>();
+                switch (rule?["validationType"]?.GetValue<string>())
+                {
+                    case "MinLength": _minLength = Get("minLength"); break;
+                    case "MaxLength": _maxLength = Get("maxLength"); break;
+                    case "MinValue": _minValue = Get("minValue"); break;
+                    case "MaxValue": _maxValue = Get("maxValue"); break;
+                    case "Range": _minValue = Get("minValue"); _maxValue = Get("maxValue"); break;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
+        {
+            // Rules the form cannot show are left out; saving replaces them.
+        }
+    }
+
+    /// <summary>Builds the ValidationConfigs JSON from the rule fields that apply to the type.</summary>
+    private string? BuildRules()
+    {
+        var rules = new List<object>();
+        if (HasLengthRules)
+        {
+            if (_minLength is { } min) rules.Add(new { validationType = "MinLength", minLength = min });
+            if (_maxLength is { } max) rules.Add(new { validationType = "MaxLength", maxLength = max });
+        }
+        else if (HasValueRules)
+        {
+            if (_minValue is { } min) rules.Add(new { validationType = "MinValue", minValue = min });
+            if (_maxValue is { } max) rules.Add(new { validationType = "MaxValue", maxValue = max });
+        }
+        return rules.Count == 0 ? null : JsonSerializer.Serialize(rules);
+    }
 
     private void AddOption()
     {
@@ -192,24 +356,44 @@
 
         await _form.ValidateAsync();
 
-        if (!_isValid)
+        if (!_isValid && !IsEdit)
             return;
         _isSubmitting = true;
         _successMessage = null;
         _errorMessage = null;
 
-        var (success, error) = await QuestionService.CreateQuestionAsync(newQuestion);
+        if (!IsOptionBasedType)
+        {
+            newQuestion.Options = new();
+        }
+        newQuestion.ValidationConfigs = BuildRules();
+        newQuestion.VisibleIf = _visibleIfKey is null
+            ? null
+            : new VisibleIf { Key = _visibleIfKey, ShouldEqual = _visibleIfEquals };
+
+        var (success, error) = Id is { } id
+            ? await QuestionService.UpdateQuestionAsync(id, newQuestion)
+            : await QuestionService.CreateQuestionAsync(newQuestion);
         
-        if(success)
+        if(success && IsEdit)
+        {
+            Snackbar.Add($"Question '{newQuestion.Label}' saved.", Severity.Success);
+            Nav.NavigateTo("/admin/questions");
+        }
+        else if(success)
         {
             _successMessage = $"Question '{newQuestion.Label}' created successfully.";
             newQuestion = new();
+            _minLength = _maxLength = _minValue = _maxValue = null;
+            _visibleIfKey = null;
+            _visibleIfEquals = true;
             _isValid = false;
             _form = null;
+            _bank = await QuestionService.GetAllQuestionsAsync() ?? _bank;
         }
         else
         {
-            _errorMessage = error ?? "An error occurred while creating the question.";
+            _errorMessage = error ?? "An error occurred while saving the question.";
         }
         _isSubmitting = false;
 

@@ -15,6 +15,12 @@ builder.Services.AddHttpClient<IQuestionService, QuestionService>(client =>
     client.BaseAddress = new Uri(url ?? throw new Exception("URL Missing!"));
 });
 
+builder.Services.AddHttpClient<ISurveyService, SurveyService>(client =>
+{
+    var url = builder.Configuration["BackendAPI:BaseUrl"];
+    client.BaseAddress = new Uri(url ?? throw new Exception("URL Missing!"));
+});
+
 builder.Services.AddHttpClient("AdminApi", client =>
 {
     var url = builder.Configuration["BackendAPI:BaseUrl"];
