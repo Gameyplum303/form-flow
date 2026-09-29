@@ -10,6 +10,7 @@ namespace FormFlow.Backend.Repositories
 
         public QuestionRepository(ILiteDatabase database)
         {
+            LiteDbMappings.EnsureBuilt();
             _questions = database.GetCollection<Question>("questions");
 
             // Keep lookups by Id efficient and explicit even though Id is marked with [BsonId].

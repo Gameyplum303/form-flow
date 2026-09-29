@@ -11,6 +11,7 @@ namespace FormFlow.Backend.Repositories
 
         public UserRepository(ILiteDatabase db)
         {
+            LiteDbMappings.EnsureBuilt();
             _users = db.GetCollection<AdminUser>(CollectionName);
             _users.EnsureIndex(u => u.Username, true);
         }
