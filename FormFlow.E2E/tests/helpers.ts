@@ -8,8 +8,14 @@ export const runId = Date.now().toString(36);
 
 /** Opens a Blazor page and waits until its circuit is connected, so clicks are handled. */
 export async function openBlazor(page: Page, path: string) {
+    // Browser-side problems (a script that fails to load, a refused WebSocket) only show up
+    // in the console, so collect them for the failure message.
+    const problems: string[] = [];
+    page.on("console", m => { if (m.type() === "error" || m.type() === "warning") problems.push(`${m.type()}: ${m.text()}`); });
+    page.on("requestfailed", r => problems.push(`request failed: ${r.url()} ${r.failure()?.errorText}`));
     await page.goto(urls.blazor + path);
-    await expect(page.locator(".page[data-interactive=true]")).toBeVisible();
+    await expect(page.locator(".page[data-interactive=true]"),
+        `Blazor did not become interactive. Browser messages:\n${problems.join("\n") || "(none)"}`).toBeVisible();
 }
 
 export function question(page: Page, key: string): Locator {

@@ -105,6 +105,7 @@ jobs:
         run: |
           curl -fsS --retry 30 --retry-connrefused --retry-delay 2 -o /dev/null http://localhost:5224/
           curl -fsS --retry 30 --retry-connrefused --retry-delay 2 -o /dev/null http://localhost:3000/
+          curl -fsS http://localhost:5224/ | grep -o '<script[^>]*>' || true
 
       - name: Set up Node
         uses: actions/setup-node@v4
