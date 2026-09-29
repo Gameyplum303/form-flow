@@ -60,6 +60,10 @@ namespace FormFlow.Blazor.Services
                 {
                     return (true, null);
                 }
+                if (response.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    return (false, ViewOnlyMessage);
+                }
                 var body = await response.Content.ReadAsStringAsync();
                 return (false, $"{(int)response.StatusCode}: {DescribeError(body)}");
             }
@@ -68,6 +72,8 @@ namespace FormFlow.Blazor.Services
                 return (false, $"Could not reach the server: {ex.Message}");
             }
         }
+
+        internal const string ViewOnlyMessage = "Only admins can make changes. You're signed in with a view-only account.";
 
         /// <summary>
         /// Pulls the human-readable message out of the API's error shapes:

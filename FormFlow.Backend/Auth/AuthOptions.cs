@@ -7,8 +7,16 @@ namespace FormFlow.Backend.Auth
     /// <summary>Settings for the tokens the API issues, read from the "Jwt" configuration section.</summary>
     public class JwtSettings
     {
+        /// <summary>Changing questions and surveys: admins only.</summary>
         public const string AdminPolicy = "Admin";
+
+        /// <summary>Reading responses and results: admins and view-only accounts.</summary>
+        public const string ViewerPolicy = "Viewer";
+
         public const string AdminRole = "admin";
+        public const string ViewerRole = "viewer";
+
+        public static bool IsKnownRole(string? role) => role is AdminRole or ViewerRole;
 
         public string Issuer { get; init; } = "FormFlow";
         public string Audience { get; init; } = "FormFlow";

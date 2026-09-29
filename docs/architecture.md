@@ -16,7 +16,7 @@ flowchart LR
     D["FormFlow.Data<br/>models + validation"]
     DB[("LiteDB")]
 
-    B -- "HTTP/JSON<br/>+ admin token" --> E
+    B -- "HTTP/JSON<br/>+ sign-in token" --> E
     R -- "HTTP/JSON" --> E
     E --> S
     E --> Repo --> DB
@@ -72,5 +72,5 @@ flowchart LR
 - **Visibility rules depend only on yes/no questions.** `visibleIf` compares against `true` or `false`, so the API only lets it point at a `yes_no` question. The evaluator handles chains (C shows when B shows when A is yes) and treats cycles as hidden instead of looping.
 - **The server is the source of truth for validation.** The clients show server errors instead of re-implementing every rule, which keeps the Blazor and React apps consistent. Visibility is evaluated on both sides because it affects what the respondent sees while typing.
 - **Answers are stored as lists of strings.** Every question type fits one shape (`Dictionary<string, List<string>>`), which keeps storage, results and CSV export simple. The validator normalizes values on the way in, such as `yes` to `true`.
-- **The API enforces sign-in, not the clients.** Admin endpoints require a JWT with the `admin` role, so hiding pages in the Blazor app is only a convenience. The Blazor app keeps the token per browser tab in encrypted session storage and adds it to its API calls. Respondents never need an account.
+- **The API enforces sign-in, not the clients.** Changes require a JWT with the `admin` role and reading responses requires any signed-in role, so hiding pages and buttons in the Blazor app is only a convenience. The Blazor app keeps the token per browser tab in encrypted session storage and adds it to its API calls. Respondents never need an account.
 - **LiteDB instead of a database server.** The app runs with `dotnet run` and nothing else. Repositories hide LiteDB behind interfaces, so moving to SQL would only touch the repository classes.

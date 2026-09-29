@@ -10,7 +10,7 @@
 |---|---|---|
 | `ConnectionStrings:LiteDb` | `Filename=formflow.db;Connection=shared` | Where LiteDB stores data |
 | `SeedData:DemoSurvey` | `true` | Create the demo survey on first start |
-| `AdminAccounts` | `Rogers` / `password` and `student` / `password` in Development, otherwise empty | A list of `{ "Username", "Password" }` accounts to create at startup if they don't exist yet. Changing a password here later has no effect on an existing account. As environment variables: `AdminAccounts__0__Username`, `AdminAccounts__0__Password`, and so on. |
+| `Accounts` | `Rogers` (admin) and `student` (viewer), both with `password`, in Development; otherwise empty | A list of `{ "Username", "Password", "Role" }` accounts. Role is `admin` or `viewer`, and defaults to `viewer`. Missing accounts are created at startup, and each listed account's role is updated to match. Changing a password here later has no effect on an existing account. As environment variables: `Accounts__0__Username`, `Accounts__0__Password`, `Accounts__0__Role`, and so on. |
 | `Jwt:Key` | A development key in Development, otherwise not set | Secret for signing tokens, at least 32 characters. When it is missing the API makes a random key at startup and logs a warning, so tokens stop working when the API restarts. |
 | `Jwt:Issuer`, `Jwt:Audience` | `FormFlow` | Written into and checked on every token |
 | `Jwt:LifetimeMinutes` | `480` | How long a sign-in lasts |
@@ -31,7 +31,7 @@ To reset, stop the API and delete `formflow.db`. It is recreated and reseeded on
 
 ## Authentication
 
-`Auth/` holds the sign-in pieces. `AdminAccountSeeder` creates the first admin, `TokenService` issues JWTs with a `role: admin` claim, and `JwtSettings` reads the `Jwt` section. `Program.cs` registers JWT bearer authentication, an `Admin` authorization policy that requires that role, and two fixed-window rate limiters partitioned by client IP. Endpoints opt in with `.RequireAuthorization(JwtSettings.AdminPolicy)`, and `OpenApiSecurity` marks those endpoints in the OpenAPI document so Swagger UI shows the lock and the **Authorize** button.
+`Auth/` holds the sign-in pieces. `AdminAccountSeeder` creates the first admin, `TokenService` issues JWTs with the account's `role` claim (`admin` or `viewer`), and `JwtSettings` reads the `Jwt` section. `Program.cs` registers JWT bearer authentication, an `Admin` policy for changes (admin role only), a `Viewer` policy for reading responses and results (either role), and two fixed-window rate limiters partitioned by client IP. Endpoints opt in with `.RequireAuthorization(JwtSettings.AdminPolicy)`, and `OpenApiSecurity` marks those endpoints in the OpenAPI document so Swagger UI shows the lock and the **Authorize** button.
 
 ## Services
 

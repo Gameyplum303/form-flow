@@ -22,6 +22,21 @@ public class AdminSessionTests
         _storage.Items.Values.Single().Should().NotContain("test-token", "the token is encrypted before it reaches the browser");
     }
 
+    [Theory]
+    [InlineData("admin", true)]
+    [InlineData("viewer", false)]
+    public async Task Only_the_admin_role_can_edit(string role, bool isAdmin)
+    {
+        var session = _storage.CreateSession(_protection);
+        await session.SignInAsync(FakeSessionStorage.Login(role: role));
+
+        var reloaded = _storage.CreateSession(_protection);
+        await reloaded.RestoreAsync();
+
+        reloaded.Role.Should().Be(role);
+        reloaded.IsAdmin.Should().Be(isAdmin);
+    }
+
     [Fact]
     public async Task Expired_sign_in_is_not_restored()
     {

@@ -5,9 +5,28 @@
 
 @* Admin pages render only for a signed-in admin. The sign-in is kept in browser storage,
    which can only be read once the page is interactive, so the check runs after render. *@
-@if (!IsAdminPage || Session.IsSignedIn)
+@if (!IsAdminPage)
 {
     @ChildContent
+}
+else if (Session.IsSignedIn && !Session.IsAdmin && IsEditPage)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4">
+        Only admins can create or edit questions and surveys. You're signed in with a view-only account.
+    </MudAlert>
+    <MudButton Variant="Variant.Outlined" Href="/admin/surveys">Back to surveys</MudButton>
+}
+else if (Session.IsSignedIn)
+{
+    @if (!Session.IsAdmin)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">
+            You're signed in with a view-only account. Only admins can make changes.
+        </MudAlert>
+    }
+    <CascadingValue Value="new AdminAccess(Session.IsAdmin)">
+        @ChildContent
+    </CascadingValue>
 }
 else
 {
@@ -23,6 +42,15 @@ else
         {
             var path = Nav.ToBaseRelativePath(Nav.Uri);
             return path == "admin" || path.StartsWith("admin/") || path.StartsWith("admin?");
+        }
+    }
+
+    private bool IsEditPage
+    {
+        get
+        {
+            var path = Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].TrimEnd('/');
+            return path.EndsWith("/create") || path.EndsWith("/edit");
         }
     }
 
