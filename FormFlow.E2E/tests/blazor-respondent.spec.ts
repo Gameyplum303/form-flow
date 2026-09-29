@@ -62,7 +62,7 @@ test.describe("Blazor: taking a survey", () => {
         expect(after.totalResponses).toBe(before.totalResponses + 1);
     });
 
-    test("results page shows statistics and downloads CSV", async ({ page, request }) => {
+    test("results page shows statistics, filters and compares groups, and downloads CSV", async ({ page, request }) => {
         const survey = await surveyByTitle(request, demoSurveyTitle);
         const submitted = await request.post(`${urls.api}/api/surveys/${survey.id}/responses`, {
             data: {
@@ -94,6 +94,36 @@ test.describe("Blazor: taking a survey", () => {
             "response_id,submitted_at,submitted_by,first_name,last_name,email,age,is_student,study_level,contact_method,subscribe_newsletter,skills,campus_preference,program_start,experience_rating,comments");
         expect(csv).toContain("Turing");
         expect(csv).toContain("csharp; sql");
+
+        // Analytics: a timeline, a filter, a group comparison, and a CSV of only the matching responses.
+        await expect(page.locator("[data-timeline-point]").first()).toBeVisible();
+        const total = (await (await request.get(`${urls.api}/api/surveys/${survey.id}/results`, { headers: await adminHeaders(request) })).json()).totalResponses;
+
+        await page.locator("[data-add-filter]").selectOption("is_student:false");
+        await expect(page.locator("[data-filter-chip]")).toContainText(": No");
+        await expect(page.locator("[data-matching]")).toContainText(new RegExp(`\\d+ of ${total} responses? match`));
+
+        await page.locator("[data-compare-by]").selectOption("study_level");
+        await expect(page.locator("[data-result-key='age'] [data-comparison]")).toContainText("Average");
+
+        const [filtered] = await Promise.all([
+            page.waitForEvent("download"),
+            page.getByText("Download CSV").click(),
+        ]);
+        const filteredCsv = await filtered.createReadStream().then(async stream => {
+            let text = "";
+            for await (const chunk of stream) text += chunk;
+            return text;
+        });
+        const [header, ...rows] = filteredCsv.trim().split("\r\n");
+        const column = header.split(",").indexOf("is_student");
+        expect(rows.length).toBeGreaterThan(0);
+        expect(rows.map(r => r.split(",")[column])).not.toContain("true");
+        expect(filteredCsv).toContain("Turing");
+
+        await page.locator("[data-clear-analysis]").click();
+        await expect(page.locator("[data-filter-chip]")).toHaveCount(0);
+        await expect(page.locator("[data-comparison]")).toHaveCount(0);
     });
 
     test("shows a message for a survey that does not exist", async ({ page }) => {

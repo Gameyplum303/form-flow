@@ -47,8 +47,8 @@ The policy only checks the role. Ownership is checked inside each endpoint: ques
 
 ## Services
 
-- **`SurveyResultsBuilder`** turns a survey's responses into `SurveyResults`: per-option counts for choice, yes/no and single checkbox questions, min/max/average for number questions, and the five most recent answers for text questions. Answers to questions that were hidden count as unanswered.
-- **`CsvExporter`** writes one row per response with a column per question key. Values with commas, quotes or line breaks are quoted, and values that a spreadsheet would treat as a formula are prefixed with `'`.
+- **`SurveyResultsBuilder`** turns a survey's responses into `SurveyResults`: per-option counts for choice, yes/no and single checkbox questions, min/max/average for number questions, and the five most recent answers for text questions. Answers to questions that were hidden count as unanswered. Given a `ResultsQuery` (from `FormFlow.Data`, read from query parameters by `ResultsQueryParser`), it first keeps only the responses with the filtered answers in the date range, then adds a timeline of them per local day, week or month, and a summary per answer group for `compareBy`. `FixedAnswers` lists the answers of the questions that can filter or split results.
+- **`CsvExporter`** writes one row per response (the export endpoint passes it only the filtered responses) with a column per question key. Values with commas, quotes or line breaks are quoted, and values that a spreadsheet would treat as a formula are prefixed with `'`.
 
 ## Error responses
 

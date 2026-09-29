@@ -37,9 +37,11 @@ namespace FormFlow.Blazor.Services
 
         /// <summary>Whether the browser with this respondent id already answered the survey.</summary>
         Task<bool> HasAnsweredAsync(Guid surveyId, string respondentId);
-        Task<SurveyResults?> GetResultsAsync(Guid surveyId);
 
-        /// <summary>Downloads every response as CSV, or null if the survey is missing or the admin isn't signed in.</summary>
-        Task<CsvExport?> ExportResponsesAsync(Guid surveyId);
+        /// <summary>Summaries of the survey's responses, narrowed or split by the query; null if refused or invalid.</summary>
+        Task<SurveyResults?> GetResultsAsync(Guid surveyId, ResultsQuery? query = null);
+
+        /// <summary>Downloads the responses (only those matching the query's filters and dates) as CSV, or null if refused.</summary>
+        Task<CsvExport?> ExportResponsesAsync(Guid surveyId, ResultsQuery? query = null);
     }
 }

@@ -74,7 +74,7 @@ namespace FormFlow.Backend.Endpoints
                 {
                     Id = Guid.NewGuid(),
                     SurveyId = surveyId,
-                    SubmittedAt = DateTime.UtcNow,
+                    SubmittedAt = clock.GetUtcNow().UtcDateTime,
                     SubmittedBy = user.IsSignedIn ? user.Username : null,
                     RespondentId = string.IsNullOrEmpty(respondentId) ? null : respondentId,
                     Answers = result.Answers
@@ -117,8 +117,9 @@ namespace FormFlow.Backend.Endpoints
             .Produces<List<SurveyResponse>>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
-            group.MapGet("/results", (Guid surveyId, ClaimsPrincipal principal, ISurveyRepository surveys,
-                IQuestionRepository questionRepository, IResponseRepository responses) =>
+            // Filters, a date range and a comparison narrow or split the summaries; see ResultsParameters.
+            group.MapGet("/results", (Guid surveyId, [AsParameters] ResultsParameters parameters, ClaimsPrincipal principal,
+                ISurveyRepository surveys, IQuestionRepository questionRepository, IResponseRepository responses, TimeProvider clock) =>
             {
                 var survey = surveys.FindById(surveyId);
                 if (survey is null)
@@ -131,18 +132,25 @@ namespace FormFlow.Backend.Endpoints
                 }
 
                 var questions = SurveyEndpoints.LoadQuestions(survey, questionRepository);
+                var query = ResultsQueryParser.Parse(parameters, questions, out var errors);
+                if (errors.Count > 0)
+                {
+                    return Results.ValidationProblem(errors);
+                }
                 var stored = responses.FindBySurveyId(surveyId).ToList();
-                return Results.Ok(SurveyResultsBuilder.Build(survey, questions, stored));
+                return Results.Ok(SurveyResultsBuilder.Build(survey, questions, stored, query, clock.GetUtcNow().UtcDateTime));
             })
             .WithName("GetSurveyResults")
             .RequireAuthorization(JwtSettings.BuilderPolicy)
+            .ProducesValidationProblem()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces<SurveyResults>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
-            group.MapGet("/responses/export", (Guid surveyId, ClaimsPrincipal principal, ISurveyRepository surveys,
-                IQuestionRepository questionRepository, IResponseRepository responses) =>
+            // Takes the same filters and date range as the results, so the file matches what the page shows.
+            group.MapGet("/responses/export", (Guid surveyId, [AsParameters] ResultsParameters parameters, ClaimsPrincipal principal,
+                ISurveyRepository surveys, IQuestionRepository questionRepository, IResponseRepository responses) =>
             {
                 var survey = surveys.FindById(surveyId);
                 if (survey is null)
@@ -155,11 +163,17 @@ namespace FormFlow.Backend.Endpoints
                 }
 
                 var questions = SurveyEndpoints.LoadQuestions(survey, questionRepository);
-                var csv = CsvExporter.Export(questions, responses.FindBySurveyId(surveyId));
+                var query = ResultsQueryParser.Parse(parameters, questions, out var errors);
+                if (errors.Count > 0)
+                {
+                    return Results.ValidationProblem(errors);
+                }
+                var csv = CsvExporter.Export(questions, SurveyResultsBuilder.Filter(responses.FindBySurveyId(surveyId), query));
                 return Results.File(Encoding.UTF8.GetBytes(csv), "text/csv", $"{FileNameFor(survey.Title)}-responses.csv");
             })
             .WithName("ExportResponses")
             .RequireAuthorization(JwtSettings.BuilderPolicy)
+            .ProducesValidationProblem()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status200OK, contentType: "text/csv")
