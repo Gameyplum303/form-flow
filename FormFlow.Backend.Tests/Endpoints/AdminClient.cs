@@ -5,13 +5,13 @@ using FormFlow.Data.Models;
 namespace FormFlow.Backend.Tests.Endpoints
 {
     /// <summary>
-    /// Signs a test client in as the admin account that appsettings.Development.json creates,
+    /// Signs a test client in as the test account that appsettings.Development.json creates,
     /// so tests can call the admin endpoints.
     /// </summary>
     public static class AdminClient
     {
-        public const string Username = "admin";
-        public const string Password = "formflow-admin";
+        public const string Username = "student";
+        public const string Password = "password";
 
         public static async Task<LoginResponse> LoginAsync(HttpClient client, string username = Username, string password = Password)
         {

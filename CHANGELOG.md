@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- Admin sign-in. `POST /api/auth/login` issues a JWT, passwords are hashed with ASP.NET Core Identity's `PasswordHasher`, and every endpoint that changes questions or surveys or reads responses requires the admin role. The first admin account comes from `Admin:Username` and `Admin:Password`.
+- Admin sign-in. `POST /api/auth/login` issues a JWT, passwords are hashed with ASP.NET Core Identity's `PasswordHasher`, and every endpoint that changes questions or surveys or reads responses requires the admin role. Accounts listed under `AdminAccounts` are created at startup; Development and docker compose create `Rogers` and the test account `student`.
 - Rate limits per IP address on sign-in and survey submissions.
 - Blazor sign-in page, a guard that sends signed-out visitors from `/admin` pages to it, and Sign out in the admin menu. The token is kept per tab in encrypted session storage.
 - Swagger UI shows which endpoints need a token and has an Authorize button.
