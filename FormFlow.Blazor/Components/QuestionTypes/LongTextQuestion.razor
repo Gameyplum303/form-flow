@@ -1,6 +1,6 @@
 @inherits QuestionComponentBase
 
-<MudPaper Elevation="1" Class="pa-4" Style="max-width:400px;">    
+<MudPaper Elevation="1" Class="pa-4" Style="max-width:600px;">    
     <div style="margin-bottom: 1rem;">
         <label style="font-weight:600; margin-bottom:4px; display:block;">
             @Question.Label
@@ -14,6 +14,8 @@
                       ValueChanged="OnChanged"
                       Required="@Question.Required"
                       Placeholder="@Question.Placeholder"
+                      Lines="4"
+                      AutoGrow="true"
                       HelperText="@Question.HelpText"
                       Error="HasError"
                       Class="my-input" />

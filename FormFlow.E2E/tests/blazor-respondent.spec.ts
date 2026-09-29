@@ -30,18 +30,26 @@ test.describe("Blazor: taking a survey", () => {
         await isStudent.first().click();
         await answer(page, "first_name", "Ada");
         await answer(page, "last_name", "Lovelace");
-        await answer(page, "email", "ada@example.com");
+        await answer(page, "email", "ada@example");
         await answer(page, "age", "130");
         await choose(page, question(page, "study_level").locator(".mud-select"), "Master");
         await question(page, "contact_method").locator("label.mud-radio").nth(1).click();
         await question(page, "skills").locator("input[type=checkbox]").first().check();
         await choose(page, question(page, "campus_preference").locator(".mud-select"), "East");
+        // The newer question types: a date picker, stars and a paragraph box.
+        await question(page, "program_start").locator("input[type=date]").fill("2025-08-18");
+        await question(page, "experience_rating").locator(".mud-rating-item").nth(3).click();
+        await expect(question(page, "experience_rating").getByText("4 of 5")).toBeVisible();
+        await question(page, "comments").locator("textarea").first().fill("The labs are great.");
+        await question(page, "comments").locator("textarea").first().press("Tab");
 
         await page.getByRole("button", { name: "Submit" }).click();
         await expect(question(page, "age").getByText("Value must be ≤ 120.")).toBeVisible();
+        await expect(question(page, "email").getByText("Answer must be an email address")).toBeVisible();
         await expect(page.getByText("This question is required.")).toHaveCount(0);
 
         await answer(page, "age", "36");
+        await answer(page, "email", "ada@example.com");
         await page.getByRole("button", { name: "Submit" }).click();
         await expect(page.getByText("Thank you!")).toBeVisible();
 
@@ -58,7 +66,7 @@ test.describe("Blazor: taking a survey", () => {
             data: {
                 answers: {
                     first_name: "Alan", last_name: "Turing", email: "alan@example.com", age: 41, is_student: false,
-                    study_level: "phd", contact_method: "email", skills: ["csharp", "sql"],
+                    study_level: "phd", contact_method: "email", skills: ["csharp", "sql"], experience_rating: 5,
                 },
             },
         });
@@ -67,7 +75,8 @@ test.describe("Blazor: taking a survey", () => {
         await signIn(page);
         await openBlazor(page, `/admin/surveys/${survey.id}/results`);
         await expect(page.getByText(/^\d+ responses?, latest/)).toBeVisible();
-        await expect(page.getByText("Average")).toBeVisible();
+        await expect(page.getByText("Average", { exact: true })).toBeVisible();
+        await expect(page.locator("[data-average-rating]")).toContainText(/Average rating: [\d.]+ of 5/);
 
         const [download] = await Promise.all([
             page.waitForEvent("download"),
@@ -80,7 +89,7 @@ test.describe("Blazor: taking a survey", () => {
             return text;
         });
         expect(csv.split("\r\n")[0]).toBe(
-            "response_id,submitted_at,first_name,last_name,email,age,is_student,study_level,contact_method,subscribe_newsletter,skills,campus_preference");
+            "response_id,submitted_at,first_name,last_name,email,age,is_student,study_level,contact_method,subscribe_newsletter,skills,campus_preference,program_start,experience_rating,comments");
         expect(csv).toContain("Turing");
         expect(csv).toContain("csharp; sql");
     });

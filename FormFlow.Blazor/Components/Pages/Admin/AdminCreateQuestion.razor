@@ -65,6 +65,10 @@
             <MudSelectItem Value='@("multiselect")'>Multi-Select</MudSelectItem>
             <MudSelectItem Value='@("checkbox")'>Checkbox</MudSelectItem>
             <MudSelectItem Value='@("radio")'>Radio</MudSelectItem>
+            <MudSelectItem Value='@("long_text")'>Long Text</MudSelectItem>
+            <MudSelectItem Value='@("email")'>Email</MudSelectItem>
+            <MudSelectItem Value='@("date")'>Date</MudSelectItem>
+            <MudSelectItem Value='@("rating")'>Rating</MudSelectItem>
         </MudSelect>
 
         <MudSwitch T="bool"
@@ -136,7 +140,15 @@
             </MudButton>
         }
 
-        @if (HasLengthRules || HasValueRules)
+        @if (IsRating)
+        {
+            <MudText Typo="Typo.subtitle1" Class="mb-2">Answer rules</MudText>
+            <MudNumericField T="int?" Label="Number of stars" @bind-Value="_maxValue"
+                             Min="2" Max="@QuestionTypes.MaxRatingScale" Clearable="true"
+                             HelperText="@($"From 2 to {QuestionTypes.MaxRatingScale}. Leave empty for {QuestionTypes.DefaultRatingScale}.")"
+                             Class="mb-4" />
+        }
+        else if (HasLengthRules || HasValueRules)
         {
             <MudText Typo="Typo.subtitle1" Class="mb-2">Answer rules</MudText>
             <MudGrid Class="mb-4">
@@ -245,8 +257,9 @@
             !string.IsNullOrWhiteSpace(o.Label) && 
             !string.IsNullOrWhiteSpace(o.Value)));
 
-    private bool HasLengthRules => string.Equals(newQuestion.Type, "text", StringComparison.OrdinalIgnoreCase);
-    private bool HasValueRules => string.Equals(newQuestion.Type, "number", StringComparison.OrdinalIgnoreCase);
+    private bool HasLengthRules => QuestionTypes.HasLengthRules(newQuestion.Type);
+    private bool HasValueRules => string.Equals(newQuestion.Type, QuestionTypes.Number, StringComparison.OrdinalIgnoreCase);
+    private bool IsRating => string.Equals(newQuestion.Type, QuestionTypes.Rating, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Yes/no questions this one could depend on (never itself).</summary>
     private List<QuestionDefinition> YesNoQuestions =>
@@ -335,6 +348,10 @@
         {
             if (_minValue is { } min) rules.Add(new { validationType = "MinValue", minValue = min });
             if (_maxValue is { } max) rules.Add(new { validationType = "MaxValue", maxValue = max });
+        }
+        else if (IsRating && _maxValue is { } stars)
+        {
+            rules.Add(new { validationType = "MaxValue", maxValue = stars });
         }
         return rules.Count == 0 ? null : JsonSerializer.Serialize(rules);
     }

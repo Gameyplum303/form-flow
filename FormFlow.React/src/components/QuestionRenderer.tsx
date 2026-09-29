@@ -11,6 +11,23 @@ export interface QuestionRendererProps {
     error?: string;
 }
 
+const defaultRatingScale = 5;
+const maxRatingScale = 10;
+
+/** Stars in a rating question: its MaxValue rule (2 to 10) when set, otherwise 5. Mirrors QuestionTypes.RatingScale. */
+export function ratingScale(question: QuestionDefinition): number {
+    try {
+        const rules = JSON.parse(question.validationConfigs ?? "[]");
+        const rule = Array.isArray(rules)
+            ? rules.find((r) => r?.validationType === "MaxValue" || r?.validationType === "Range")
+            : undefined;
+        const max = Number(rule?.maxValue);
+        return Number.isInteger(max) && max >= 2 && max <= maxRatingScale ? max : defaultRatingScale;
+    } catch {
+        return defaultRatingScale;
+    }
+}
+
 function initialValue(question: QuestionDefinition): string[] {
     const raw = question.defaultValue;
     return raw === undefined || raw === null || raw === "" ? [] : [String(raw)];
@@ -57,17 +74,19 @@ export function QuestionRenderer({ question, value, onChange, error }: QuestionR
 
     const type = question.type.toLowerCase();
     const options = question.options ?? [];
-    const usesGroup = type === "yes_no" || type === "radio" || type === "multiselect"
+    const usesGroup = type === "yes_no" || type === "radio" || type === "multiselect" || type === "rating"
         || (type === "checkbox" && options.length > 0);
 
     let input: React.ReactNode;
     switch (type) {
         case "number":
         case "text":
+        case "email":
+        case "date":
             input = (
                 <input
                     id={inputId}
-                    type={type === "number" ? "number" : "text"}
+                    type={type === "text" ? "text" : type}
                     placeholder={question.placeholder}
                     required={question.required}
                     value={single}
@@ -77,6 +96,38 @@ export function QuestionRenderer({ question, value, onChange, error }: QuestionR
                 />
             );
             break;
+        case "long_text":
+            input = (
+                <textarea
+                    id={inputId}
+                    rows={4}
+                    placeholder={question.placeholder}
+                    required={question.required}
+                    value={single}
+                    onChange={(e) => update([e.target.value])}
+                    aria-describedby={describedBy}
+                    aria-invalid={error ? true : undefined}
+                />
+            );
+            break;
+        case "rating": {
+            const stars = Array.from({ length: ratingScale(question) }, (_, i) => i + 1);
+            const chosen = Number(single) || 0;
+            input = (
+                <div className="rating">
+                    {stars.map((n) => (
+                        <label key={n} className={`star${n <= chosen ? " filled" : ""}`}
+                            title={`${n} of ${stars.length}`}>
+                            <input type="radio" name={inputId} value={String(n)} checked={chosen === n}
+                                onChange={() => update([String(n)])}
+                                aria-label={`${n} of ${stars.length}`} />
+                            <span aria-hidden="true">★</span>
+                        </label>
+                    ))}
+                </div>
+            );
+            break;
+        }
         case "dropdown":
             input = (
                 <select

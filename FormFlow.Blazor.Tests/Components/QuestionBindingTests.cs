@@ -86,4 +86,44 @@ public class QuestionBindingTests
         cut.FindComponent<MudRadioGroup<bool?>>().Instance.Value.Should().BeFalse();
         cut.Markup.Should().Contain("Pick one");
     }
+    [Fact]
+    public async Task Rating_ShowsTheQuestionsScale_AndReportsStars()
+    {
+        await using var ctx = CreateContext();
+        var question = Q("rating");
+        question.ValidationConfigs = """[{"validationType":"MaxValue","maxValue":7}]""";
+        var cut = RenderBound(ctx, question, "3");
+        var rating = cut.FindComponent<MudRating>();
+
+        rating.Instance.MaxValue.Should().Be(7);
+        cut.Markup.Should().Contain("3 of 7");
+
+        await cut.InvokeAsync(() => rating.Instance.SelectedValueChanged.InvokeAsync(6));
+        _reported.Should().Equal("6");
+
+        await cut.InvokeAsync(() => rating.Instance.SelectedValueChanged.InvokeAsync(0));
+        _reported.Should().BeEmpty("clearing the rating clears the answer");
+    }
+
+    [Fact]
+    public async Task Date_ReportsTheIsoDateTheInputGives()
+    {
+        await using var ctx = CreateContext();
+        var cut = RenderBound(ctx, Q("date"), "2025-08-18");
+        var input = cut.Find("input[type=date]");
+
+        input.GetAttribute("value").Should().Be("2025-08-18");
+        await input.ChangeAsync(new Microsoft.AspNetCore.Components.ChangeEventArgs { Value = "2026-01-05" });
+
+        _reported.Should().Equal("2026-01-05");
+    }
+
+    [Fact]
+    public async Task LongText_IsAMultiLineBox_AndEmailUsesAnEmailInput()
+    {
+        await using var ctx = CreateContext();
+
+        RenderBound(ctx, Q("long_text")).FindAll("textarea").Should().HaveCount(1);
+        RenderBound(ctx, Q("email")).FindAll("input[type=email]").Should().HaveCount(1);
+    }
 }

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { SurveyForm } from "../../FormFlow.React/src/components/SurveyForm";
-import { QuestionRenderer } from "../../FormFlow.React/src/components/QuestionRenderer";
+import { QuestionRenderer, ratingScale } from "../../FormFlow.React/src/components/QuestionRenderer";
 import { QuestionDefinition } from "../../FormFlow.React/src/types/QuestionDefinition";
 import { Answers } from "../../FormFlow.React/src/types/Survey";
 
@@ -120,5 +120,57 @@ describe("QuestionRenderer types", () => {
     fireEvent.click(screen.getByLabelText("Phone"));
 
     expect(changes).toEqual([["phone"]]);
+  });
+  test("a rating shows one star per point and reports the one picked", () => {
+    const changes: string[][] = [];
+    render(
+      <QuestionRenderer
+        question={{
+          id: "s",
+          key: "stars",
+          label: "Rate it",
+          type: "rating",
+          validationConfigs: '[{"validationType":"MaxValue","maxValue":7}]',
+        }}
+        value={["2"]}
+        onChange={(v) => changes.push(v)}
+      />
+    );
+
+    expect(screen.getAllByRole("radio")).toHaveLength(7);
+    expect(screen.getByLabelText("2 of 7")).toBeChecked();
+    fireEvent.click(screen.getByLabelText("6 of 7"));
+
+    expect(changes).toEqual([["6"]]);
+  });
+
+  test("the rating scale defaults to 5 and ignores bad rules", () => {
+    const base = { id: "s", key: "s", label: "S", type: "rating" };
+    expect(ratingScale(base)).toBe(5);
+    expect(ratingScale({ ...base, validationConfigs: '[{"validationType":"Range","minValue":1,"maxValue":3}]' })).toBe(3);
+    expect(ratingScale({ ...base, validationConfigs: '[{"validationType":"MaxValue","maxValue":50}]' })).toBe(5);
+    expect(ratingScale({ ...base, validationConfigs: "not json" })).toBe(5);
+  });
+
+  test.each([
+    ["email", "input[type=email]"],
+    ["date", "input[type=date]"],
+    ["long_text", "textarea"],
+  ])("a %s question uses the matching input", (type, selector) => {
+    const changes: string[][] = [];
+    const { container } = render(
+      <QuestionRenderer
+        question={{ id: "q", key: "q", label: "Question", type }}
+        value={[]}
+        onChange={(v) => changes.push(v)}
+      />
+    );
+
+    const input = container.querySelector(selector) as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(screen.getByLabelText("Question")).toBe(input);
+    fireEvent.change(input, { target: { value: type === "date" ? "2025-08-18" : "hello@example.com" } });
+
+    expect(changes).toEqual([[type === "date" ? "2025-08-18" : "hello@example.com"]]);
   });
 });

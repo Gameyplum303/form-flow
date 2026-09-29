@@ -24,7 +24,7 @@ namespace FormFlow.Backend.Tests.Endpoints
         {
             var survey = await InMemoryApiFactory.GetDemoSurveyAsync(_client);
 
-            survey.QuestionIds.Should().HaveCount(10);
+            survey.QuestionIds.Should().HaveCount(13);
         }
 
         [Fact]
