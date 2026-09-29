@@ -211,6 +211,57 @@ h1:focus {
     overflow-y: auto;
 }
 
+/* The template gallery on Create Survey: cards in a row share one height, with their buttons at the bottom. */
+.template-card {
+    height: 100%;
+}
+
+.template-card .mud-card-content {
+    flex-grow: 1;
+}
+
+/* Where a new page starts in the survey builder's list of selected questions. */
+.page-separator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 16px 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--mud-palette-primary);
+}
+
+.page-separator::after {
+    content: "";
+    flex: 1;
+    border-top: 1px dashed var(--mud-palette-lines-default);
+}
+
+.page-break-switch .mud-switch-label {
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* "Page 2 of 3" and its bar above a paged survey, and the Back / Next buttons below it. */
+.survey-progress {
+    margin-bottom: 16px;
+}
+
+.survey-progress-label {
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.survey-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
 /* Keeps the line breaks people type, as in a sign-up's intended use. */
 .pre-line {
     white-space: pre-line;

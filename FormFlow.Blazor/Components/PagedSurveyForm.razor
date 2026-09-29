@@ -1,0 +1,176 @@
+@*
+    A survey one page at a time, split at its page breaks, with "Page 2 of 3" and a progress bar,
+    Back and Next buttons, and Submit on the last page. Next checks the page's answers with the same
+    ResponseValidator the API uses, so it shows the server's messages without a round trip. Pages
+    whose questions are all hidden are skipped. When the server rejects answers, it goes to the first
+    page with an error. A survey without page breaks is one page, drawn as before.
+    Used by the respondent page and the admin preview.
+*@
+@inject IJSRuntime JS
+
+@if (IsPaged)
+{
+    <div class="survey-progress" data-survey-progress>
+        <div class="survey-progress-label" data-page-label>Page @(Position + 1) of @Shown.Count</div>
+        <MudProgressLinear Color="Color.Primary" Rounded="true" Value="@Progress" aria-label="Survey progress" />
+    </div>
+}
+
+<SurveyForm Questions="Questions"
+            Answers="Answers"
+            Errors="_errors"
+            AnswersChanged="AnswersChanged"
+            Page="@(IsPaged ? Pages[CurrentIndex] : null)" />
+
+@if (IsPaged)
+{
+    <div class="survey-nav">
+        @if (Position > 0)
+        {
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="BackAsync">Back</MudButton>
+        }
+        @if (!IsLastPage)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward"
+                       OnClick="NextAsync">Next</MudButton>
+        }
+        else if (OnSubmit.HasDelegate)
+        {
+            @SubmitButton("")
+        }
+    </div>
+}
+else if (OnSubmit.HasDelegate)
+{
+    @SubmitButton("mt-2")
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<QuestionDefinition> Questions { get; set; } = [];
+
+    /// <summary>The ids of the questions that start a new page (<see cref="SurveyDefinition.PageBreaks"/>).</summary>
+    [Parameter]
+    public IReadOnlyCollection<Guid>? PageBreaks { get; set; }
+
+    /// <summary>Answers keyed by question key. The form updates this dictionary in place.</summary>
+    [Parameter, EditorRequired]
+    public Dictionary<string, List<string>> Answers { get; set; } = new();
+
+    /// <summary>The server's validation errors keyed by question key. A new set of errors goes to the first page with one.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string[]>? Errors { get; set; }
+
+    [Parameter]
+    public EventCallback AnswersChanged { get; set; }
+
+    /// <summary>Called by the Submit button on the last page. Without it (as in the preview) there is no Submit button.</summary>
+    [Parameter]
+    public EventCallback OnSubmit { get; set; }
+
+    [Parameter]
+    public bool Submitting { get; set; }
+
+    // The same checks the API runs, so Next shows the messages the server would.
+    private static readonly ResponseValidator Validator = new(new QuestionValidationEngine());
+
+    private IReadOnlyDictionary<string, string[]>? _serverErrors;
+    private IReadOnlyDictionary<string, string[]>? _errors;
+
+    /// <summary>The page last moved to, by its index among all pages.</summary>
+    private int _page;
+
+    private List<List<QuestionDefinition>> Pages => SurveyPaging.Split(Questions, PageBreaks);
+
+    private bool IsPaged => Pages.Count > 1;
+
+    /// <summary>The pages with at least one visible question, which are the ones the respondent sees.</summary>
+    private List<int> Shown => SurveyPaging.ShownPages(Pages, VisibilityEvaluator.VisibleKeys(Questions, Answers));
+
+    /// <summary>The page on screen. When answers hide the page last moved to, it is the next page that shows.</summary>
+    private int CurrentIndex
+    {
+        get
+        {
+            var shown = Shown;
+            return shown.Contains(_page) ? _page : shown.FirstOrDefault(i => i > _page, shown[^1]);
+        }
+    }
+
+    private int Position => Shown.IndexOf(CurrentIndex);
+
+    private bool IsLastPage => Position == Shown.Count - 1;
+
+    private double Progress => 100.0 * (Position + 1) / Shown.Count;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(Errors, _serverErrors))
+        {
+            return;
+        }
+        _serverErrors = Errors;
+        _errors = Errors;
+        if (Errors is { Count: > 0 } && SurveyPaging.FirstPageWithError(Pages, Errors) is { } page)
+        {
+            _page = page;
+        }
+    }
+
+    private async Task NextAsync()
+    {
+        var page = Pages[CurrentIndex];
+        var pageErrors = SurveyPaging.ErrorsOnPage(page, Validator.Validate(Questions, Answers).Errors);
+
+        // This page's messages are replaced by the new check; other pages keep theirs.
+        var errors = (_errors ?? new Dictionary<string, string[]>())
+            .Where(e => page.All(q => q.Key != e.Key))
+            .ToDictionary(e => e.Key, e => e.Value);
+        foreach (var (key, messages) in pageErrors)
+        {
+            errors[key] = messages;
+        }
+        _errors = errors;
+
+        if (pageErrors.Count == 0)
+        {
+            await GoToAsync(Shown[Position + 1]);
+        }
+    }
+
+    private Task BackAsync() => GoToAsync(Shown[Position - 1]);
+
+    private async Task GoToAsync(int page)
+    {
+        _page = page;
+        try
+        {
+            // A new page starts at the top, like a new page would.
+            await JS.InvokeVoidAsync("scrollTo", 0, 0);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The browser has gone; nothing to scroll.
+        }
+    }
+
+    private RenderFragment SubmitButton(string cssClass) => __builder =>
+    {
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="Submitting"
+                   OnClick="OnSubmit"
+                   Class="@cssClass">
+            @if (Submitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Submitting...</span>
+            }
+            else
+            {
+                <span>Submit</span>
+            }
+        </MudButton>
+    };
+}
