@@ -191,7 +191,7 @@ Same body and rules as `POST`.
 
 ## Surveys
 
-A survey is a title, a description and an ordered list of question ids. The API adds its sharing settings: `status` (`draft` or `published`), `listed`, `shareCode` and `closesAt`.
+A survey is a title, a description, an ordered list of question ids and, optionally, the page breaks. The API adds its sharing settings: `status` (`draft` or `published`), `listed`, `shareCode` and `closesAt`.
 
 ```json
 {
@@ -200,7 +200,8 @@ A survey is a title, a description and an ordered list of question ids. The API 
   "questionIds": [
     "b5d8f0e1-1c5b-4f7b-8cfa-6cab5f7fd001",
     "a12e5b95-5f5b-4d95-ae01-1ca3ea6d0005"
-  ]
+  ],
+  "pageBreaks": ["a12e5b95-5f5b-4d95-ae01-1ca3ea6d0005"]
 }
 ```
 
@@ -215,8 +216,28 @@ A survey is a title, a description and an ordered list of question ids. The API 
 | `PUT` | `/api/surveys/{id}` | Builder | 200 with the updated survey (keeps `createdAt` and the owner), 400, 403, or 404 |
 | `DELETE` | `/api/surveys/{id}` | Builder | 204, also deleting the survey's responses; 403 or 404 |
 | `PUT` | `/api/surveys/{id}/sharing` | Builder | 200 with the updated survey; 400 for an unknown status, 403 or 404 |
+| `POST` | `/api/surveys/{id}/duplicate` | Builder | 201 with a new draft copy (see below); 404 if the caller can't open the survey |
 
 A survey is rejected with 400 when the title or description is empty, when it has no questions, when a question appears twice, or when a question id doesn't exist.
+
+### Pages
+
+`pageBreaks` (optional) lists the ids of the questions that start a new page. Without it, a survey is one page. Ids that aren't in `questionIds`, repeats, and the first question are dropped when the survey is saved, and the list is stored in survey order. The Blazor and React apps show one page at a time, skip pages whose questions are all hidden by `visibleIf`, and check each page's required answers before moving on. The API still validates the whole response on submit, whatever the pages.
+
+### Duplicate
+
+`POST /api/surveys/{id}/duplicate` (no body) copies a survey the caller can open, whoever owns it, into a new survey titled "Copy of {title}". The copy has the same questions and page breaks, is a `draft`, unlisted, with a new `shareCode`, no `closesAt` and no responses, and belongs to the caller.
+
+### Templates
+
+Templates are ready-made surveys seeded at startup from `FormFlow.Backend/SeedData/templates.json`: Course evaluation, Customer satisfaction, Event feedback and Research study intake. They are read-only. They never appear in `GET /api/surveys` or `/managed`, and `GET /api/surveys/{id}`, the share, sharing, edit, delete and response endpoints treat them as missing (404). Their questions are ordinary questions (keys start with the template's prefix, such as `course_eval_`), so builders can reuse them, and they can't be deleted while a template uses them.
+
+| Method | Path | Access | Result |
+|---|---|---|---|
+| `GET` | `/api/templates` | Builder | The templates by title, each `{ "id", "title", "description", "questionCount", "pageCount" }` |
+| `POST` | `/api/templates/{id}/use` | Builder | 201 with a new draft survey titled like the template, with its questions and page breaks, owned by the caller; 404 for an unknown template |
+
+Seeding skips a template whose id is already stored and reuses questions whose key already exists, so restarting never adds copies. Set `SeedData:Templates` to `false` to seed none.
 
 ### Sharing
 
