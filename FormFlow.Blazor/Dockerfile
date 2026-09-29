@@ -1,11 +1,11 @@
 # Build from the repository root: docker build -f FormFlow.Blazor/Dockerfile .
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY FormFlow.Data/FormFlow.Data.csproj FormFlow.Data/
-COPY FormFlow.Blazor/FormFlow.Blazor.csproj FormFlow.Blazor/
-RUN dotnet restore FormFlow.Blazor/FormFlow.Blazor.csproj
+# Restore with the sources present: the SDK only adds the package that serves
+# _framework/blazor.web.js when it can see the project's .razor files.
 COPY FormFlow.Data/ FormFlow.Data/
 COPY FormFlow.Blazor/ FormFlow.Blazor/
+RUN dotnet restore FormFlow.Blazor/FormFlow.Blazor.csproj
 RUN dotnet publish FormFlow.Blazor/FormFlow.Blazor.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
