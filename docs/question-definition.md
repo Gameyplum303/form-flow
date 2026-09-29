@@ -60,7 +60,9 @@ Defines a conditional visibility rule for a question.
 | `Key`         | `string` | Yes      | The key of the controlling question.         |
 | `ShouldEqual` | `bool`   | Yes      | The expected value that triggers visibility. |
 
-This allows questions to appear only when another question’s answer matches a specific boolean value.
+This allows questions to appear only when another question’s answer matches a specific boolean value. The controlling question must be a `yes_no` question, and a question can't depend on itself. Rules can chain (C depends on B, which depends on A); a question in a circular chain is treated as hidden.
+
+Answers to hidden questions are dropped when a response is submitted, and hidden questions are never required.
 
 ---
 
@@ -122,7 +124,7 @@ Unit tests verify that:
 
 ## **Options Example JSON**
 
-The following examples show valid JSON structures for option-based question types. Options are required for `dropdown`, `radio`, `checkbox`, and `multiselect` types.
+The following examples show valid JSON structures for option-based question types. Options are required for `dropdown`, `radio`, and `multiselect`. A `checkbox` can list options (each one is its own tick box, and several can be ticked) or leave them out to be a single yes/no tick box.
 
 ### Dropdown
 
@@ -190,6 +192,22 @@ The following examples show valid JSON structures for option-based question type
   ]
 }
 ```
+
+---
+
+## **Question Types and Answers**
+
+| Type | Rendered as | Answer stored as |
+|---|---|---|
+| `text` | Text field | The text |
+| `number` | Number field | The number as text, e.g. `"28"` |
+| `yes_no` | Yes / No radio buttons | `"true"` or `"false"` |
+| `dropdown` | Select list | One option value |
+| `radio` | Radio buttons | One option value |
+| `checkbox` | One tick box, or one per option | `"true"`/`"false"` without options, otherwise the ticked option values |
+| `multiselect` | A tick box per option | The selected option values |
+
+`validationConfigs` rules apply to `text` (`MinLength`, `MaxLength`) and `number` (`MinValue`, `MaxValue`, `Range`) answers. The admin create page builds these rules for you.
 
 ---
 

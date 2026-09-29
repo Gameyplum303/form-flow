@@ -1,77 +1,81 @@
-# Database Reference
+# Database
 
-## Overview
+FormFlow stores everything in [LiteDB](https://www.litedb.org/), an embedded document database. There is no server to install: the data lives in one file, `formflow.db`, next to the API.
 
-FormFlow uses LiteDB as its embedded document database. The database file is `formflow.db` and is accessed through repository interfaces registered in dependency injection.
+## Setup
 
----
-
-## Setup (`Program.cs`)
-
-LiteDB is registered as a singleton using a factory function that reads the connection string from `appsettings.json`:
+`Program.cs` registers a single shared `ILiteDatabase`, which is the recommended pattern for LiteDB:
 
 ```csharp
 builder.Services.AddSingleton<ILiteDatabase>(sp =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("LiteDb");
+    var connectionString = builder.Configuration.GetConnectionString("LiteDb") ?? "Filename=formflow.db;Connection=shared";
     return new LiteDatabase(connectionString);
 });
 ```
 
-Using a singleton ensures a single shared database connection for the lifetime of the application, which is the recommended pattern for LiteDB.
+The tests replace this registration with an in-memory database (see [testing.md](testing.md)).
 
----
+## Collections
+
+| Collection | Document | Repository |
+|---|---|---|
+| `questions` | `QuestionDefinition` | `IQuestionRepository` / `QuestionRepository` |
+| `surveys` | `SurveyDefinition` | `ISurveyRepository` / `SurveyRepository` |
+| `responses` | `SurveyResponse` (indexed on `SurveyId`) | `IResponseRepository` / `ResponseRepository` |
+
+Endpoints and services only use the repository interfaces, never LiteDB directly. That keeps the endpoints easy to test and would let the storage change without touching them.
 
 ## Repositories
 
-Repositories are the only way backend code should interact with the database. They hide LiteDB implementation details behind an interface, so endpoints and services depend on the contract, not the storage engine.
-
-### QuestionRepository
-
-Provides access to the `questions` collection.
-
-**Interface:** `IQuestionRepository`
-**Implementation:** `QuestionRepository`
-**Collection type:** `ILiteCollection<QuestionDefinition>`
-**Collection name:** `questions`
-
-#### Methods
+**`IQuestionRepository`**
 
 | Method | Description |
 |---|---|
-| `Insert(QuestionDefinition question)` | Inserts a new question and returns it |
-| `FindById(Guid id)` | Returns a single question by its ID, or null if not found |
-| `FindAll()` | Returns all questions in the collection |
-| `FindOne(Expression<Func<QuestionDefinition, bool>> predicate)` | Returns the first question matching a predicate, or null |
+| `Insert(question)` | Stores a new question and returns it |
+| `FindById(id)` | The question, or `null` |
+| `FindAll()` | Every question |
+| `FindOne(predicate)` | The first question matching a predicate, such as a key lookup |
+| `Update(question)` | Replaces a question; `false` if it doesn't exist |
+| `Delete(id)` | Deletes a question; `false` if it doesn't exist |
 
-#### Notes
+**`ISurveyRepository`**
 
-- `Id` is indexed on startup via `EnsureIndex` for efficient lookups.
+| Method | Description |
+|---|---|
+| `Insert(survey)` | Stores a new survey |
+| `FindById(id)` | The survey, or `null` |
+| `FindAll()` | Every survey |
+| `FindByQuestionId(questionId)` | Surveys that include a question, used to block unsafe deletes and key changes |
+| `Update(survey)` | Replaces a survey |
+| `Delete(id)` | Deletes a survey |
 
-#### Registration
+**`IResponseRepository`**
 
-```csharp
-builder.Services.AddSingleton<IQuestionRepository, QuestionRepository>();
-```
+| Method | Description |
+|---|---|
+| `Insert(response)` | Stores a submitted response |
+| `FindBySurveyId(surveyId)` | A survey's responses, oldest first |
+| `CountBySurveyId(surveyId)` | How many responses a survey has |
+| `DeleteBySurveyId(surveyId)` | Deletes a survey's responses, used when the survey is deleted |
 
-#### Example usage in an endpoint
+## Stored response shape
 
-```csharp
-app.MapGet("/api/questions/{id}", (string id, IQuestionRepository repository) =>
+```json
 {
-    if (!Guid.TryParse(id, out var parsedId))
-        return Results.BadRequest();
-
-    var question = repository.FindById(parsedId);
-    return question is null ? Results.NotFound() : Results.Json(question);
-});
+  "_id": "…",
+  "surveyId": "…",
+  "submittedAt": "2026-09-29T12:58:00Z",
+  "answers": {
+    "first_name": ["Ada"],
+    "is_student": ["true"],
+    "skills": ["csharp", "sql"]
+  }
+}
 ```
 
----
+Every answer is a list of strings, whatever the question type. Answers to hidden questions are never stored.
 
-### SurveyRepository
+## Resetting
 
-The SurveyRepository provides access to the LiteDB "surveys" collection.
-It exposes a strongly typed `ILiteCollection<SurveyDefinition>` and is registered
-in dependency injection as `ISurveyRepository`. This allows endpoints and services
-to store and retrieve survey documents in a consistent and structured way.
+Stop the API and delete `FormFlow.Backend/formflow.db`. The next start recreates it and loads the sample data.
