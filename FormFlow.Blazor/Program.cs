@@ -9,41 +9,22 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 builder.Services.AddMudServices();
 
-builder.Services.AddHttpClient<IQuestionService, QuestionService>(client =>
-{
-    var url = builder.Configuration["BackendAPI:BaseUrl"];
-    client.BaseAddress = new Uri(url ?? throw new Exception("URL Missing!"));
-});
+// Every API client talks to the same backend.
+var backendApi = builder.Configuration["BackendAPI:BaseUrl"] is { Length: > 0 } baseUrl
+    ? new Uri(baseUrl)
+    : throw new InvalidOperationException("BackendApi:BaseUrl is not configured.");
+void UseBackendApi(HttpClient client) => client.BaseAddress = backendApi;
 
-builder.Services.AddHttpClient<ISurveyService, SurveyService>(client =>
-{
-    var url = builder.Configuration["BackendAPI:BaseUrl"];
-    client.BaseAddress = new Uri(url ?? throw new Exception("URL Missing!"));
-});
+builder.Services.AddHttpClient<IQuestionService, QuestionService>(UseBackendApi);
+builder.Services.AddHttpClient<ISurveyService, SurveyService>(UseBackendApi);
+builder.Services.AddHttpClient<IAuthService, AuthService>(UseBackendApi);
+builder.Services.AddHttpClient<IAccountService, AccountService>(UseBackendApi);
 
 // The signed-in admin for this circuit; the services above add its token to API calls.
 builder.Services.AddScoped<AdminSession>();
 
 // Someone taking surveys without an account, remembered per browser.
 builder.Services.AddScoped<IRespondentIdentity, RespondentIdentity>();
-
-builder.Services.AddHttpClient<IAuthService, AuthService>(client =>
-{
-    var url = builder.Configuration["BackendAPI:BaseUrl"];
-    client.BaseAddress = new Uri(url ?? throw new Exception("URL Missing!"));
-});
-
-builder.Services.AddHttpClient<IAccountService, AccountService>(client =>
-{
-    var url = builder.Configuration["BackendAPI:BaseUrl"];
-    client.BaseAddress = new Uri(url ?? throw new Exception("URL Missing!"));
-});
-
-builder.Services.AddHttpClient("AdminApi", client =>
-{
-    var url = builder.Configuration["BackendAPI:BaseUrl"];
-    client.BaseAddress = new Uri(url ?? throw new Exception("URL Missing!"));
-});
 
 var app = builder.Build();
 

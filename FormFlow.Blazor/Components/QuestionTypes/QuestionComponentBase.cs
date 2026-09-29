@@ -40,4 +40,22 @@ public abstract class QuestionComponentBase : ComponentBase
         ValueChanged.InvokeAsync(values.Where(v => !string.IsNullOrEmpty(v)).Select(v => v!).ToList());
 
     protected Task ReportAsync(string? value) => ReportAsync([value]);
+
+    /// <summary>
+    /// Ticks or unticks one option of a question that takes several answers, then reports the
+    /// selection in option order, so stored answers are stable.
+    /// </summary>
+    protected Task ToggleOptionAsync(ISet<string> selected, string value, bool isChecked)
+    {
+        if (isChecked)
+        {
+            selected.Add(value);
+        }
+        else
+        {
+            selected.Remove(value);
+        }
+
+        return ReportAsync(Question.Options.Select(o => o.Value).Where(selected.Contains));
+    }
 }

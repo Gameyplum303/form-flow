@@ -6,7 +6,7 @@
         {
             <MudCheckBox T="bool"
                          Value="@IsSelected(opt.Value)"
-                         ValueChanged="@(isChecked => ToggleSelection(opt.Value, isChecked))"
+                         ValueChanged="@(isChecked => ToggleOptionAsync(_selected, opt.Value, isChecked))"
                          Color="Color.Primary"
                          Dense="true"
                          Label="@opt.Label" />
@@ -26,15 +26,4 @@
     }
 
     private bool IsSelected(string value) => _selected.Contains(value);
-
-    private Task ToggleSelection(string value, bool isChecked)
-    {
-        if (isChecked)
-            _selected.Add(value);
-        else
-            _selected.Remove(value);
-
-        // Report in option order so stored answers are stable.
-        return ReportAsync(Question.Options.Select(o => o.Value).Where(_selected.Contains));
-    }
 }

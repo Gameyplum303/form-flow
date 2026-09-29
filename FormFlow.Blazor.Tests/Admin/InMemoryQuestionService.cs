@@ -10,8 +10,11 @@ public sealed class InMemoryQuestionService : IQuestionService
     public (bool Success, string? Error) NextDeleteResult { get; set; } = (true, null);
     public List<Guid> Deleted { get; } = new();
 
+    /// <summary>Makes loading the questions fail, as when the server can't be reached.</summary>
+    public bool Unreachable { get; set; }
+
     public Task<List<QuestionDefinition>?> GetAllQuestionsAsync() =>
-        Task.FromResult<List<QuestionDefinition>?>(Questions.ToList());
+        Task.FromResult<List<QuestionDefinition>?>(Unreachable ? null : Questions.ToList());
 
     public Task<QuestionDefinition?> GetQuestionAsync(Guid id) =>
         Task.FromResult(Questions.FirstOrDefault(q => q.Id == id));

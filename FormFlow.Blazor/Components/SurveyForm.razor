@@ -10,7 +10,7 @@
         <QuestionRenderer @key="question.Id"
                           Question="question"
                           Value="ValueFor(question.Key)"
-                          ValueChanged="values => OnAnswerChanged(question.Key, values)"
+                          ValueChanged="values => OnAnswerChangedAsync(question.Key, values)"
                           Error="@ErrorFor(question.Key)" />
     </div>
 }
@@ -45,7 +45,7 @@
     private string? ErrorFor(string key) =>
         Errors is not null && Errors.TryGetValue(key, out var messages) ? string.Join(" ", messages) : null;
 
-    private Task OnAnswerChanged(string key, IReadOnlyList<string> values)
+    private Task OnAnswerChangedAsync(string key, IReadOnlyList<string> values)
     {
         Answers[key] = values.ToList();
         return AnswersChanged.InvokeAsync();

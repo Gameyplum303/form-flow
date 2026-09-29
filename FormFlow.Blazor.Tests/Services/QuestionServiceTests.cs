@@ -1,12 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using FormFlow.Blazor.Services;
 using FormFlow.Data.Models;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Moq.Protected;
-using System.Text.Json;
 
-namespace FormFlow.Tests.Services;
+namespace FormFlow.Blazor.Tests.Services;
 
 public class QuestionServiceTests
 {
@@ -22,7 +23,7 @@ public class QuestionServiceTests
         {
             BaseAddress = new Uri(BaseUrl)
         };
-        _service = new QuestionService(_httpClient);
+        _service = new QuestionService(_httpClient, NullLogger<QuestionService>.Instance);
     }
 
     [Fact]
@@ -43,32 +44,77 @@ public class QuestionServiceTests
     }
 
     [Fact]
-    public async Task GetAllQuestionsAsync_ApiError_ReturnsEmptyList()
+    public async Task GetAllQuestionsAsync_RequestsTheQuestionsUnderTheBaseAddress()
     {
-        // Arrange: Simulate a 500 Internal Server Error
-        SetupMockResponse(HttpStatusCode.InternalServerError, "Error message");
+        HttpRequestMessage? sent = null;
+        SetupMockResponse(HttpStatusCode.OK, BuildMockQuestions(), request => sent = request);
 
-        // Act
-        var result = await _service.GetAllQuestionsAsync();
+        await _service.GetAllQuestionsAsync();
 
-        // Assert
-        // Our service logic currently returns an empty list on failure
-        Assert.NotNull(result);
-        Assert.Empty(result);
+        Assert.Equal($"{BaseUrl}api/questions", sent!.RequestUri!.ToString());
     }
 
     [Fact]
-    public async Task GetAllQuestionsAsync_NotFound_ReturnsEmptyList()
+    public async Task GetAllQuestionsAsync_ApiError_ReturnsNull()
     {
-        // Arrange: Simulate a 404
-        SetupMockResponse(HttpStatusCode.NotFound, null);
+        // Null, not an empty list, so pages can tell "no questions" from "could not load them".
+        SetupMockResponse(HttpStatusCode.InternalServerError, "Error message");
 
-        // Act
         var result = await _service.GetAllQuestionsAsync();
 
-        // Assert
-        Assert.NotNull(result);
-        Assert.Empty(result);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetAllQuestionsAsync_NotFound_ReturnsNull()
+    {
+        SetupMockResponse(HttpStatusCode.NotFound, null);
+
+        var result = await _service.GetAllQuestionsAsync();
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetAllQuestionsAsync_Unreachable_ReturnsNull()
+    {
+        SetupMockFailure(new HttpRequestException("refused"));
+
+        var result = await _service.GetAllQuestionsAsync();
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetQuestionAsync_Unreachable_ReturnsNull()
+    {
+        SetupMockFailure(new HttpRequestException("refused"));
+
+        var result = await _service.GetQuestionAsync(Guid.NewGuid());
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task CreateQuestionAsync_Unreachable_SaysSo()
+    {
+        SetupMockFailure(new HttpRequestException("refused"));
+
+        var (success, error) = await _service.CreateQuestionAsync(BuildNewQuestion());
+
+        Assert.False(success);
+        Assert.Equal("Could not reach the server. Please try again.", error);
+    }
+
+    [Fact]
+    public async Task DeleteQuestionAsync_Forbidden_SaysOnlyTheCreatorCanChangeIt()
+    {
+        SetupMockResponse(HttpStatusCode.Forbidden, null);
+
+        var (success, error) = await _service.DeleteQuestionAsync(Guid.NewGuid());
+
+        Assert.False(success);
+        Assert.Equal("You can only change surveys and questions you created.", error);
     }
 
     [Fact]
@@ -89,8 +135,7 @@ public class QuestionServiceTests
         var (success, error) = await _service.CreateQuestionAsync(BuildNewQuestion());
 
         Assert.False(success);
-        Assert.NotNull(error);
-        Assert.Contains("409", error);
+        Assert.Equal("A question with key 'age' already exists", error);
     }
     [Fact]
     public async Task CreateQuestionAsync_ServerError_ReturnsSuccessFalseWithMessage()
@@ -100,12 +145,11 @@ public class QuestionServiceTests
         var (success, error) = await _service.CreateQuestionAsync(BuildNewQuestion());
 
         Assert.False(success);
-        Assert.NotNull(error);
-        Assert.Contains("500", error);
+        Assert.Equal("Internal Server Error", error);
     }
 
     // Helpers
-    private void SetupMockResponse(HttpStatusCode code, object? content)
+    private void SetupMockResponse(HttpStatusCode code, object? content, Action<HttpRequestMessage>? onSend = null)
     {
         var response = new HttpResponseMessage
         {
@@ -120,7 +164,20 @@ public class QuestionServiceTests
                 ItExpr.IsAny<HttpRequestMessage>(),
                 ItExpr.IsAny<CancellationToken>()
             )
+            .Callback<HttpRequestMessage, CancellationToken>((request, _) => onSend?.Invoke(request))
             .ReturnsAsync(response);
+    }
+
+    private void SetupMockFailure(Exception exception)
+    {
+        _handlerMock
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ThrowsAsync(exception);
     }
     private static NewQuestion BuildNewQuestion() => new()
     {

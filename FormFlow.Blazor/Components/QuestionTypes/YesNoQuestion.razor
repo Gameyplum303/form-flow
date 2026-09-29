@@ -1,7 +1,7 @@
 @inherits QuestionComponentBase
 
 <QuestionField Question="Question" Error="@Error">
-    <MudRadioGroup T="bool?" Value="_value" ValueChanged="OnValueChanged" Class="question-options">
+    <MudRadioGroup T="bool?" Value="_value" ValueChanged="OnValueChangedAsync" Class="question-options">
         <MudRadio T="bool?" Value="@((bool?)true)" Color="Color.Primary" Dense="true">Yes</MudRadio>
         <MudRadio T="bool?" Value="@((bool?)false)" Color="Color.Primary" Dense="true">No</MudRadio>
     </MudRadioGroup>
@@ -22,7 +22,7 @@
         }
     }
 
-    private Task OnValueChanged(bool? value)
+    private Task OnValueChangedAsync(bool? value)
     {
         _value = value;
         return ReportAsync(value switch { true => "true", false => "false", null => null });

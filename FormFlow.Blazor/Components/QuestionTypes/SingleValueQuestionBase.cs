@@ -1,9 +1,10 @@
 namespace FormFlow.Blazor.Components.QuestionTypes;
 
 /// <summary>
-/// Shared state for questions answered by typing one value: text, long text, email, number and date.
+/// Shared state for questions answered with one value: typed (text, long text, email, number and date)
+/// or picked from the options (dropdown and radio).
 /// </summary>
-public abstract class TextQuestionBase : QuestionComponentBase
+public abstract class SingleValueQuestionBase : QuestionComponentBase
 {
     /// <summary>What the input shows: the bound answer, or the question's default before anything is typed.</summary>
     protected string? CurrentValue { get; private set; }

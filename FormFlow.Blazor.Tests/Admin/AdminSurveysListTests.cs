@@ -7,8 +7,8 @@ using FormFlow.Blazor.Components.Pages.Admin;
 using FormFlow.Blazor.Services;
 using FormFlow.Blazor.Tests.Respond;
 using FormFlow.Data.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using MudBlazor.Services;
 
@@ -61,20 +61,39 @@ namespace FormFlow.Blazor.Tests.Admin
             cut.WaitForAssertion(() => Assert.Contains("No surveys found", cut.Markup));
         }
 
+        /// <summary>The links in the survey's row, by text, so they open like any link (also in a new tab).</summary>
+        private static Dictionary<string, string?> RowLinks(IRenderedComponent<AdminSurveysList> cut, int row = 0) =>
+            cut.FindAll("tbody tr")[row].QuerySelectorAll("a").ToDictionary(a => a.TextContent.Trim(), a => a.GetAttribute("href"));
+
         [Fact]
-        public async Task SurveyList_PreviewButton_NavigatesToPreviewPage()
+        public async Task SurveyList_LinksToEachSurveysPages()
         {
             await using var ctx = CreateContext();
             var survey = Survey("Survey A", 0);
             _service.Surveys.Add(survey);
-            var nav = ctx.Services.GetRequiredService<NavigationManager>();
 
             var cut = ctx.Render<AdminSurveysList>();
             cut.WaitForAssertion(() => Assert.Contains("Survey A", cut.Markup));
-            cut.FindAll("button").First(b => b.TextContent.Contains("Preview", StringComparison.OrdinalIgnoreCase)).Click();
 
-            // The click can be dispatched after Click() returns while the table is still rendering, so wait for it.
-            cut.WaitForAssertion(() => Assert.Equal($"admin/surveys/{survey.Id}/preview", nav.Uri.Replace(nav.BaseUri, "")));
+            RowLinks(cut).Should().BeEquivalentTo(new Dictionary<string, string?>
+            {
+                ["Edit"] = $"/admin/surveys/{survey.Id}/edit",
+                ["Share"] = $"/admin/surveys/{survey.Id}/share",
+                ["Preview"] = $"/admin/surveys/{survey.Id}/preview",
+                ["Results"] = $"/admin/surveys/{survey.Id}/results",
+            });
+        }
+
+        [Fact]
+        public async Task SurveyList_SaysSoWhenTheSurveysCannotBeLoaded()
+        {
+            await using var ctx = CreateContext();
+            _service.Unreachable = true;
+
+            var cut = ctx.Render<AdminSurveysList>();
+
+            cut.WaitForAssertion(() => Assert.Contains("Could not load surveys.", cut.Markup));
+            cut.Markup.Should().NotContain("No surveys found");
         }
 
         [Fact]
@@ -93,9 +112,7 @@ namespace FormFlow.Blazor.Tests.Admin
             cut.Markup.Should().NotContain("Someone else");
             cut.Markup.Should().Contain("Create Survey");
             cut.Markup.Should().NotContain("Created by", "only administrators see who made each survey");
-            cut.FindAll("button").Should().Contain(b => b.TextContent.Trim() == "Edit");
-            cut.FindAll("button").Should().Contain(b => b.TextContent.Trim() == "Results");
-            cut.FindAll("button").Should().Contain(b => b.TextContent.Trim() == "Share");
+            RowLinks(cut).Keys.Should().Contain(["Edit", "Results", "Share"]);
         }
 
         [Fact]
@@ -135,7 +152,7 @@ namespace FormFlow.Blazor.Tests.Admin
             cut.Markup.Should().Contain("Created by");
             cut.FindAll("tbody tr")[0].TextContent.Should().Contain("professor");
             cut.FindAll("tbody tr")[1].TextContent.Should().Contain("Administrators");
-            cut.FindAll("button").Where(b => b.TextContent.Trim() == "Edit").Should().HaveCount(2);
+            cut.FindAll("a").Where(a => a.TextContent.Trim() == "Edit").Should().HaveCount(2);
         }
 
         [Fact]
@@ -155,21 +172,6 @@ namespace FormFlow.Blazor.Tests.Admin
 
             cut.FindAll("[data-survey-status]").Select(c => c.GetAttribute("data-survey-status"))
                 .Should().Equal("Draft", "Published, link only", "Closed", "Published");
-        }
-
-        [Fact]
-        public async Task SurveyList_ShareButton_OpensTheSharePage()
-        {
-            await using var ctx = CreateContext();
-            var survey = Survey("Survey A");
-            _service.Surveys.Add(survey);
-            var nav = ctx.Services.GetRequiredService<NavigationManager>();
-
-            var cut = ctx.Render<AdminSurveysList>();
-            cut.WaitForAssertion(() => Assert.Contains("Survey A", cut.Markup));
-            cut.FindAll("button").First(b => b.TextContent.Trim() == "Share").Click();
-
-            cut.WaitForAssertion(() => Assert.Equal($"admin/surveys/{survey.Id}/share", nav.Uri.Replace(nav.BaseUri, "")));
         }
 
         [Fact]

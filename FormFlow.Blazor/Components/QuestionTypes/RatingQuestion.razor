@@ -3,7 +3,7 @@
 
 <QuestionField Question="Question" Error="@Error">
     <MudRating SelectedValue="_value"
-               SelectedValueChanged="OnChanged"
+               SelectedValueChanged="OnChangedAsync"
                MaxValue="Scale"
                Size="Size.Large"
                Color="Color.Warning"
@@ -25,7 +25,7 @@
         }
     }
 
-    private Task OnChanged(int value)
+    private Task OnChangedAsync(int value)
     {
         _value = value;
         return ReportAsync(value == 0 ? null : value.ToString());

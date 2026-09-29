@@ -7,7 +7,7 @@
 
     if (componentType is null)
     {
-        <p style="color:red">Unsupported question type: @Question.Type</p>
+        <MudAlert Severity="Severity.Error" Dense="true">Unsupported question type: @Question.Type</MudAlert>
     }
     else
     {

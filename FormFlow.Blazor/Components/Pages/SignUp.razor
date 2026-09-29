@@ -115,10 +115,7 @@
         // The same checks the server makes, so most mistakes show without a round trip.
         var request = _form.ToRequest();
         var errors = SignUpValidator.Validate(request, DateOnly.FromDateTime(DateTime.Today));
-        if (_form.Password != _form.ConfirmPassword)
-        {
-            errors["confirmPassword"] = ["The passwords don't match."];
-        }
+        NewPasswordForm.CheckConfirmation(errors, _form.Password, _form.ConfirmPassword);
         _errors = errors;
         _result = null;
         if (errors.Count > 0)
