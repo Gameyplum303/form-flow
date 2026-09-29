@@ -14,10 +14,12 @@ The app calls `http://localhost:5164` unless `REACT_APP_API_URL` is set.
 
 | File | Purpose |
 |---|---|
-| `src/App.tsx` | Survey list, take-survey screen, thank-you screen, and an "API unreachable" notice. The open survey is kept in the URL hash (`#/surveys/<id>`, or `#/s/<code>` for a share link) so the back button and links work without a router library. A closed survey, or one this browser already answered, shows a message instead of the form. |
+| `src/App.tsx` | Survey list, take-survey screen, thank-you screen, and an "API unreachable" notice. The open survey is kept in the URL hash (`#/surveys/<id>`, or `#/s/<code>` for a share link) so the back button and links work without a router library. A closed survey, or one this browser already answered, shows a message instead of the form. A survey with page breaks shows one page at a time with a progress bar, **Back** and **Next**, and saved answers come back with a **Start over** link. |
 | `src/api.ts` | `getSurveys`, `getSurvey`, `getSurveyByShareCode`, `getSurveyQuestions`, `hasAnswered` and `submitResponse`. `respondentId()` keeps this browser's random respondent id in `localStorage`. `submitResponse` returns `{ ok: true }` or `{ ok: false, errors, message, final? }`, with `errors` taken from the API's problem details and `final` set when the survey closed or was already answered. |
 | `src/components/SurveyForm.tsx` | Renders the visible questions and passes each one its value and error. |
 | `src/components/QuestionRenderer.tsx` | Renders one question with the right control. |
+| `src/logic/pages.ts` | `splitPages`, `shownPages`, `missingAnswers` and `firstPageWithError`, which split a survey at its `pageBreaks`, skip pages whose questions are all hidden, check a page's required answers before **Next**, and find the page to open after a server error. |
+| `src/logic/drafts.ts` | `loadDraft`, `saveDraft` and `clearDraft` keep a survey's unsent answers in `localStorage` (`formflow.answers.<survey id>`), so they come back after a reload. Storage that is blocked or holds bad data is ignored. |
 | `src/logic/visibility.ts` | `visibleKeys(questions, answers)`, the TypeScript twin of the C# `VisibilityEvaluator`, and `parseBool`. |
 | `src/types/` | `QuestionDefinition`, `Option`, `VisibleIf`, `SurveyDefinition`, `Answers` and `AnswerErrors`, matching the API's JSON. |
 
@@ -61,6 +63,7 @@ Groups of radio buttons and checkboxes are wrapped in `<fieldset>` with a `<lege
 | `answers` | `Answers` | Answers keyed by question key |
 | `errors` | `AnswerErrors` | Errors keyed by question key |
 | `onChange` | `(answers: Answers) => void` | Called with the new answers after any change |
+| `page` | `QuestionDefinition[]?` | When set, only these questions are drawn (one page of a paged survey) |
 
 Only questions in `visibleKeys(questions, answers)` are rendered. Answers to hidden questions stay in state, and the API drops them on submit.
 

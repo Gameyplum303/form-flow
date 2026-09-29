@@ -143,6 +143,7 @@ app.MapAuthEndpoints();
 app.MapAccountEndpoints();
 app.MapQuestionEndpoints();
 app.MapSurveyEndpoints();
+app.MapTemplateEndpoints();
 app.MapResponseEndpoints();
 
 app.Run();

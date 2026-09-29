@@ -7,6 +7,7 @@ using FormFlow.Data.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
+using MudBlazor.Extensions;
 using MudBlazor.Services;
 
 namespace FormFlow.Blazor.Tests.Admin;
@@ -228,6 +229,158 @@ public class AdminCreateSurveyPageTests
 
         snackbars.WaitForAssertion(() => snackbars.Markup.Should().Contain("Unknown question ids: 123"));
         ctx.Services.GetRequiredService<NavigationManager>().Uri.Should().NotEndWith("/admin/surveys");
+    }
+
+    private void AddTemplates()
+    {
+        _surveys.Templates.AddRange([
+            new SurveyTemplate { Id = Guid.NewGuid(), Title = "Course evaluation", Description = "End-of-term feedback", QuestionCount = 9, PageCount = 3 },
+            new SurveyTemplate { Id = Guid.NewGuid(), Title = "Event feedback", Description = "After an event", QuestionCount = 5 },
+        ]);
+    }
+
+    [Fact]
+    public async Task A_new_survey_starts_with_the_template_gallery()
+    {
+        AddTemplates();
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>();
+
+        cut.WaitForAssertion(() => cut.FindAll("[data-template-gallery]").Should().ContainSingle());
+        var cards = cut.FindAll("[data-template]");
+        cards.Select(c => c.GetAttribute("data-template")).Should().Equal("blank", "Course evaluation", "Event feedback");
+        cards[1].TextContent.Should().Contain("End-of-term feedback").And.Contain("9 questions on 3 pages");
+        cards[2].TextContent.Should().Contain("5 questions").And.NotContain("pages");
+        cut.FindAll("button[aria-label='Use the Course evaluation template']").Should().ContainSingle();
+        cut.FindAll("input").Should().BeEmpty("the form shows once a starting point is picked");
+    }
+
+    [Fact]
+    public async Task Start_blank_shows_the_empty_form()
+    {
+        AddTemplates();
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>();
+        cut.WaitForAssertion(() => cut.FindAll("[data-template-gallery]").Should().ContainSingle());
+
+        ClickButton(cut, "Start blank");
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Which campus?"));
+        cut.FindAll("[data-template-gallery]").Should().BeEmpty();
+        cut.Markup.Should().Contain("No questions selected yet.");
+    }
+
+    [Fact]
+    public async Task Using_a_template_opens_the_new_draft_for_editing()
+    {
+        AddTemplates();
+        await using var ctx = CreateContext();
+        var snackbars = ctx.Render<MudSnackbarProvider>();
+        var cut = ctx.Render<AdminCreateSurvey>();
+        cut.WaitForAssertion(() => cut.FindAll("[data-template-gallery]").Should().ContainSingle());
+
+        cut.Find("button[aria-label='Use the Course evaluation template']").Click();
+
+        cut.WaitForAssertion(() => _surveys.UsedTemplates.Should().Equal(_surveys.Templates[0].Id));
+        var draft = _surveys.Surveys.Single();
+        var nav = ctx.Services.GetRequiredService<NavigationManager>();
+        nav.Uri.Should().EndWith($"/admin/surveys/{draft.Id}/edit");
+        snackbars.WaitForAssertion(() => snackbars.Markup.Should().Contain("Created \"Course evaluation\" from the template as a draft."));
+    }
+
+    [Fact]
+    public async Task Without_templates_a_new_survey_goes_straight_to_the_form()
+    {
+        _surveys.TemplatesUnreachable = true;
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Which campus?"));
+        cut.FindAll("[data-template-gallery]").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Editing_never_shows_the_template_gallery()
+    {
+        AddTemplates();
+        var survey = new SurveyDefinition
+        {
+            Id = Guid.NewGuid(),
+            Title = "Campus life",
+            Description = "About campus",
+            QuestionIds = [_isStudent.Id],
+            CreatedAt = DateTime.UtcNow,
+        };
+        _surveys.Surveys.Add(survey);
+        await using var ctx = CreateContext();
+
+        var cut = ctx.Render<AdminCreateSurvey>(p => p.Add(x => x.Id, survey.Id));
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("1. Are you a student?"));
+        cut.FindAll("[data-template-gallery]").Should().BeEmpty();
+    }
+
+    private static IRenderedComponent<MudSwitch<bool>> PageSwitch(IRenderedComponent<AdminCreateSurvey> cut, string key) =>
+        cut.FindComponents<MudSwitch<bool>>().Single(s => s.Find("[data-page-break]").GetAttribute("data-page-break") == key);
+
+    [Fact]
+    public async Task Page_toggles_split_the_selected_questions_into_pages_and_are_saved()
+    {
+        var third = new QuestionDefinition { Id = Guid.NewGuid(), Key = "comments", Label = "Any comments?", Type = "text" };
+        _questions.Questions.Add(third);
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Any comments?"));
+        Type(cut, "input", "Campus life");
+        Type(cut, "textarea", "About campus");
+        ClickButton(cut, "Add", 0);
+        ClickButton(cut, "Add", 0);
+        ClickButton(cut, "Add", 0);
+
+        // Every question but the first can start a page; none do yet, so there are no separators.
+        cut.WaitForAssertion(() => cut.FindComponents<MudSwitch<bool>>().Should().HaveCount(2));
+        cut.FindAll("[data-page-separator]").Should().BeEmpty();
+
+        await cut.InvokeAsync(() => PageSwitch(cut, "comments").Instance.ValueChanged.InvokeAsync(true));
+
+        cut.WaitForAssertion(() => cut.FindAll("[data-page-separator]").Select(s => s.TextContent.Trim()).Should().Equal("Page 1", "Page 2"));
+        cut.FindAll("[data-page-separator]")[1].NextElementSibling!.TextContent.Should().Contain("3. Any comments?");
+
+        await cut.InvokeAsync(() => PageSwitch(cut, "campus").Instance.ValueChanged.InvokeAsync(true));
+        cut.WaitForAssertion(() => cut.FindAll("[data-page-separator]").Should().HaveCount(3));
+
+        cut.WaitForAssertion(() => SaveDisabled(cut).Should().BeFalse());
+        ClickButton(cut, "Save Survey");
+
+        cut.WaitForAssertion(() => _surveys.LastCreated.Should().NotBeNull());
+        _surveys.LastCreated!.PageBreaks.Should().Equal(_campus.Id, third.Id);
+    }
+
+    [Fact]
+    public async Task Edit_mode_shows_the_saved_pages_and_moving_a_question_first_drops_its_page_break()
+    {
+        var survey = new SurveyDefinition
+        {
+            Id = Guid.NewGuid(),
+            Title = "Campus life",
+            Description = "About campus",
+            QuestionIds = [_isStudent.Id, _campus.Id],
+            PageBreaks = [_campus.Id],
+            CreatedAt = DateTime.UtcNow,
+        };
+        _surveys.Surveys.Add(survey);
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>(p => p.Add(x => x.Id, survey.Id));
+        cut.WaitForAssertion(() => cut.FindAll("[data-page-separator]").Should().HaveCount(2));
+        PageSwitch(cut, "campus").Instance.GetState(x => x.Value).Should().BeTrue();
+
+        cut.Find("button[aria-label='Move down']").Click();
+
+        cut.WaitForAssertion(() => cut.FindAll("[data-page-separator]").Should().BeEmpty());
+        ClickButton(cut, "Save Changes");
+        cut.WaitForAssertion(() => _surveys.LastUpdated.Should().NotBeNull());
+        _surveys.LastUpdated!.Value.Survey.QuestionIds.Should().Equal(_campus.Id, _isStudent.Id);
+        _surveys.LastUpdated.Value.Survey.PageBreaks.Should().BeEmpty();
     }
 
     [Fact]

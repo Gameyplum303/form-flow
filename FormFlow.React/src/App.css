@@ -52,6 +52,56 @@ button.link {
   padding: 0;
 }
 
+button.secondary {
+  background: #fff;
+  color: #594ae2;
+  border: 1px solid #594ae2;
+  padding: 7px 15px;
+}
+
+/* "Page 2 of 3" and its bar above a paged survey, and the Back / Next buttons below it. */
+.progress {
+  margin: 0 0 16px;
+}
+
+.progress-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  color: #5b6070;
+}
+
+.progress progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border: none;
+  border-radius: 3px;
+  background: #e1e3ea;
+  overflow: hidden;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.progress progress::-webkit-progress-bar {
+  background: #e1e3ea;
+}
+
+.progress progress::-webkit-progress-value {
+  background: #594ae2;
+  transition: width 0.2s ease;
+}
+
+.progress progress::-moz-progress-bar {
+  background: #594ae2;
+}
+
+.survey-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .question {
   border: 1px solid #e1e3ea;
   border-radius: 8px;

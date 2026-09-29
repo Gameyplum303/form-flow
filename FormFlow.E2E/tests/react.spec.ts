@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { adminHeaders, demoSurveyTitle, surveyByTitle, urls } from "./helpers";
+import { adminHeaders, demoSurveyTitle, headersFor, professor, publish, surveyByTitle, urls } from "./helpers";
 
 test.describe("React: taking a survey", () => {
     test("validates on the server and stores the answers", async ({ page, request }) => {
@@ -54,6 +54,53 @@ test.describe("React: taking a survey", () => {
             recommend_score: ["7"],
         });
         expect(saved.answers.study_hours).toBeUndefined();
+    });
+
+    test("pages through a survey made from a template, keeping answers across a reload", async ({ page, request }) => {
+        // A professor starts a survey from the Course evaluation template and publishes it.
+        const headers = await headersFor(request, professor);
+        const templates: { id: string; title: string }[] = await (await request.get(`${urls.api}/api/templates`, { headers })).json();
+        const template = templates.find(t => t.title === "Course evaluation")!;
+        const created = await request.post(`${urls.api}/api/templates/${template.id}/use`, { headers });
+        expect(created.status()).toBe(201);
+        const survey = await created.json();
+        await publish(request, survey.id, headers);
+
+        await page.goto(`${urls.react}/#/s/${survey.shareCode}`);
+        await expect(page.getByText("Page 1 of 3")).toBeVisible();
+        await page.getByRole("button", { name: "Next" }).click();
+        await expect(page.getByText("This question is required.")).toHaveCount(2);
+
+        await page.getByLabel(/Which course/).fill("SENG 3000");
+        await page.getByRole("group", { name: /attend class/ }).getByLabel("Most classes").check();
+        await page.getByRole("button", { name: "Next" }).click();
+        await expect(page.getByText("Page 2 of 3")).toBeVisible();
+        await page.getByRole("group", { name: /rate this course/ }).getByLabel("4 of 5").check();
+
+        await page.reload();
+        await expect(page.getByText("We saved your answers on this device.")).toBeVisible();
+        await expect(page.getByLabel(/Which course/)).toHaveValue("SENG 3000");
+        await page.getByRole("button", { name: "Next" }).click();
+        await expect(page.getByRole("group", { name: /rate this course/ }).getByLabel("4 of 5")).toBeChecked();
+        await page.getByRole("group", { name: /clear was the teaching/ }).getByLabel("5 of 5").check();
+        await page.getByLabel(/How was the workload/).selectOption("right");
+
+        await page.getByRole("button", { name: "Back" }).click();
+        await expect(page.getByLabel(/Which course/)).toHaveValue("SENG 3000");
+        await page.getByRole("button", { name: "Next" }).click();
+        await page.getByRole("button", { name: "Next" }).click();
+        await expect(page.getByText("Page 3 of 3")).toBeVisible();
+        await page.getByRole("group", { name: /recommend this course/ }).getByLabel("Yes").check();
+        await page.getByRole("button", { name: "Submit" }).click();
+        await expect(page.getByText(/Thank you/)).toBeVisible();
+
+        const responses = await (await request.get(`${urls.api}/api/surveys/${survey.id}/responses`, { headers })).json();
+        expect(responses).toHaveLength(1);
+        expect(responses[0].answers).toMatchObject({
+            course_eval_course: ["SENG 3000"], course_eval_attendance: ["most"], course_eval_overall: ["4"],
+            course_eval_teaching: ["5"], course_eval_workload: ["right"], course_eval_recommend: ["true"],
+        });
+        expect(await page.evaluate(id => localStorage.getItem(`formflow.answers.${id}`), survey.id)).toBeNull();
     });
 
     test("opens a survey from its share link", async ({ page, request }) => {

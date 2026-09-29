@@ -44,8 +44,8 @@ The API issues the token (see [api.md](api.md#authentication)). `AdminSession` k
 | `/verify-email?token=…` | `VerifyEmail` | Verify an email address from an emailed link |
 | `/account` | `AccountSettings` | Change your password (signed in) |
 | `/admin/outbox` | `AdminOutbox` | Emails the API would have sent, when no SMTP server is set (administrators only) |
-| `/admin/surveys` | `AdminSurveysList` | The surveys you manage (every survey for an administrator), with Edit, Preview, Results and Delete |
-| `/admin/surveys/create` | `AdminCreateSurvey` | Build a new survey |
+| `/admin/surveys` | `AdminSurveysList` | The surveys you manage (every survey for an administrator), with Edit, Preview, Results, Duplicate and Delete |
+| `/admin/surveys/create` | `AdminCreateSurvey` | Pick a template or start blank, then build a new survey |
 | `/admin/surveys/{id}/edit` | `AdminCreateSurvey` | Edit an existing survey |
 | `/admin/surveys/{id}/preview` | `AdminSurveyPreview` | See the survey as a respondent would, with conditional questions working |
 | `/admin/surveys/{id}/results` | `AdminSurveyResults` | Response counts, charts per question, and CSV download |
@@ -77,7 +77,7 @@ The API checks the question again when it is saved and any errors are shown on t
 
 ## Surveys (`/admin/surveys`)
 
-A table of surveys with their question counts and sharing status: **Draft**, **Published** (on the public list), **Published, link only**, or **Closed**. **Share** opens the survey's Share page. Delete asks for confirmation and also deletes the survey's responses.
+A table of surveys with their question counts and sharing status: **Draft**, **Published** (on the public list), **Published, link only**, or **Closed**. **Share** opens the survey's Share page. **Duplicate** copies the survey into a new draft called "Copy of …", with the same questions and pages but a new share link and no responses or close date, and opens it for editing. Delete asks for confirmation and also deletes the survey's responses.
 
 New surveys are drafts, so nobody else can open them until they're published.
 
@@ -93,11 +93,21 @@ Controls who can answer a survey:
 
 ## Create or edit a survey
 
+**Create Survey** first shows the templates: Course evaluation, Customer satisfaction, Event feedback and Research study intake, each with its description and how many questions and pages it has. **Use** makes a draft copy of the template and opens it in the editor, ready to change and then publish from **Share**. **Start blank** shows the empty form instead. Templates themselves are read-only; they don't appear in the survey list and can't be answered.
+
 Enter a title and description, then add questions from the question bank and put them in order with the up and down buttons. The page warns when a conditional question is in the survey without the question it depends on (it would never show), or appears before it. Save is enabled once the title, description and at least one question are filled in.
+
+### Pages
+
+Every question after the first has a **New page starts here** switch. Turning one on splits the survey there, and the list shows a "Page 1", "Page 2"… heading above each page. Respondents then see one page at a time with "Page 2 of 3" and a progress bar, **Back** and **Next**, and **Submit** on the last page. **Next** checks the page's required answers first. A page whose questions are all hidden by "Only show when" is skipped, and if the server rejects the answers, the form opens the first page with an error. A survey with no switches on is one page, as before.
+
+### Saved answers
+
+The take-survey page keeps a respondent's answers in the browser as they go, so closing the tab or reloading doesn't lose them. Coming back shows "We saved your answers on this device." with a **Start over** link that clears them. They are deleted once the answers are sent. The React app does the same.
 
 ## Preview (`/admin/surveys/{id}/preview`)
 
-Renders the survey with the same `SurveyForm` component respondents use, so conditional questions can be tried out. Nothing is submitted.
+Renders the survey with the same `PagedSurveyForm` component respondents use, page by page, so conditional questions and pages can be tried out. Nothing is submitted.
 
 ## Results (`/admin/surveys/{id}/results`)
 

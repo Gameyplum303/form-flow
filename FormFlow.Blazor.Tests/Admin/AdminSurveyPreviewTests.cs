@@ -93,6 +93,29 @@ namespace FormFlow.Blazor.Tests.Admin
         }
 
         [Fact]
+        public void ShowsPagedSurveysOnePageAtATime_WithoutASubmitButton()
+        {
+            var survey = AddSurvey();
+            survey.PageBreaks = [_q2.Id];
+
+            var cut = RenderPreview();
+
+            cut.WaitForAssertion(() => cut.Find("[data-page-label]").TextContent.Trim().Should().Be("Page 1 of 2"));
+            cut.FindComponents<QuestionRenderer>().Should().ContainSingle().Which.Instance.Question.Should().BeEquivalentTo(_q1);
+
+            // The preview checks answers like the real page: the rating is required.
+            cut.FindAll("button").Single(b => b.TextContent.Trim() == "Next").Click();
+            cut.WaitForAssertion(() => cut.Markup.Should().Contain("This question is required."));
+            cut.Find("[data-page-label]").TextContent.Trim().Should().Be("Page 1 of 2");
+
+            _q1.Required = false;
+            cut.FindAll("button").Single(b => b.TextContent.Trim() == "Next").Click();
+            cut.WaitForAssertion(() => cut.Find("[data-page-label]").TextContent.Trim().Should().Be("Page 2 of 2"));
+            cut.FindComponents<QuestionRenderer>().Should().ContainSingle().Which.Instance.Question.Should().BeEquivalentTo(_q2);
+            cut.FindAll("button").Select(b => b.TextContent.Trim()).Should().Contain("Back").And.NotContain("Submit").And.NotContain("Next");
+        }
+
+        [Fact]
         public void HandlesMissingSurveyGracefully()
         {
             Services.AddSingleton<ISurveyService>(_surveys);
