@@ -11,5 +11,11 @@ namespace FormFlow.Backend.Repositories
         IEnumerable<Question> FindAll();
 
         Question? FindOne(Expression<Func<Question, bool>> predicate);
+
+        /// <summary>Replaces the stored question. Returns false when it does not exist.</summary>
+        bool Update(Question question);
+
+        /// <summary>Deletes the question. Returns false when it does not exist.</summary>
+        bool Delete(Guid id);
     }
 }
