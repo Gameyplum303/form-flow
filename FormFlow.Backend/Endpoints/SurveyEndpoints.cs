@@ -1,4 +1,5 @@
 using FormFlow.Data.Models;
+using FormFlow.Backend.Auth;
 using FormFlow.Backend.Repositories;
 
 namespace FormFlow.Backend.Endpoints
@@ -78,6 +79,8 @@ namespace FormFlow.Backend.Endpoints
                 return Results.Created($"/api/surveys/{survey.Id}", survey);
             })
             .WithName("CreateSurvey")
+            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .Produces(StatusCodes.Status401Unauthorized)
             .Produces<SurveyDefinition>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest);
 
@@ -103,6 +106,8 @@ namespace FormFlow.Backend.Endpoints
                 return Results.Ok(existing);
             })
             .WithName("UpdateSurvey")
+            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .Produces(StatusCodes.Status401Unauthorized)
             .Produces<SurveyDefinition>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound);
@@ -119,6 +124,8 @@ namespace FormFlow.Backend.Endpoints
                 return Results.NoContent();
             })
             .WithName("DeleteSurvey")
+            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
         }

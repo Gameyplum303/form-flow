@@ -4,14 +4,24 @@ using FormFlow.Data.Models;
 
 namespace FormFlow.Blazor.Services
 {
-    public class SurveyService(HttpClient httpClient) : ISurveyService
+    public class SurveyService(HttpClient httpClient, AdminSession? session = null) : ISurveyService
     {
+        /// <summary>The API client, carrying the signed-in admin's token when there is one.</summary>
+        private HttpClient Client
+        {
+            get
+            {
+                session?.Authorize(httpClient);
+                return httpClient;
+            }
+        }
+
         public async Task<List<SurveyDefinition>> GetSurveysAsync() =>
-            await httpClient.GetFromJsonAsync<List<SurveyDefinition>>("api/surveys") ?? [];
+            await Client.GetFromJsonAsync<List<SurveyDefinition>>("api/surveys") ?? [];
 
         public async Task<SurveyDefinition?> GetSurveyAsync(Guid id)
         {
-            var response = await httpClient.GetAsync($"api/surveys/{id}");
+            var response = await Client.GetAsync($"api/surveys/{id}");
             return response.StatusCode == HttpStatusCode.OK
                 ? await response.Content.ReadFromJsonAsync<SurveyDefinition>()
                 : null;
@@ -19,7 +29,7 @@ namespace FormFlow.Blazor.Services
 
         public async Task<List<QuestionDefinition>> GetSurveyQuestionsAsync(Guid id)
         {
-            var response = await httpClient.GetAsync($"api/surveys/{id}/questions");
+            var response = await Client.GetAsync($"api/surveys/{id}/questions");
             return response.StatusCode == HttpStatusCode.OK
                 ? await response.Content.ReadFromJsonAsync<List<QuestionDefinition>>() ?? []
                 : [];
@@ -27,19 +37,19 @@ namespace FormFlow.Blazor.Services
 
         public async Task<(bool Success, string? Error)> CreateSurveyAsync(NewSurvey survey)
         {
-            var response = await httpClient.PostAsJsonAsync("api/surveys", survey);
+            var response = await Client.PostAsJsonAsync("api/surveys", survey);
             return response.IsSuccessStatusCode ? (true, null) : (false, await ReadErrorAsync(response));
         }
 
         public async Task<(bool Success, string? Error)> UpdateSurveyAsync(Guid id, NewSurvey survey)
         {
-            var response = await httpClient.PutAsJsonAsync($"api/surveys/{id}", survey);
+            var response = await Client.PutAsJsonAsync($"api/surveys/{id}", survey);
             return response.IsSuccessStatusCode ? (true, null) : (false, await ReadErrorAsync(response));
         }
 
         public async Task<(bool Success, string? Error)> DeleteSurveyAsync(Guid id)
         {
-            var response = await httpClient.DeleteAsync($"api/surveys/{id}");
+            var response = await Client.DeleteAsync($"api/surveys/{id}");
             return response.IsSuccessStatusCode ? (true, null) : (false, await ReadErrorAsync(response));
         }
 
@@ -47,7 +57,7 @@ namespace FormFlow.Blazor.Services
         {
             try
             {
-                var response = await httpClient.PostAsJsonAsync($"api/surveys/{surveyId}/responses", new { answers });
+                var response = await Client.PostAsJsonAsync($"api/surveys/{surveyId}/responses", new { answers });
                 if (response.IsSuccessStatusCode)
                 {
                     return new SubmitResult(true, new Dictionary<string, string[]>());
@@ -72,14 +82,25 @@ namespace FormFlow.Blazor.Services
 
         public async Task<SurveyResults?> GetResultsAsync(Guid surveyId)
         {
-            var response = await httpClient.GetAsync($"api/surveys/{surveyId}/results");
+            var response = await Client.GetAsync($"api/surveys/{surveyId}/results");
             return response.StatusCode == HttpStatusCode.OK
                 ? await response.Content.ReadFromJsonAsync<SurveyResults>()
                 : null;
         }
 
-        public string ExportUrl(Guid surveyId) =>
-            new Uri(httpClient.BaseAddress!, $"api/surveys/{surveyId}/responses/export").ToString();
+        public async Task<CsvExport?> ExportResponsesAsync(Guid surveyId)
+        {
+            var response = await Client.GetAsync($"api/surveys/{surveyId}/responses/export");
+            if (response.StatusCode != HttpStatusCode.OK)
+            {
+                return null;
+            }
+
+            var disposition = response.Content.Headers.ContentDisposition;
+            var fileName = (disposition?.FileNameStar ?? disposition?.FileName)?.Trim('"');
+            return new CsvExport(string.IsNullOrWhiteSpace(fileName) ? "responses.csv" : fileName,
+                await response.Content.ReadAsByteArrayAsync());
+        }
 
         private static async Task<string> ReadErrorAsync(HttpResponseMessage response)
         {

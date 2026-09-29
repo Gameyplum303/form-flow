@@ -1,0 +1,90 @@
+@page "/login"
+@using FormFlow.Blazor.Services
+@inject IAuthService AuthService
+@inject AdminSession Session
+@inject NavigationManager Nav
+@inject IConfiguration Configuration
+
+<PageTitle>Sign in</PageTitle>
+
+<MudPaper Class="pa-6 mx-auto mt-10" MaxWidth="420px" Elevation="3">
+    <MudText Typo="Typo.h5" Class="mb-4">Admin sign in</MudText>
+
+    @if (!string.IsNullOrWhiteSpace(Configuration["LoginHint"]))
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">@Configuration["LoginHint"]</MudAlert>
+    }
+
+    <EditForm Model="_form" OnValidSubmit="SignInAsync">
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_form.Username"
+                          Label="Username"
+                          Variant="Variant.Outlined"
+                          autocomplete="username"
+                          Required="true"
+                          RequiredError="Enter your username." />
+            <MudTextField @bind-Value="_form.Password"
+                          Label="Password"
+                          InputType="InputType.Password"
+                          Variant="Variant.Outlined"
+                          autocomplete="current-password"
+                          Required="true"
+                          RequiredError="Enter your password." />
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+            }
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Disabled="_busy">
+                Sign in
+            </MudButton>
+        </MudStack>
+    </EditForm>
+</MudPaper>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    private readonly LoginForm _form = new();
+    private string? _error;
+    private bool _busy;
+
+    private async Task SignInAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Username) || string.IsNullOrEmpty(_form.Password))
+        {
+            _error = "Enter your username and password.";
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        var (login, error) = await AuthService.LoginAsync(_form.Username.Trim(), _form.Password);
+        _busy = false;
+
+        if (login is null)
+        {
+            _error = error;
+            return;
+        }
+
+        await Session.SignInAsync(login);
+        Nav.NavigateTo(SafeReturnUrl(ReturnUrl));
+    }
+
+    /// <summary>Only local paths are allowed, so the sign-in page can't be used to send people to another site.</summary>
+    public static string SafeReturnUrl(string? returnUrl) =>
+        returnUrl is { Length: > 0 } url && url.StartsWith('/') && !url.StartsWith("//") && !url.StartsWith("/\\")
+            ? url
+            : "/admin/surveys";
+
+    private sealed class LoginForm
+    {
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}

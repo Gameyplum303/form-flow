@@ -7,7 +7,8 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<div class="page">
+@* data-interactive turns true once the circuit is connected, so browser tests know when clicks will be handled. *@
+<div class="page" data-interactive="@(RendererInfo.IsInteractive ? "true" : "false")">
     <div class="sidebar">
         @if (Nav.Uri.Contains("/admin"))
         {
@@ -24,7 +25,7 @@
         </div>
 
         <article class="content px-4">
-            @Body
+            <AdminGuard>@Body</AdminGuard>
         </article>
     </main>
 </div>

@@ -1,5 +1,5 @@
 @page "/admin/surveys"
-@inject IHttpClientFactory HttpClientFactory
+@inject ISurveyService SurveyService
 @inject NavigationManager Nav
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
@@ -97,8 +97,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var client = HttpClientFactory.CreateClient("AdminApi");
-        surveys = await client.GetFromJsonAsync<List<SurveyDefinition>>("api/surveys");
+        surveys = await SurveyService.GetSurveysAsync();
     }
 
     private void PreviewSurvey(Guid Id)
@@ -117,16 +116,15 @@
             return;
         }
 
-        var client = HttpClientFactory.CreateClient("AdminApi");
-        var response = await client.DeleteAsync($"api/surveys/{survey.Id}");
-        if (response.IsSuccessStatusCode)
+        var (deleted, error) = await SurveyService.DeleteSurveyAsync(survey.Id);
+        if (deleted)
         {
             surveys?.Remove(survey);
             Snackbar.Add($"Deleted \"{survey.Title}\".", Severity.Success);
         }
         else
         {
-            Snackbar.Add("The survey could not be deleted.", Severity.Error);
+            Snackbar.Add($"The survey could not be deleted: {error}", Severity.Error);
         }
     }
 }

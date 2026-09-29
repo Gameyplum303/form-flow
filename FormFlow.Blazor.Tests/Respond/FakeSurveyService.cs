@@ -20,11 +20,33 @@ public sealed class FakeSurveyService : ISurveyService
     public Task<List<QuestionDefinition>> GetSurveyQuestionsAsync(Guid id) =>
         Task.FromResult(Questions.TryGetValue(id, out var q) ? q : new List<QuestionDefinition>());
 
-    public Task<(bool Success, string? Error)> CreateSurveyAsync(NewSurvey survey) => Task.FromResult((true, (string?)null));
+    public (bool Success, string? Error) NextSaveResult { get; set; } = (true, null);
+    public NewSurvey? LastCreated { get; private set; }
+    public (Guid Id, NewSurvey Survey)? LastUpdated { get; private set; }
 
-    public Task<(bool Success, string? Error)> UpdateSurveyAsync(Guid id, NewSurvey survey) => Task.FromResult((true, (string?)null));
+    public Task<(bool Success, string? Error)> CreateSurveyAsync(NewSurvey survey)
+    {
+        LastCreated = survey;
+        return Task.FromResult(NextSaveResult);
+    }
 
-    public Task<(bool Success, string? Error)> DeleteSurveyAsync(Guid id) => Task.FromResult((true, (string?)null));
+    public Task<(bool Success, string? Error)> UpdateSurveyAsync(Guid id, NewSurvey survey)
+    {
+        LastUpdated = (id, survey);
+        return Task.FromResult(NextSaveResult);
+    }
+
+    public (bool Success, string? Error) NextDeleteResult { get; set; } = (true, null);
+    public List<Guid> Deleted { get; } = new();
+
+    public Task<(bool Success, string? Error)> DeleteSurveyAsync(Guid id)
+    {
+        if (NextDeleteResult.Success)
+        {
+            Deleted.Add(id);
+        }
+        return Task.FromResult(NextDeleteResult);
+    }
 
     public Task<SubmitResult> SubmitResponseAsync(Guid surveyId, Dictionary<string, List<string>> answers)
     {
@@ -34,5 +56,7 @@ public sealed class FakeSurveyService : ISurveyService
 
     public Task<SurveyResults?> GetResultsAsync(Guid surveyId) => Task.FromResult(Results);
 
-    public string ExportUrl(Guid surveyId) => $"http://localhost/api/surveys/{surveyId}/responses/export";
+    public CsvExport? Export { get; set; }
+
+    public Task<CsvExport?> ExportResponsesAsync(Guid surveyId) => Task.FromResult(Export);
 }

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ["**", "!badges"]
   pull_request:
     branches: ["**"]
 
@@ -10,6 +10,8 @@ jobs:
   dotnet:
     name: .NET build and test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # to publish the coverage badge from main
     steps:
       - uses: actions/checkout@v4
 
@@ -25,7 +27,38 @@ jobs:
         run: dotnet build FormFlow.slnx --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test FormFlow.slnx --no-build --configuration Release
+        run: dotnet test FormFlow.slnx --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory coverage-raw
+
+      - name: Coverage report
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          reportgenerator -reports:"coverage-raw/*/coverage.cobertura.xml" -targetdir:coverage \
+            -reporttypes:"Html;MarkdownSummaryGithub;JsonSummary" \
+            -assemblyfilters:"-*.Tests" -classfilters:"-Microsoft.AspNetCore.OpenApi.Generated*;-System.Runtime.CompilerServices*"
+          cat coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage
+
+      # The README badge reads coverage.json from the badges branch through shields.io.
+      - name: Publish coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pct=$(jq -r '.summary.linecoverage' coverage/Summary.json)
+          color=$(awk -v p="$pct" 'BEGIN { print (p >= 80) ? "brightgreen" : (p >= 60) ? "yellow" : "red" }')
+          mkdir badge && cd badge
+          printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}\n' "$pct" "$color" > coverage.json
+          git init -q -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add coverage.json
+          git commit -q -m "Coverage ${pct}%"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges
 
   react:
     name: React test and build
@@ -58,3 +91,52 @@ jobs:
       - name: Build
         working-directory: ./FormFlow.React
         run: npm run build
+
+  e2e:
+    name: Docker and browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start the app with docker compose
+        run: docker compose up --build --detach --wait --wait-timeout 300
+
+      - name: Wait for the Blazor and React apps
+        run: |
+          curl -fsS --retry 30 --retry-connrefused --retry-delay 2 -o /dev/null http://localhost:5224/
+          curl -fsS --retry 30 --retry-connrefused --retry-delay 2 -o /dev/null http://localhost:3000/
+          curl -fsS http://localhost:5224/ | grep -o '<script[^>]*>' || true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: FormFlow.E2E/package-lock.json
+
+      - name: Install Playwright
+        working-directory: ./FormFlow.E2E
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        working-directory: ./FormFlow.E2E
+        run: npx playwright test
+
+      - name: Show container logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            FormFlow.E2E/playwright-report
+            FormFlow.E2E/test-results
+
+      - name: Stop the app
+        if: always()
+        run: docker compose down --volumes

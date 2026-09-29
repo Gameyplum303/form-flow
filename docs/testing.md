@@ -1,13 +1,14 @@
 # Testing
 
-FormFlow has four test projects. Each one references only what it needs, so a Blazor test change can't pull backend dependencies into the data layer.
+FormFlow has four unit and integration test projects and one browser test project. Each one references only what it needs, so a Blazor test change can't pull backend dependencies into the data layer.
 
 | Project | Framework | What it tests |
 |---|---|---|
 | `FormFlow.Data.Tests` | xUnit, FluentAssertions | `QuestionValidator` rules, `QuestionValidationEngine` (min/max length and value, range), `ResponseValidator`, and `VisibilityEvaluator` including chained and circular rules |
-| `FormFlow.Backend.Tests` | xUnit, FluentAssertions, Moq, `WebApplicationFactory` | Every endpoint over real HTTP against an in-memory LiteDB, the repositories, database seeding, and CSV escaping |
-| `FormFlow.Blazor.Tests` | xUnit, bUnit, MudBlazor, RichardSzalay.MockHttp | Each question component, two-way binding through `QuestionRenderer`, the admin pages, taking a survey, and the results page |
+| `FormFlow.Backend.Tests` | xUnit, FluentAssertions, Moq, `WebApplicationFactory` | Every endpoint over real HTTP against an in-memory LiteDB, sign-in and which endpoints need it, rate limits, the repositories, database seeding, and CSV escaping |
+| `FormFlow.Blazor.Tests` | xUnit, bUnit, MudBlazor, RichardSzalay.MockHttp | Each question component, two-way binding through `QuestionRenderer`, the admin pages, sign-in and the admin guard, taking a survey, and the results page |
 | `FormFlow.React.Tests` | Jest, ts-jest, React Testing Library | The visibility logic, the `SurveyForm` component, and the whole app against a mocked `fetch` |
+| `FormFlow.E2E` | Playwright | The running apps in a real browser: signing in, the whole admin flow, taking surveys in Blazor and React, CSV download, and API security |
 
 ## Running the tests
 
@@ -27,11 +28,37 @@ npm install
 npm test
 ```
 
+## Browser tests
+
+`FormFlow.E2E` drives the real apps with Playwright. By default it expects the docker compose stack:
+
+```bash
+docker compose up --build --detach --wait
+cd FormFlow.E2E
+npm ci
+npx playwright install chromium
+npx playwright test
+```
+
+Point it at apps running elsewhere with `API_URL`, `BLAZOR_URL` and `REACT_URL`, and at another admin account with `ADMIN_USERNAME` and `ADMIN_PASSWORD`. The tests share one database, so they run one at a time, and names include a run id so they can run again without a reset. The admin flow is one ordered series (create a question, edit it, build a survey, preview, answer, delete) in a single signed-in tab.
+
+The Blazor layout sets `data-interactive="true"` once its circuit is connected, and the tests wait for it before clicking, because clicks on a prerendered page are ignored until then. If a page never gets there, the failure message lists the browser's console errors and failed requests.
+
+## Coverage
+
+CI collects coverage for the .NET tests with coverlet and turns it into a report with ReportGenerator. The summary appears on each CI run's page, the HTML report is uploaded as the `coverage-report` artifact, and pushes to `main` update the badge in the README. To see it locally:
+
+```bash
+dotnet test FormFlow.slnx --collect:"XPlat Code Coverage" --results-directory coverage-raw
+dotnet tool install --global dotnet-reportgenerator-globaltool
+reportgenerator -reports:"coverage-raw/**/coverage.cobertura.xml" -targetdir:coverage -reporttypes:Html
+```
+
 ## Checks CI runs
 
 Every push and pull request runs two workflows in `.github/workflows/`:
 
-- `ci.yml`: restore, build and test the .NET solution in Release, and install, test and build the React app.
+- `ci.yml`: build and test the .NET solution in Release with coverage; install, test and build the React app; and build the three Docker images, start them with docker compose and run the Playwright tests against them.
 - `lint.yml`: ESLint on the React app and `dotnet format FormFlow.slnx --verify-no-changes`.
 
 Run the same checks locally before pushing:
@@ -50,9 +77,11 @@ dotnet format FormFlow.slnx --verify-no-changes
 
 Tests that should start without the demo survey set `SeedData:DemoSurvey` to `false` with `UseSetting`.
 
+The API runs in the Development environment, so the admin account from `appsettings.Development.json` is created too. `AdminClient.AsAdmin()` signs a client in with it, and `AuthEndpointTests` checks every admin endpoint answers `401` without a token.
+
 ## How the Blazor tests work
 
-Component tests render with bUnit. Tests that use MudBlazor create a context per test with `await using var ctx = new BunitContext();`, because MudBlazor registers services that can only be disposed asynchronously. Pages that call the API get a fake `IQuestionService` or `ISurveyService` (see `Respond/FakeSurveyService.cs`), so page tests don't need a running backend.
+Component tests render with bUnit. Tests that use MudBlazor create a context per test with `await using var ctx = new BunitContext();`, because MudBlazor registers services that can only be disposed asynchronously. Pages that call the API get a fake `IQuestionService` or `ISurveyService` (see `Respond/FakeSurveyService.cs`), so page tests don't need a running backend. `Auth/FakeSessionStorage.cs` stands in for the browser's session storage, so the sign-in tests cover the real encryption and restore logic.
 
 ## How the React tests work
 

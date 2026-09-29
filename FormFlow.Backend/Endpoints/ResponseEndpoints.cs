@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using FormFlow.Backend.Auth;
 using FormFlow.Backend.Repositories;
 using FormFlow.Backend.Services;
 using FormFlow.Data.Models;
@@ -18,6 +19,8 @@ namespace FormFlow.Backend.Endpoints
 
     public static class ResponseEndpoints
     {
+        public const string SubmitRateLimit = "submissions";
+
         public static void MapResponseEndpoints(this IEndpointRouteBuilder app)
         {
             var group = app.MapGroup("/api/surveys/{surveyId:guid}").WithTags("Responses");
@@ -54,9 +57,11 @@ namespace FormFlow.Backend.Endpoints
                 return Results.Created($"/api/surveys/{surveyId}/responses/{response.Id}", response);
             })
             .WithName("SubmitResponse")
+            .RequireRateLimiting(SubmitRateLimit)
             .Produces<SurveyResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
-            .Produces(StatusCodes.Status404NotFound);
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status429TooManyRequests);
 
             group.MapGet("/responses", (Guid surveyId, ISurveyRepository surveys, IResponseRepository responses) =>
             {
@@ -67,6 +72,8 @@ namespace FormFlow.Backend.Endpoints
                 return Results.Ok(responses.FindBySurveyId(surveyId).ToList());
             })
             .WithName("GetResponses")
+            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .Produces(StatusCodes.Status401Unauthorized)
             .Produces<List<SurveyResponse>>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
@@ -84,6 +91,8 @@ namespace FormFlow.Backend.Endpoints
                 return Results.Ok(SurveyResultsBuilder.Build(survey, questions, stored));
             })
             .WithName("GetSurveyResults")
+            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .Produces(StatusCodes.Status401Unauthorized)
             .Produces<SurveyResults>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
@@ -101,6 +110,8 @@ namespace FormFlow.Backend.Endpoints
                 return Results.File(Encoding.UTF8.GetBytes(csv), "text/csv", $"{FileNameFor(survey.Title)}-responses.csv");
             })
             .WithName("ExportResponses")
+            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status200OK, contentType: "text/csv")
             .Produces(StatusCodes.Status404NotFound);
         }
