@@ -17,6 +17,14 @@ namespace FormFlow.Blazor.Services
         public async Task<List<PendingAccount>> GetPendingAsync() =>
             await Client.GetFromJsonAsync<List<PendingAccount>>("api/accounts/pending") ?? [];
 
+        public async Task<List<SentEmail>?> GetOutboxAsync()
+        {
+            var response = await Client.GetAsync("api/accounts/outbox");
+            return response.StatusCode == HttpStatusCode.OK
+                ? await response.Content.ReadFromJsonAsync<List<SentEmail>>() ?? []
+                : null;
+        }
+
         public Task<string?> ApproveAsync(Guid id) => PostAsync($"api/accounts/{id}/approve");
 
         public Task<string?> DeclineAsync(Guid id) => PostAsync($"api/accounts/{id}/decline");

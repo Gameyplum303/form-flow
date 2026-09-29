@@ -1,0 +1,68 @@
+@page "/admin/outbox"
+@using System.Text.RegularExpressions
+@using FormFlow.Blazor.Services
+@inject IAccountService AccountService
+
+<PageTitle>Emails</PageTitle>
+
+<MudPaper Class="pa-4" Elevation="1">
+    <MudText Typo="Typo.h5" Class="mb-2">Emails</MudText>
+
+    @if (!Current.IsAdmin)
+    {
+        <MudAlert Severity="Severity.Warning">Only administrators can see the emails FormFlow sends.</MudAlert>
+    }
+    else if (!_loaded)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_emails is null)
+    {
+        <MudText>FormFlow sends emails through your mail server, so they aren't kept here.</MudText>
+    }
+    else
+    {
+        <MudText Class="mb-4">
+            No mail server is set up (Email:Smtp:Host), so FormFlow keeps the last @OutboxCapacity emails here instead of
+            sending them. Open a link to act as the person it was sent to.
+        </MudText>
+        @if (_emails.Count == 0)
+        {
+            <MudText>No emails yet. Sign-ups and password resets send them.</MudText>
+        }
+        @foreach (var email in _emails)
+        {
+            <MudPaper Class="pa-3 mb-3" Outlined="true" data-outbox-email>
+                <MudText Typo="Typo.subtitle2">@email.Subject</MudText>
+                <MudText Typo="Typo.caption">To @email.To, @email.SentAt.ToLocalTime().ToString("MMM d, h:mm tt")</MudText>
+                <div class="outbox-body mt-2">@Linkify(email.Body)</div>
+            </MudPaper>
+        }
+    }
+</MudPaper>
+
+@code {
+    private const int OutboxCapacity = 100;
+
+    [CascadingParameter] public AdminAccess? Access { get; set; }
+
+    private AdminAccess Current => Access ?? AdminAccess.Administrator;
+
+    private List<FormFlow.Data.Models.SentEmail>? _emails;
+    private bool _loaded;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Current.IsAdmin)
+        {
+            _emails = await AccountService.GetOutboxAsync();
+        }
+        _loaded = true;
+    }
+
+    /// <summary>The email text, HTML-encoded, with its web addresses turned into links.</summary>
+    private static MarkupString Linkify(string body) => new(Regex.Replace(
+        System.Net.WebUtility.HtmlEncode(body),
+        @"https?://[^\s<]+",
+        m => $"<a href=\"{m.Value}\">{m.Value}</a>"));
+}

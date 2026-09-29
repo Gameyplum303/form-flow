@@ -20,7 +20,7 @@ It started as the capstone team project for the Software Engineering BS at East 
 - **One validator, three clients.** Every submission goes through a single server-side `ResponseValidator` that returns RFC 7807 problem details keyed by question, so the Blazor and React apps show the same errors next to the same fields.
 - **Survey sharing.** Surveys start as private drafts. The owner publishes one from its Share page, which shows a short link (`/s/k7m2p9qa`) with a copy button and a QR code, chooses whether it also appears on the public list, and can set a close date. Respondents have no account, so each browser gets a temporary respondent id and the API accepts one answer per browser.
 - **Full admin loop.** Create, edit, reorder and delete questions and surveys, preview a survey, see per-question results (option counts, number stats, recent text answers) and download responses as CSV.
-- **Secure admin area.** Accounts sign in with a JWT issued by the API. Administrators manage everything and can preview the site as a professor or student. Professors and scientists sign up (name, email, date of birth, organization and intended use), wait for an administrator to approve them, then build surveys and see results only for the surveys they created. Students take surveys without an account. Passwords are hashed with PBKDF2, sign-in and submissions are rate limited, and every role and ownership rule is enforced on the server, while respondents never need an account.
+- **Secure admin area.** Accounts sign in with a JWT issued by the API. Administrators manage everything and can preview the site as a professor or student. Professors and scientists sign up (name, email, date of birth, organization and intended use), verify their email, wait for an administrator to approve them, then build surveys and see results only for the surveys they created. Students take surveys without an account. Passwords are hashed with PBKDF2 and can be reset through a one-hour, single-use emailed link (only its hash is stored), changing a password signs the account out everywhere, sign-in and submissions are rate limited, and every role and ownership rule is enforced on the server, while respondents never need an account.
 - **Safe by design.** Question keys that are in use can't be renamed, questions used by a survey or a visibility rule can't be deleted, and CSV cells are escaped against spreadsheet formula injection.
 - **Documented, tested, automated.** OpenAPI with Swagger UI, 300+ unit and integration tests with coverage reporting, and Playwright browser tests that run against the Docker images in GitHub Actions on every push.
 - **One command to run.** `docker compose up` starts the API, the Blazor app and the React app.
@@ -103,7 +103,7 @@ docker compose up --build
 | React app (respondent) | http://localhost:3000 |
 | API and Swagger UI | http://localhost:5164/swagger |
 
-Sign in as `Rogers` / `password` (administrator) or with the test professor account `professor` / `password`, or sign up as a new professor and approve yourself from the administrator's **Sign-ups** page. Students take surveys without an account. Data is kept in a Docker volume; `docker compose down --volumes` resets it. Before exposing the app anywhere public, set `FORMFLOW_ADMIN_PASSWORD` and `FORMFLOW_PROFESSOR_PASSWORD` to real passwords and `FORMFLOW_JWT_KEY` to a fixed key (32+ characters), before the first start.
+Sign in as `Rogers` / `password` (administrator) or with the test professor account `professor` / `password`, or sign up as a new professor, open the verification link from the administrator's **Emails** page, and approve yourself on the **Sign-ups** page. Without an SMTP server, emails wait on that page instead of being sent; set `FORMFLOW_SMTP_HOST` (and `_PORT`, `_USERNAME`, `_PASSWORD`) to send them for real. Students take surveys without an account. Data is kept in a Docker volume; `docker compose down --volumes` resets it. Before exposing the app anywhere public, set `FORMFLOW_ADMIN_PASSWORD` and `FORMFLOW_PROFESSOR_PASSWORD` to real passwords and `FORMFLOW_JWT_KEY` to a fixed key (32+ characters), before the first start.
 
 ## Run it locally
 
@@ -131,7 +131,7 @@ cd FormFlow.Blazor
 dotnet run
 ```
 
-Go to **Take a Survey** to answer the demo survey, or **Admin Dashboard** to manage questions and surveys and see results. In Development you can sign in as `Rogers` / `password` (administrator), or `professor` / `password` (builds surveys and sees results for their own). Students take surveys without signing in. New professors and scientists can sign up at `/signup`, and an administrator approves them on the **Sign-ups** page. As the administrator, **View as** in the menu shows the site as a professor or a student would see it.
+Go to **Take a Survey** to answer the demo survey, or **Admin Dashboard** to manage questions and surveys and see results. In Development you can sign in as `Rogers` / `password` (administrator), or `professor` / `password` (builds surveys and sees results for their own). Students take surveys without signing in. New professors and scientists can sign up at `/signup`, verify their email, and an administrator approves them on the **Sign-ups** page. In Development emails aren't sent: the administrator reads them, with their links, on the **Emails** page. As the administrator, **View as** in the menu shows the site as a professor or a student would see it.
 
 **3. React app** (http://localhost:3000), in a third terminal
 
@@ -152,6 +152,10 @@ To start over with a clean database, stop the API and delete `FormFlow.Backend/f
 | `POST` | `/api/auth/login` | Public | Sign in and get a token (rate limited) |
 | `GET` | `/api/auth/me` | Signed in | Check a token and its role |
 | `POST` | `/api/auth/signup` | Public | Sign up as a professor/scientist (rate limited) |
+| `POST` | `/api/auth/verify-email`, `/resend-verification` | Public | Verify an email from its link, or ask for a new link |
+| `POST` | `/api/auth/forgot-password`, `/reset-password` | Public | Email a reset link, then set a new password with it |
+| `POST` | `/api/auth/change-password` | Signed in | Change your password and sign out other sessions |
+| `GET` | `/api/accounts/outbox` | Admin | Emails waiting in the outbox when no SMTP server is set |
 | `GET` | `/api/accounts/pending` | Admin | List sign-ups waiting for approval |
 | `POST` | `/api/accounts/{id}/approve`, `/decline` | Admin | Approve or decline a sign-up |
 | `GET` | `/api/questions` | Public | List all questions |
@@ -196,10 +200,10 @@ npx playwright test
 | Suite | Tests | Covers |
 |---|---|---|
 | `FormFlow.Data.Tests` | 83 | Question rules, response validation for every question type, sign-up rules, rating scales, visibility chains and cycles |
-| `FormFlow.Backend.Tests` | 141 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in, sign-up and approval, each role, survey and question ownership, drafts, share links, close dates and one answer per browser, rate limits, repositories, seeding, CSV escaping |
-| `FormFlow.Blazor.Tests` | 231 | Each question component, two-way binding, sign-in, sign-up and the sign-ups review page, the admin guard, each role's view and the administrator's View as switch, admin pages, the Share page, taking a survey by link, results page |
+| `FormFlow.Backend.Tests` | 169 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in, sign-up, email verification and approval, password reset and change, link expiry, each role, survey and question ownership, drafts, share links, close dates and one answer per browser, rate limits, repositories, seeding, CSV escaping |
+| `FormFlow.Blazor.Tests` | 261 | Each question component, two-way binding, sign-in, sign-up, the password and email pages, the sign-ups review page, the admin guard, each role's view and the administrator's View as switch, admin pages, the Share page, taking a survey by link, results page |
 | `FormFlow.React.Tests` | 30 | Visibility logic, the form component, and the app against a mocked API, including share links and closed or already answered surveys |
-| `FormFlow.E2E` | 30 | Playwright in Chromium: signing in as each role, professor sign-up and approval, viewing the site as a professor or student, the full admin flow including publishing, copying the share link, answering it as a student and closing it, taking surveys in both apps, CSV download, API security |
+| `FormFlow.E2E` | 32 | Playwright in Chromium: signing in as each role, professor sign-up, email verification and approval, resetting and changing a password, viewing the site as a professor or student, the full admin flow including publishing, copying the share link, answering it as a student and closing it, taking surveys in both apps, CSV download, API security |
 
 CI runs all of these, measures .NET code coverage (85% of lines), and checks ESLint and `dotnet format --verify-no-changes` on every push and pull request. The browser tests run against the Docker images started with docker compose. See [docs/testing.md](docs/testing.md).
 

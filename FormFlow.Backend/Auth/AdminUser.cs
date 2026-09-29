@@ -33,5 +33,14 @@ namespace FormFlow.Backend.Auth
         public string? DateOfBirth { get; set; }
         public string? IntendedUse { get; set; }
         public string? Organization { get; set; }
+
+        /// <summary>
+        /// Whether the email address is confirmed. Sign-ups start unverified; accounts from configuration
+        /// and accounts stored before verification existed count as verified.
+        /// </summary>
+        public bool EmailVerified { get; set; } = true;
+
+        /// <summary>When the password last changed. Sign-in tokens issued before then stop working.</summary>
+        public DateTime? PasswordChangedAt { get; set; }
     }
 }

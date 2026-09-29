@@ -38,13 +38,18 @@ namespace FormFlow.Backend.Tests.Endpoints
         private Task<HttpResponseMessage> LoginAsync(string username, string password) =>
             _factory.CreateClient().PostAsJsonAsync("/api/auth/login", new LoginRequest { Username = username, Password = password });
 
+        private Task VerifyAsync(string email = "ada@lab.example") =>
+            InMemoryApiFactory.VerifyEmailAsync(_client, _factory.Services, email);
+
         [Fact]
         public async Task SignUp_StoresAPendingProfessor_WhoCantSignInYet()
         {
             var response = await SignUpAsync(ValidSignUp());
 
             response.StatusCode.Should().Be(HttpStatusCode.Created);
-            (await response.Content.ReadFromJsonAsync<SignUpResponse>())!.Status.Should().Be("pending");
+            var created = (await response.Content.ReadFromJsonAsync<SignUpResponse>())!;
+            created.Status.Should().Be("pending");
+            created.EmailVerificationRequired.Should().BeTrue();
 
             var user = _factory.Services.GetRequiredService<IUserRepository>().FindByUsername("ADA@lab.example")!;
             user.Role.Should().Be("professor");
@@ -53,10 +58,20 @@ namespace FormFlow.Backend.Tests.Endpoints
             user.DateOfBirth.Should().Be("1990-12-10");
             user.Organization.Should().Be("Analytical Engines Lab");
             user.PasswordHash.Should().NotContain("analytical");
+            user.EmailVerified.Should().BeFalse();
 
+            var unverified = await LoginAsync("ada@lab.example", "analytical");
+            unverified.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            var problem = await unverified.Content.ReadFromJsonAsync<JsonElement>();
+            problem.GetProperty("title").GetString().Should().Be("Please verify your email address first.");
+            problem.GetProperty("reason").GetString().Should().Be(SignInBlocks.EmailUnverified);
+
+            await VerifyAsync();
             var login = await LoginAsync("ada@lab.example", "analytical");
             login.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-            (await login.Content.ReadAsStringAsync()).Should().Contain("waiting for an administrator's approval");
+            var pending = await login.Content.ReadFromJsonAsync<JsonElement>();
+            pending.GetProperty("title").GetString().Should().Contain("waiting for an administrator's approval");
+            pending.GetProperty("reason").GetString().Should().Be(SignInBlocks.Pending);
 
             (await LoginAsync("ada@lab.example", "wrong")).StatusCode.Should().Be(HttpStatusCode.Unauthorized,
                 "a wrong password doesn't reveal that the account is waiting");
@@ -73,7 +88,10 @@ namespace FormFlow.Backend.Tests.Endpoints
             ada.Email.Should().Be("ada@lab.example");
             ada.IntendedUse.Should().Be("Surveys for my lab's study participants.");
             ada.DateOfBirth.Should().Be("1990-12-10");
+            ada.EmailVerified.Should().BeFalse();
 
+            await VerifyAsync();
+            (await admin.GetFromJsonAsync<List<PendingAccount>>("/api/accounts/pending"))!.Single().EmailVerified.Should().BeTrue();
             (await admin.PostAsync($"/api/accounts/{ada.Id}/approve", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
             (await admin.GetFromJsonAsync<List<PendingAccount>>("/api/accounts/pending")).Should().BeEmpty();
@@ -138,13 +156,28 @@ namespace FormFlow.Backend.Tests.Endpoints
         public async Task WithoutApproval_NewProfessorsCanSignInStraightAway()
         {
             using var factory = new InMemoryApiFactory();
-            var client = factory.WithWebHostBuilder(b => b.UseSetting(AuthEndpoints.RequireApprovalSetting, "false")).CreateClient();
+            var withoutApproval = factory.WithWebHostBuilder(b => b.UseSetting(AuthEndpoints.RequireApprovalSetting, "false"));
+            var client = withoutApproval.CreateClient();
 
             var response = await client.PostAsJsonAsync("/api/auth/signup", ValidSignUp());
 
             (await response.Content.ReadFromJsonAsync<SignUpResponse>())!.Status.Should().Be("active");
+            await InMemoryApiFactory.VerifyEmailAsync(client, withoutApproval.Services, "ada@lab.example");
             (await client.PostAsJsonAsync("/api/auth/login", new LoginRequest { Username = "ada@lab.example", Password = "analytical" }))
                 .StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        [Fact]
+        public async Task WithoutEmailVerification_ApprovalIsTheOnlyStep()
+        {
+            using var factory = new InMemoryApiFactory();
+            var client = factory.WithWebHostBuilder(b => b.UseSetting(AuthEndpoints.RequireEmailVerificationSetting, "false")).CreateClient();
+
+            var created = await (await client.PostAsJsonAsync("/api/auth/signup", ValidSignUp())).Content.ReadFromJsonAsync<SignUpResponse>();
+
+            created!.EmailVerificationRequired.Should().BeFalse();
+            var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest { Username = "ada@lab.example", Password = "analytical" });
+            (await login.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("reason").GetString().Should().Be(SignInBlocks.Pending);
         }
     }
 }

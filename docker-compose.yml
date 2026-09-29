@@ -6,6 +6,9 @@
 # FORMFLOW_JWT_KEY (32+ characters) to change the defaults. Accounts are created the first
 # time the API sees them, so a new password for an existing account needs a fresh volume
 # (docker compose down --volumes). Set FORMFLOW_LOGIN_HINT= to hide the sign-in hint.
+# Emails (verifying sign-ups, password resets) stay in the administrators' Emails page unless
+# FORMFLOW_SMTP_HOST, FORMFLOW_SMTP_USERNAME, FORMFLOW_SMTP_PASSWORD and FORMFLOW_EMAIL_FROM are set.
+# FORMFLOW_ADMIN_EMAIL gives the Rogers account an address, so it can reset a forgotten password.
 services:
   api:
     build:
@@ -24,6 +27,13 @@ services:
       Accounts__1__Password: ${FORMFLOW_PROFESSOR_PASSWORD:-password}
       Accounts__1__Role: professor
       Jwt__Key: ${FORMFLOW_JWT_KEY:-}
+      Accounts__0__Email: ${FORMFLOW_ADMIN_EMAIL:-}
+      Email__LinkBaseUrl: ${FORMFLOW_BLAZOR_URL:-http://localhost:5224/}
+      Email__From: ${FORMFLOW_EMAIL_FROM:-FormFlow <no-reply@formflow.local>}
+      Email__Smtp__Host: ${FORMFLOW_SMTP_HOST:-}
+      Email__Smtp__Port: ${FORMFLOW_SMTP_PORT:-587}
+      Email__Smtp__Username: ${FORMFLOW_SMTP_USERNAME:-}
+      Email__Smtp__Password: ${FORMFLOW_SMTP_PASSWORD:-}
     healthcheck:
       # The runtime image has no curl, so bash's /dev/tcp does the request.
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /api/surveys HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]

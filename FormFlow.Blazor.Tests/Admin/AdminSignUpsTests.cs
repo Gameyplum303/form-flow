@@ -49,6 +49,20 @@ public class AdminSignUpsTests
     }
 
     [Fact]
+    public async Task Shows_whether_each_person_verified_their_email()
+    {
+        await using var ctx = CreateContext();
+        var ada = Pending("Ada");
+        ada.EmailVerified = true;
+        _accounts.Pending.AddRange([ada, Pending("Grace")]);
+
+        var cut = ctx.Render<AdminSignUps>();
+
+        cut.WaitForAssertion(() => cut.FindAll("tbody tr").Should().HaveCount(2));
+        cut.FindAll("[data-email-verified]").Select(c => c.TextContent.Trim()).Should().Equal("Verified", "Not verified yet");
+    }
+
+    [Fact]
     public async Task Says_when_no_one_is_waiting()
     {
         await using var ctx = CreateContext();
@@ -137,6 +151,8 @@ public class AdminSignUpsTests
             Loads++;
             return Task.FromResult(Pending.ToList());
         }
+
+        public Task<List<SentEmail>?> GetOutboxAsync() => Task.FromResult<List<SentEmail>?>(null);
 
         public Task<string?> ApproveAsync(Guid id)
         {

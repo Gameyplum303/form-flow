@@ -1,6 +1,7 @@
 import { expect, Page, test } from "@playwright/test";
 import {
-    admin, answer, choose, demoSurveyTitle, headersFor, newSignUp, openBlazor, professor, question, runId, signIn, submitSignIn, surveyByTitle, urls,
+    admin, answer, approvedProfessor, choose, demoSurveyTitle, emailedLink, headersFor, newSignUp, openBlazor, professor, question, runId, signIn,
+    submitSignIn, surveyByTitle, urls,
 } from "./helpers";
 
 const key = `campus_job_${runId}`;
@@ -52,7 +53,7 @@ test.describe("Blazor: signing in", () => {
 });
 
 test.describe("Blazor: roles", () => {
-    test("a professor signs up, waits for approval, then signs in", async ({ browser }) => {
+    test("a professor signs up, verifies their email, waits for approval, then signs in", async ({ browser, request }) => {
         const signUp = newSignUp("Blazor Grace");
         const page = await browser.newPage();
         await openBlazor(page, "/login");
@@ -76,7 +77,17 @@ test.describe("Blazor: roles", () => {
 
         await fill("input[type=password] >> nth=1", signUp.password);
         await page.getByRole("button", { name: "Sign up" }).click();
-        await expect(page.locator("[data-signup-done]")).toContainText("An administrator will review your sign-up");
+        await expect(page.locator("[data-signup-done]")).toContainText(`We sent a link to ${signUp.email}`);
+
+        // Signing in before verifying offers a fresh link; only the newest one works.
+        await openBlazor(page, "/login");
+        await submitSignIn(page, signUp.email, signUp.password);
+        await expect(page.getByText("Please verify your email address first.")).toBeVisible();
+        await page.getByRole("button", { name: "Email me a new link" }).click();
+        await expect(page.locator("[data-verification-sent]")).toContainText(`We sent a new verification link to ${signUp.email}.`);
+
+        await openBlazor(page, await emailedLink(request, signUp.email, "verify-email"));
+        await expect(page.locator("[data-email-verified]")).toContainText("your email address is verified");
 
         await openBlazor(page, "/login");
         await submitSignIn(page, signUp.email, signUp.password);
@@ -90,6 +101,7 @@ test.describe("Blazor: roles", () => {
         const row = adminPage.locator("tr", { hasText: signUp.email });
         await expect(row).toContainText(signUp.organization);
         await expect(row).toContainText(signUp.intendedUse);
+        await expect(row.locator("[data-email-verified]")).toHaveText("Verified");
         await row.getByRole("button", { name: "Approve" }).click();
         await expect(adminPage.getByText(`Approved ${signUp.name}. They can sign in now.`)).toBeVisible();
         await expect(row).toHaveCount(0);
@@ -99,6 +111,50 @@ test.describe("Blazor: roles", () => {
         await expect(page).toHaveURL(/\/admin\/surveys$/);
         await expect(page.getByText(`Signed in as ${signUp.email} (Professor/Scientist)`)).toBeVisible();
         await expect(page.getByRole("link", { name: "Sign-ups" })).toHaveCount(0);
+        await page.close();
+    });
+
+    test("a professor resets a forgotten password, then changes it", async ({ browser, request }) => {
+        const ada = await approvedProfessor(request, "Blazor Reset");
+        const page = await browser.newPage();
+        await openBlazor(page, "/login");
+        await page.getByRole("link", { name: "Forgot your password?" }).click();
+        await expect(page).toHaveURL(/\/forgot-password$/);
+        await page.locator("input[autocomplete=email]").fill(ada.email);
+        await page.locator("input[autocomplete=email]").press("Tab");
+        await page.getByRole("button", { name: "Send reset link" }).click();
+        await expect(page.locator("[data-reset-sent]")).toContainText(`If an account uses ${ada.email}`);
+
+        // Administrators can read the emails when no mail server is set up.
+        const adminPage = await browser.newPage();
+        await signIn(adminPage);
+        await adminPage.getByRole("link", { name: "Emails" }).click();
+        await expect(adminPage.locator("[data-outbox-email]", { hasText: ada.email }).first()).toContainText("Reset your FormFlow password");
+        await adminPage.close();
+
+        await openBlazor(page, await emailedLink(request, ada.email, "reset-password"));
+        await page.locator("input[type=password] >> nth=0").fill("difference engine");
+        await page.locator("input[type=password] >> nth=0").press("Tab");
+        await page.locator("input[type=password] >> nth=1").fill("difference engine");
+        await page.locator("input[type=password] >> nth=1").press("Tab");
+        await page.getByRole("button", { name: "Save new password" }).click();
+        await expect(page.locator("[data-reset-done]")).toContainText("Your password was changed.");
+
+        await openBlazor(page, "/login");
+        await submitSignIn(page, ada.email, "difference engine");
+        await expect(page).toHaveURL(/\/admin\/surveys$/);
+
+        await page.getByRole("link", { name: "Change password" }).click();
+        await expect(page).toHaveURL(/\/account$/);
+        const passwords = page.locator("input[type=password]");
+        await expect(passwords).toHaveCount(3);
+        for (const [i, value] of ["difference engine", "analytical engine", "analytical engine"].entries()) {
+            await passwords.nth(i).fill(value);
+            await passwords.nth(i).press("Tab");
+        }
+        await page.getByRole("button", { name: "Change password" }).click();
+        await expect(page.locator("[data-password-changed]")).toContainText("Your password was changed.");
+        await expect(page.getByText(`Signed in as ${ada.email}`).first()).toBeVisible();
         await page.close();
     });
 

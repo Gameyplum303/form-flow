@@ -22,6 +22,7 @@ namespace FormFlow.Backend.Repositories
             BsonMapper.Global.Entity<SurveyDefinition>();
             BsonMapper.Global.Entity<SurveyResponse>();
             BsonMapper.Global.Entity<AdminUser>();
+            BsonMapper.Global.Entity<AccountToken>();
         }
 
         /// <summary>Builds the mappings on first call. Other threads calling it wait until they are done.</summary>

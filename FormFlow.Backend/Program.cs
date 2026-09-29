@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using FormFlow.Backend;
 using FormFlow.Backend.Auth;
+using FormFlow.Backend.Email;
 using FormFlow.Backend.Endpoints;
 using FormFlow.Backend.Repositories;
 using FormFlow.Data.Models;
@@ -31,6 +32,17 @@ builder.Services.AddSingleton<IPasswordHasher<AdminUser>, PasswordHasher<AdminUs
 builder.Services.AddSingleton<AdminAccountSeeder>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddSingleton<IAccountTokenRepository, AccountTokenRepository>();
+
+// Emails for verifying addresses and resetting passwords go through SMTP when Email:Smtp:Host is set,
+// and to an in-memory outbox otherwise.
+builder.Services.AddSingleton(sp =>
+    sp.GetRequiredService<IConfiguration>().GetSection(EmailSettings.Section).Get<EmailSettings>() ?? new EmailSettings());
+builder.Services.AddSingleton<OutboxEmailSender>();
+builder.Services.AddSingleton<IEmailSender>(sp => sp.GetRequiredService<EmailSettings>() is { UsesSmtp: true } settings
+    ? new SmtpEmailSender(settings)
+    : sp.GetRequiredService<OutboxEmailSender>());
+builder.Services.AddSingleton<AccountEmails>();
 
 // Admin endpoints need a bearer token from POST /api/auth/login; taking surveys stays anonymous.
 var startupLogger = LoggerFactory.Create(logging => logging.AddConsole()).CreateLogger("Startup");
@@ -43,6 +55,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = jwt.ValidationParameters();
         options.TokenValidationParameters.NameClaimType = "unique_name";
         options.TokenValidationParameters.RoleClaimType = "role";
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                var id = CurrentUser.From(context.Principal!).Id;
+                var user = id is { } userId ? context.HttpContext.RequestServices.GetRequiredService<IUserRepository>().FindById(userId) : null;
+                if (!SessionCheck.IsCurrent(user, context.SecurityToken.ValidFrom))
+                {
+                    context.Fail("This sign-in has ended. Please sign in again.");
+                }
+                return Task.CompletedTask;
+            },
+        };
     });
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(JwtSettings.AdminPolicy, policy => policy.RequireRole(Roles.Admin))
@@ -55,6 +80,8 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy(AuthEndpoints.LoginRateLimit, context => FixedWindowPerClient(context,
         builder.Configuration.GetValue("RateLimits:LoginPerMinute", 20)));
+    options.AddPolicy(AuthEndpoints.AccountRateLimit, context => FixedWindowPerClient(context,
+        builder.Configuration.GetValue("RateLimits:AccountPerMinute", 20)));
     options.AddPolicy(ResponseEndpoints.SubmitRateLimit, context => FixedWindowPerClient(context,
         builder.Configuration.GetValue("RateLimits:SubmissionsPerMinute", 60)));
 });

@@ -40,7 +40,7 @@ Endpoints marked **Builder** need the `admin` or `professor` role; for a profess
 |---|---|
 | 200 | `{ "token": "eyJ…", "userId": "…", "username": "Rogers", "role": "admin", "expiresAt": "2026-09-29T20:00:00Z" }` |
 | 401 | Problem details titled "Invalid username or password." The same answer is given for an unknown user and a wrong password, and both take the same time. |
-| 403 | The password is right but the account is a sign-up still waiting for approval: problem details titled "Your account is waiting for an administrator's approval." |
+| 403 | The password is right but the account can't sign in yet. Problem details with a `reason`: `email_unverified` ("Please verify your email address first.") until the email link is opened, then `pending` ("Your account is waiting for an administrator's approval.") until an administrator approves it. A wrong password always gets the 401, so these never reveal an account to someone without its password. |
 | 429 | More than `RateLimits:LoginPerMinute` attempts from one IP address in a minute |
 
 Professors and scientists who signed up sign in with their email address as the username.
@@ -52,6 +52,8 @@ Authorization: Bearer eyJ…
 ```
 
 Tokens are signed JWTs carrying the account's id (`sub`), username and role and last `Jwt:LifetimeMinutes` (8 hours by default). In Swagger UI, sign in with the login endpoint, then paste the token into **Authorize**.
+
+A token stops working before it expires when its account is deleted, or when the account's password is reset or changed after the token was issued. Every request checks this, so a password change signs the account out everywhere else.
 
 ### `GET /api/auth/me` (Signed in)
 
@@ -74,22 +76,47 @@ Asks for a professor/scientist account. Administrators are added through configu
 
 | Status | When |
 |---|---|
-| 201 | `{ "status": "pending" }`: the account waits for an administrator. With `SignUp:RequireApproval` set to `false` it is `"active"` and can sign in straight away. |
+| 201 | `{ "status": "pending", "emailVerificationRequired": true }`: the API emails a verification link, and the account waits for an administrator. With `SignUp:RequireApproval` set to `false` the status is `"active"`, and with `SignUp:RequireEmailVerification` set to `false` no email is sent and `emailVerificationRequired` is `false`. |
 | 400 | Validation problem details with `errors` keyed by field: every field is required, `email` must look like an email address, `password` needs at least 8 characters, `dateOfBirth` must be an ISO date at least 18 years ago, and `name`, `organization` and `intendedUse` are limited to 100, 200 and 1000 characters |
 | 409 | Validation problem details with an `email` error: an account with this email already exists |
-| 429 | Shares the sign-in rate limit |
+| 429 | More than `RateLimits:AccountPerMinute` account requests from one IP address in a minute |
+
+### Email links
+
+Verification and password reset work through links the API emails to the account's address. A link carries a single-use token: 32 random bytes, of which the database keeps only a SHA-256 hash. A verification link lasts 2 days and a reset link 1 hour, sending a new link cancels the older ones, and trying a token uses it up whether it matched or not. Links point at the Blazor app (`Email:LinkBaseUrl`), which calls the endpoints below. Every endpoint in this section shares the `RateLimits:AccountPerMinute` limit (429), separate from sign-in.
+
+| Endpoint | Body | Returns |
+|---|---|---|
+| `POST /api/auth/verify-email` | `{ "token": "…" }` | 200 `{ "status": "pending" }` (or `"active"`) once the email is verified; 400 "This link is invalid or has expired. Ask for a new one." |
+| `POST /api/auth/resend-verification` | `{ "email": "…" }` | 202 `{ "message": "If an account uses that email address, we've sent it a link." }`; a new link goes only to an account that is still unverified |
+| `POST /api/auth/forgot-password` | `{ "email": "…" }` | The same 202; a reset link goes to the account with that email, if there is one |
+| `POST /api/auth/reset-password` | `{ "token": "…", "password": "…" }` | 204; 400 with a `password` error (the link still works) or the invalid-link problem. A reset also verifies the email, and signs the account out everywhere. |
+
+The resend and forgot endpoints give the same answer whether or not the email has an account, so they can't be used to find out who has signed up.
+
+### `POST /api/auth/change-password` (Signed in)
+
+```json
+{ "currentPassword": "password", "newPassword": "a-new-password" }
+```
+
+Returns 200 with a new sign-in (the same body as `/login`), because the change ends every earlier token, including the one that made this request. Returns 400 with a `currentPassword` error when it is wrong, or a `newPassword` error when the new one is too short or too long (8 to 128 characters).
 
 ### `GET /api/accounts/pending` (Admin)
 
-Sign-ups waiting for approval, oldest first: `[{ "id": "…", "name": "…", "email": "…", "dateOfBirth": "1990-12-10", "intendedUse": "…", "organization": "…", "createdAt": "…" }]`.
+Sign-ups waiting for approval, oldest first: `[{ "id": "…", "name": "…", "email": "…", "dateOfBirth": "1990-12-10", "intendedUse": "…", "organization": "…", "emailVerified": true, "createdAt": "…" }]`.
 
 ### `POST /api/accounts/{id}/approve` and `POST /api/accounts/{id}/decline` (Admin)
 
-Approving lets the account sign in. Declining deletes the sign-up, so the person can sign up again. Both return 204, or 404 when there is no sign-up waiting with that id (active accounts can't be declined).
+Approving lets the account sign in (once its email is verified). Declining deletes the sign-up and its email links, so the person can sign up again. Both return 204, or 404 when there is no sign-up waiting with that id (active accounts can't be declined).
+
+### `GET /api/accounts/outbox` (Admin)
+
+When no SMTP server is configured, emails aren't sent anywhere: they stay in memory (the newest 100, cleared when the API restarts) and are written to the log. This returns them newest first, `[{ "to": "…", "subject": "…", "body": "…", "sentAt": "…" }]`, so a demo or test can follow the links. It returns 404 once `Email:Smtp:Host` is set.
 
 ### Accounts
 
-Passwords are stored as salted PBKDF2 hashes (ASP.NET Core Identity's `PasswordHasher`) in the `users` collection. At startup the API creates each account listed under `Accounts` that doesn't exist yet, and sets each listed account's role to match configuration. Usernames are matched without regard to case and shown as they were written. See [backend.md](backend.md#configuration).
+Passwords are stored as salted PBKDF2 hashes (ASP.NET Core Identity's `PasswordHasher`) in the `users` collection. At startup the API creates each account listed under `Accounts` that doesn't exist yet, and sets each listed account's role to match configuration. Usernames are matched without regard to case and shown as they were written. A configured account can have an `Email`, which lets it use forgot-password. See [backend.md](backend.md#configuration).
 
 ---
 
