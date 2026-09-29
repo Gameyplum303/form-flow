@@ -6,5 +6,8 @@ namespace FormFlow.Data.Models
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public List<Guid> QuestionIds { get; set; } = [];
+
+        /// <summary>The ids of the questions that start a new page. Ids that aren't in the survey are ignored.</summary>
+        public List<Guid> PageBreaks { get; set; } = [];
     }
 }

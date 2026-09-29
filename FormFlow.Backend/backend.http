@@ -64,6 +64,18 @@ Content-Type: application/json
   "closesAt": "2026-10-15T17:00:00Z"
 }
 
+### Copy a survey into a new draft you own
+POST {{host}}/api/surveys/{{surveyId}}/duplicate
+Authorization: Bearer {{token}}
+
+### List the survey templates
+GET {{host}}/api/templates
+Authorization: Bearer {{token}}
+
+### Start a new draft from a template (copy an id from the list above)
+POST {{host}}/api/templates/a6d146ae-bc2e-5d9f-bc52-d34e324635a9/use
+Authorization: Bearer {{token}}
+
 ### Open a survey by the code in its share link
 GET {{host}}/api/share/k7m2p9qa
 
