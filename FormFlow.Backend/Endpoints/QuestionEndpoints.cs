@@ -1,3 +1,4 @@
+using FormFlow.Backend.Auth;
 using FormFlow.Backend.Repositories;
 using FormFlow.Data.Models;
 using FormFlow.Data.Services;
@@ -74,6 +75,8 @@ namespace FormFlow.Backend.Endpoints
                 }
             })
             .WithName("CreateQuestion")
+            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .Produces(StatusCodes.Status401Unauthorized)
             .Produces<QuestionDefinition>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status409Conflict);
@@ -115,6 +118,8 @@ namespace FormFlow.Backend.Endpoints
                 return Results.Ok(question);
             })
             .WithName("UpdateQuestion")
+            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .Produces(StatusCodes.Status401Unauthorized)
             .Produces<QuestionDefinition>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
@@ -153,6 +158,8 @@ namespace FormFlow.Backend.Endpoints
                 return Results.NoContent();
             })
             .WithName("DeleteQuestion")
+            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict);

@@ -14,6 +14,7 @@ namespace FormFlow.Backend
 
         public DatabaseSeeder(ILiteDatabase dbContext, IWebHostEnvironment env, IConfiguration? config = null)
         {
+            Repositories.LiteDbMappings.EnsureBuilt();
             _dbContext = dbContext;
             _env = env;
             _config = config;

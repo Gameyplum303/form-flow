@@ -1,0 +1,12 @@
+{
+  "name": "formflow-e2e",
+  "private": true,
+  "description": "Browser tests for the FormFlow API, Blazor app and React app",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^20.19.0"
+  }
+}

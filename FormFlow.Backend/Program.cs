@@ -1,9 +1,13 @@
+using System.Threading.RateLimiting;
 using FormFlow.Backend;
+using FormFlow.Backend.Auth;
 using FormFlow.Backend.Endpoints;
 using FormFlow.Backend.Repositories;
 using FormFlow.Data.Services;
 
 using LiteDB;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,9 +25,39 @@ builder.Services.AddSingleton<QuestionValidator>();
 builder.Services.AddSingleton<QuestionValidationEngine>();
 builder.Services.AddSingleton<ResponseValidator>();
 builder.Services.AddSingleton<DatabaseSeeder>();
+builder.Services.AddSingleton<IUserRepository, UserRepository>();
+builder.Services.AddSingleton<IPasswordHasher<AdminUser>, PasswordHasher<AdminUser>>();
+builder.Services.AddSingleton<AdminAccountSeeder>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<TokenService>();
+
+// Admin endpoints need a bearer token from POST /api/auth/login; taking surveys stays anonymous.
+var startupLogger = LoggerFactory.Create(logging => logging.AddConsole()).CreateLogger("Startup");
+var jwt = JwtSettings.FromConfiguration(builder.Configuration, startupLogger);
+builder.Services.AddSingleton(jwt);
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = jwt.ValidationParameters();
+        options.TokenValidationParameters.NameClaimType = "unique_name";
+        options.TokenValidationParameters.RoleClaimType = "role";
+    });
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(JwtSettings.AdminPolicy, policy => policy.RequireRole(JwtSettings.AdminRole));
+
+// Limits per client address, to slow down password guessing and spam submissions.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(AuthEndpoints.LoginRateLimit, context => FixedWindowPerClient(context,
+        builder.Configuration.GetValue("RateLimits:LoginPerMinute", 20)));
+    options.AddPolicy(ResponseEndpoints.SubmitRateLimit, context => FixedWindowPerClient(context,
+        builder.Configuration.GetValue("RateLimits:SubmissionsPerMinute", 60)));
+});
 
 builder.Services.AddProblemDetails();
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options => options.AddBearerTokenSecurity());
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -37,6 +71,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 app.Services.GetRequiredService<DatabaseSeeder>().Seed();
+app.Services.GetRequiredService<AdminAccountSeeder>().Seed();
 
 // The API docs are part of the demo, so they are served in every environment.
 app.MapOpenApi();
@@ -51,13 +86,22 @@ if (!app.Configuration.GetValue<bool>("DisableHttpsRedirection"))
     app.UseHttpsRedirection();
 }
 app.UseCors("AllowAll");
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+app.MapAuthEndpoints();
 app.MapQuestionEndpoints();
 app.MapSurveyEndpoints();
 app.MapResponseEndpoints();
 
 app.Run();
+
+static RateLimitPartition<string> FixedWindowPerClient(HttpContext context, int permitsPerMinute) =>
+    RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = permitsPerMinute, Window = TimeSpan.FromMinutes(1) });
 
 // Exposed so integration tests can use WebApplicationFactory<Program>.
 public partial class Program;

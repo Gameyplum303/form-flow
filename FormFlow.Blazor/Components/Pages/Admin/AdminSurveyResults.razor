@@ -1,6 +1,8 @@
 @page "/admin/surveys/{Id:guid}/results"
 @using FormFlow.Blazor.Services
 @inject ISurveyService SurveyService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
 
 <PageTitle>Survey Results</PageTitle>
 
@@ -30,8 +32,8 @@ else
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Download"
-                       Href="@SurveyService.ExportUrl(Id)"
-                       Disabled="_results.TotalResponses == 0">
+                       OnClick="DownloadCsvAsync"
+                       Disabled="_results.TotalResponses == 0 || _downloading">
                 Download CSV
             </MudButton>
         </MudStack>
@@ -98,10 +100,26 @@ else
 
     private SurveyResults? _results;
     private bool _loading = true;
+    private bool _downloading;
 
     protected override async Task OnInitializedAsync()
     {
         _results = await SurveyService.GetResultsAsync(Id);
         _loading = false;
+    }
+
+    private async Task DownloadCsvAsync()
+    {
+        _downloading = true;
+        var export = await SurveyService.ExportResponsesAsync(Id);
+        _downloading = false;
+
+        if (export is null)
+        {
+            Snackbar.Add("The CSV could not be downloaded.", Severity.Error);
+            return;
+        }
+
+        await JS.InvokeVoidAsync("formFlow.downloadFile", export.FileName, "text/csv", export.Content);
     }
 }
