@@ -319,8 +319,39 @@ Aggregated results for the admin results page:
 }
 ```
 
-Choice and yes/no questions get a count per option, number questions get min, max and average, and text questions get the five most recent answers.
+Choice and yes/no questions get a count per option, number questions get min, max and average, and text questions get the five most recent answers. `lastSubmittedAt` is the newest response of all, whatever the filters.
+
+#### Filters, dates and comparisons
+
+Optional query parameters narrow or split the results:
+
+| Parameter | Example | Effect |
+|---|---|---|
+| `filter` | `filter=is_student:true&filter=skills:sql` | Only responses that gave every listed answer (for multiselect, the answer is one of those chosen). Up to 10. Works on yes/no, choice, rating and single checkbox questions. |
+| `from`, `to` | `from=2026-09-01T04:00:00Z&to=2026-09-08T04:00:00Z` | Only responses sent at or after `from` and before `to` (ISO 8601; without an offset, UTC) |
+| `compareBy` | `compareBy=is_student` | Adds a `comparison` with every question summarized separately for each answer to this question, plus a "No answer" group when some responses skipped it |
+| `utcOffset` | `utcOffset=-240` | Minutes ahead of UTC (-840 to 840), so the timeline counts the viewer's local days |
+
+The response then also has:
+
+```json
+{
+  "totalResponses": 60,
+  "matchingResponses": 20,
+  "timelineInterval": "day",
+  "timeline": [ { "start": "2026-09-01", "count": 3 }, { "start": "2026-09-02", "count": 0 } ],
+  "comparison": {
+    "key": "is_student", "label": "Are you currently a student?",
+    "groups": [
+      { "value": "true", "label": "Yes", "responses": 12, "questions": [ /* same shape and order as "questions" */ ] },
+      { "value": "false", "label": "No", "responses": 8, "questions": [ … ] }
+    ]
+  }
+}
+```
+
+`totalResponses` counts every response and `matchingResponses` the ones the filters and dates kept; `questions` summarizes only the matching ones. The `timeline` counts matching responses per day, with empty days included, from the first response (or `from`) to the last (or `to`, or today when the range hasn't ended). Ranges over 90 days count weeks starting on Monday, and over two years, months; `timelineInterval` says which. Bad parameters return 400 validation problem details keyed by parameter, for example `filter`: "'maybe' isn't one of the answers to 'is_student'."
 
 ### `GET /api/surveys/{id}/responses/export` (Builder)
 
-Downloads every response as `<survey-title>-responses.csv`. Columns are `response_id`, `submitted_at`, `submitted_by`, then one column per question key in survey order. Multiple values are joined with `; `. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return (and aren't numbers) are prefixed with `'` so spreadsheets don't run them as formulas.
+Downloads every response as `<survey-title>-responses.csv`, or only those matching `filter`, `from` and `to` when given (the same parameters as the results, with the same 400 for bad ones). Columns are `response_id`, `submitted_at`, `submitted_by`, then one column per question key in survey order. Multiple values are joined with `; `. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return (and aren't numbers) are prefixed with `'` so spreadsheets don't run them as formulas.
