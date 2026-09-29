@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Text.RegularExpressions;
+using FormFlow.Backend.Email;
 using FormFlow.Data.Models;
 using LiteDB;
 using Microsoft.AspNetCore.Hosting;
@@ -31,6 +33,25 @@ namespace FormFlow.Backend.Tests.Endpoints
         {
             var surveys = await client.GetFromJsonAsync<List<SurveyDefinition>>("/api/surveys");
             return surveys!.Single(s => s.Title == DemoSurveyTitle);
+        }
+
+        /// <summary>
+        /// The token from the newest link to a Blazor page (such as "verify-email") emailed to an address,
+        /// read from the outbox the API uses when no mail server is configured.
+        /// </summary>
+        public static string? EmailedToken(IServiceProvider services, string to, string page)
+        {
+            var email = services.GetRequiredService<OutboxEmailSender>().Sent
+                .FirstOrDefault(e => string.Equals(e.To, to, StringComparison.OrdinalIgnoreCase) && e.Body.Contains($"/{page}?token="));
+            return email is null ? null : Uri.UnescapeDataString(Regex.Match(email.Body, $@"/{page}\?token=(\S+)").Groups[1].Value);
+        }
+
+        /// <summary>Opens the verification link emailed to a new sign-up.</summary>
+        public static async Task VerifyEmailAsync(HttpClient client, IServiceProvider services, string email)
+        {
+            var token = EmailedToken(services, email, "verify-email");
+            var response = await client.PostAsJsonAsync("/api/auth/verify-email", new VerifyEmailRequest { Token = token! });
+            response.EnsureSuccessStatusCode();
         }
 
         public static async Task<QuestionDefinition> GetQuestionAsync(HttpClient client, string key)

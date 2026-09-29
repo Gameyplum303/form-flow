@@ -22,4 +22,47 @@ public sealed class FakeAuthService : IAuthService
         SignUps.Add(request);
         return Task.FromResult(SignUpResult);
     }
+
+    public List<string> ResetRequests { get; } = [];
+    public List<string> VerificationRequests { get; } = [];
+    public string? NextEmailError { get; set; }
+
+    public Task<string?> RequestPasswordResetAsync(string email)
+    {
+        ResetRequests.Add(email);
+        return Task.FromResult(NextEmailError);
+    }
+
+    public Task<string?> ResendVerificationAsync(string email)
+    {
+        VerificationRequests.Add(email);
+        return Task.FromResult(NextEmailError);
+    }
+
+    public (string? Status, string? Error) VerifyResult { get; set; } = (AccountStatuses.Pending, null);
+    public List<string> VerifiedTokens { get; } = [];
+
+    public Task<(string? Status, string? Error)> VerifyEmailAsync(string token)
+    {
+        VerifiedTokens.Add(token);
+        return Task.FromResult(VerifyResult);
+    }
+
+    public FormResult ResetResult { get; set; } = FormResult.Success();
+    public (string Token, string Password)? LastReset { get; private set; }
+
+    public Task<FormResult> ResetPasswordAsync(string token, string password)
+    {
+        LastReset = (token, password);
+        return Task.FromResult(ResetResult);
+    }
+
+    public FormResult ChangeResult { get; set; } = FormResult.Success(FakeSessionStorage.Login("admin"));
+    public (string Current, string New)? LastChange { get; private set; }
+
+    public Task<FormResult> ChangePasswordAsync(string currentPassword, string newPassword)
+    {
+        LastChange = (currentPassword, newPassword);
+        return Task.FromResult(ChangeResult);
+    }
 }

@@ -1,0 +1,60 @@
+@page "/verify-email"
+@using FormFlow.Blazor.Services
+@using FormFlow.Data.Models
+@inject IAuthService AuthService
+
+<PageTitle>Verify your email</PageTitle>
+
+<MudPaper Class="pa-6 mx-auto mt-10" MaxWidth="480px" Elevation="3">
+    <MudText Typo="Typo.h5" Class="mb-4">Verify your email</MudText>
+
+    @if (string.IsNullOrWhiteSpace(Token))
+    {
+        <MudAlert Severity="Severity.Warning">This page needs the link from your verification email.</MudAlert>
+    }
+    else if (_status is not null)
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-4" data-email-verified>
+            @if (_status == AccountStatuses.Pending)
+            {
+                <text>Thanks, your email address is verified. An administrator will review your sign-up, and you can sign in once it's approved.</text>
+            }
+            else
+            {
+                <text>Thanks, your email address is verified. You can sign in now.</text>
+            }
+        </MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/login">Go to sign in</MudButton>
+    }
+    else if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+        <MudText Typo="Typo.body2">
+            Sign in with your email and password to get a new link.
+        </MudText>
+        <MudButton Class="mt-2" Variant="Variant.Text" Href="/login">Go to sign in</MudButton>
+    }
+    else
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+</MudPaper>
+
+@code {
+    [SupplyParameterFromQuery] public string? Token { get; set; }
+
+    private string? _status;
+    private string? _error;
+
+    // Links work once, so verify only after the page is interactive: the prerender pass would use it up.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || string.IsNullOrWhiteSpace(Token))
+        {
+            return;
+        }
+
+        (_status, _error) = await AuthService.VerifyEmailAsync(Token);
+        StateHasChanged();
+    }
+}

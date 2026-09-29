@@ -1,4 +1,5 @@
 using FormFlow.Backend.Auth;
+using FormFlow.Backend.Email;
 using FormFlow.Backend.Repositories;
 using FormFlow.Data.Models;
 
@@ -33,7 +34,7 @@ namespace FormFlow.Backend.Endpoints
             .ProducesProblem(StatusCodes.Status404NotFound);
 
             // Declining removes the sign-up, so the person can sign up again later.
-            group.MapPost("/{id:guid}/decline", (Guid id, IUserRepository users) =>
+            group.MapPost("/{id:guid}/decline", (Guid id, IUserRepository users, IAccountTokenRepository tokens) =>
             {
                 if (users.FindById(id) is not { Status: AccountStatuses.Pending })
                 {
@@ -41,11 +42,20 @@ namespace FormFlow.Backend.Endpoints
                 }
 
                 users.Delete(id);
+                tokens.DeleteForUser(id);
                 return Results.NoContent();
             })
             .WithName("DeclineAccount")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+            // Without an SMTP server, emails wait here so an administrator (or a test) can open their links.
+            group.MapGet("/outbox", (IEmailSender sender) => sender is OutboxEmailSender outbox
+                    ? Results.Ok(outbox.Sent)
+                    : Results.Problem(title: "Emails are sent through SMTP, so there is no outbox.", statusCode: StatusCodes.Status404NotFound))
+                .WithName("GetOutbox")
+                .Produces<List<SentEmail>>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound);
         }
 
         private static IResult NoPendingSignUp() =>
@@ -60,6 +70,7 @@ namespace FormFlow.Backend.Endpoints
             IntendedUse = user.IntendedUse ?? string.Empty,
             Organization = user.Organization ?? string.Empty,
             CreatedAt = user.CreatedAt,
+            EmailVerified = user.EmailVerified,
         };
     }
 }

@@ -142,6 +142,7 @@ namespace FormFlow.Backend.Tests.Endpoints
         [InlineData("GET", "/api/surveys/{survey}/responses/export")]
         [InlineData("GET", "/api/surveys/managed")]
         [InlineData("PUT", "/api/surveys/{survey}/sharing")]
+        [InlineData("POST", "/api/auth/change-password")]
         public async Task AdminEndpoints_RejectAnonymousCalls(string method, string path)
         {
             var response = await _client.SendAsync(await RequestAsync(method, path));
@@ -153,6 +154,7 @@ namespace FormFlow.Backend.Tests.Endpoints
         [InlineData("GET", "/api/accounts/pending")]
         [InlineData("POST", "/api/accounts/{account}/approve")]
         [InlineData("POST", "/api/accounts/{account}/decline")]
+        [InlineData("GET", "/api/accounts/outbox")]
         public async Task OnlyAdministrators_ReviewSignUps(string method, string path)
         {
             var request = await RequestAsync(method, path);

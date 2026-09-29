@@ -1,6 +1,6 @@
 @page "/login"
 @using FormFlow.Blazor.Services
-@inject IAuthService AuthService
+@inject IAuthService Auth
 @inject AdminSession Session
 @inject NavigationManager Nav
 @inject IConfiguration Configuration
@@ -35,6 +35,16 @@
             {
                 <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
             }
+            @if (_error == AuthService.VerifyEmailMessage)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="_busy" OnClick="ResendAsync">
+                    Email me a new link
+                </MudButton>
+            }
+            @if (_notice is not null)
+            {
+                <MudAlert Severity="Severity.Success" Dense="true" data-verification-sent>@_notice</MudAlert>
+            }
 
             <MudButton ButtonType="ButtonType.Submit"
                        Variant="Variant.Filled"
@@ -42,6 +52,9 @@
                        Disabled="_busy">
                 Sign in
             </MudButton>
+            <MudText Typo="Typo.body2">
+                <MudLink Href="/forgot-password">Forgot your password?</MudLink>
+            </MudText>
             <MudText Typo="Typo.body2">
                 Professor or scientist without an account? <MudLink Href="/signup">Sign up</MudLink>
             </MudText>
@@ -54,6 +67,7 @@
 
     private readonly LoginForm _form = new();
     private string? _error;
+    private string? _notice;
     private bool _busy;
 
     private async Task SignInAsync()
@@ -66,7 +80,8 @@
 
         _busy = true;
         _error = null;
-        var (login, error) = await AuthService.LoginAsync(_form.Username.Trim(), _form.Password);
+        _notice = null;
+        var (login, error) = await Auth.LoginAsync(_form.Username.Trim(), _form.Password);
         _busy = false;
 
         if (login is null)
@@ -77,6 +92,23 @@
 
         await Session.SignInAsync(login);
         Nav.NavigateTo(Destination(ReturnUrl, Session.Access.CanBuild));
+    }
+
+    private async Task ResendAsync()
+    {
+        var email = _form.Username.Trim();
+        _busy = true;
+        var error = await Auth.ResendVerificationAsync(email);
+        _busy = false;
+        if (error is null)
+        {
+            _error = null;
+            _notice = $"We sent a new verification link to {email}.";
+        }
+        else
+        {
+            _error = error;
+        }
     }
 
     /// <summary>Students go to the surveys they can take; the survey builder is for administrators and professors.</summary>
