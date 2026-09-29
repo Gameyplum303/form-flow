@@ -1,0 +1,45 @@
+# Runs the whole app: docker compose up --build
+#   API and Swagger UI  http://localhost:5164/swagger
+#   Blazor app          http://localhost:5224
+#   React app           http://localhost:3000
+services:
+  api:
+    build:
+      context: .
+      dockerfile: FormFlow.Backend/Dockerfile
+    ports:
+      - "5164:8080"
+    volumes:
+      - formflow-data:/data
+    healthcheck:
+      # The runtime image has no curl, so bash's /dev/tcp does the request.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /api/surveys HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  blazor:
+    build:
+      context: .
+      dockerfile: FormFlow.Blazor/Dockerfile
+    ports:
+      - "5224:8080"
+    environment:
+      BackendApi__BaseUrl: http://api:8080/
+    depends_on:
+      api:
+        condition: service_healthy
+
+  react:
+    build:
+      context: FormFlow.React
+      args:
+        REACT_APP_API_URL: http://localhost:5164
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  formflow-data:
