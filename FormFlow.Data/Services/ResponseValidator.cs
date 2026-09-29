@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using FormFlow.Data.Models;
 
 namespace FormFlow.Data.Services
@@ -99,6 +100,34 @@ namespace FormFlow.Data.Services
             switch (type)
             {
                 case QuestionTypes.Text:
+                case QuestionTypes.LongText:
+                    break;
+
+                case QuestionTypes.Email:
+                    if (!IsEmail(values[0]))
+                    {
+                        errors.Add("Answer must be an email address, like name@example.com.");
+                        return errors;
+                    }
+                    break;
+
+                case QuestionTypes.Date:
+                    if (!DateOnly.TryParseExact(values[0], DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+                    {
+                        errors.Add("Answer must be a date in the form YYYY-MM-DD.");
+                        return errors;
+                    }
+                    normalized = [date.ToString(DateFormat, CultureInfo.InvariantCulture)];
+                    break;
+
+                case QuestionTypes.Rating:
+                    var scale = QuestionTypes.RatingScale(question);
+                    if (!int.TryParse(values[0], NumberStyles.None, CultureInfo.InvariantCulture, out var stars) || stars < 1 || stars > scale)
+                    {
+                        errors.Add($"Answer must be a whole number from 1 to {scale}.");
+                        return errors;
+                    }
+                    normalized = [stars.ToString(CultureInfo.InvariantCulture)];
                     break;
 
                 case QuestionTypes.Number:
@@ -145,7 +174,7 @@ namespace FormFlow.Data.Services
             }
 
             // Length and value rules only make sense for free-form answers.
-            var hasRules = type is QuestionTypes.Text or QuestionTypes.Number;
+            var hasRules = QuestionTypes.HasLengthRules(type) || type == QuestionTypes.Number;
             if (hasRules && !_engine.Validate(values[0], question.ValidationConfigs, out var ruleErrors))
             {
                 errors.AddRange(ruleErrors);
@@ -153,6 +182,13 @@ namespace FormFlow.Data.Services
 
             return errors;
         }
+
+        /// <summary>Dates are stored and exchanged as ISO dates, the format HTML date inputs use.</summary>
+        public const string DateFormat = "yyyy-MM-dd";
+
+        private static readonly Regex EmailPattern = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.CultureInvariant);
+
+        private static bool IsEmail(string value) => value.Length <= 254 && EmailPattern.IsMatch(value);
 
         private static Dictionary<string, List<string>> Clean(IReadOnlyDictionary<string, List<string>> submitted)
         {

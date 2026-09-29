@@ -15,6 +15,10 @@ public static class QuestionComponentMapper
             "multiselect" => typeof(MultiselectQuestion),
             "checkbox" => typeof(CheckboxQuestion),
             "radio" => typeof(RadioQuestion),
+            "long_text" => typeof(LongTextQuestion),
+            "email" => typeof(EmailQuestion),
+            "date" => typeof(DateQuestion),
+            "rating" => typeof(RatingQuestion),
             _ => null
         };
 }

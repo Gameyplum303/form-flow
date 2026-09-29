@@ -75,4 +75,40 @@ public class QuestionValidatorRuleTests
 
         result.Valid.Should().BeFalse();
     }
+    [Theory]
+    [InlineData("long_text")]
+    [InlineData("email")]
+    [InlineData("date")]
+    [InlineData("rating")]
+    public void NewQuestionTypes_AreAcceptedWithoutOptions(string type)
+    {
+        _validator.Validate(Q(q => q.Type = type)).Valid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(2, true)]
+    [InlineData(10, true)]
+    [InlineData(1, false)]
+    [InlineData(11, false)]
+    public void RatingScale_MustBeTwoToTenStars(int stars, bool valid)
+    {
+        var result = _validator.Validate(Q(q =>
+        {
+            q.Type = "rating";
+            q.ValidationConfigs = $$"""[{"validationType":"MaxValue","maxValue":{{stars}}}]""";
+        }));
+
+        result.Valid.Should().Be(valid);
+    }
+
+    [Theory]
+    [InlineData(null, 5)]
+    [InlineData("""[{"validationType":"MaxValue","maxValue":7}]""", 7)]
+    [InlineData("""[{"validationType":"Range","minValue":1,"maxValue":3}]""", 3)]
+    [InlineData("""[{"validationType":"MaxValue","maxValue":50}]""", 5)]
+    [InlineData("not json", 5)]
+    public void RatingScale_ComesFromTheMaximumValue(string? rules, int expected)
+    {
+        QuestionTypes.RatingScale(Q(q => { q.Type = "rating"; q.ValidationConfigs = rules; })).Should().Be(expected);
+    }
 }

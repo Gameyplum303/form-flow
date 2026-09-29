@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Four question types: `long_text` (a paragraph box), `email`, `date` and `rating` (1 to 5 stars, or up to 10). The server validates each one, both front ends render them, results show a star count and average rating, and the demo survey has an example of each.
 - Admin sign-in. `POST /api/auth/login` issues a JWT, passwords are hashed with ASP.NET Core Identity's `PasswordHasher`, and every account is an admin or view-only. Changing questions or surveys needs an admin; reading responses and results needs any account. Accounts listed under `Accounts` are created at startup; Development and docker compose create `Rogers` (admin) and the view-only test account `student`.
 - Rate limits per IP address on sign-in and survey submissions.
 - Blazor sign-in page, a guard that sends signed-out visitors from `/admin` pages to it, and Sign out in the admin menu. The token is kept per tab in encrypted session storage.
@@ -21,6 +22,7 @@
 - Validation rules and "only show when" settings in the admin question editor.
 
 ### Fixed
+- Blazor: a text question now shows a new server error after someone edits the field. Before, the second error (for example a bad email after a missing one) was hidden.
 - Parallel API tests could fail with "Member … not found on BsonMapper" because LiteDB's shared mapper was built by several threads at once. Mappings are now built once before first use.
 - Radio and checkbox questions in Blazor didn't report their answers.
 - CI never ran on pull requests; `dotnet format` is now checked too.
