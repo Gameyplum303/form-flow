@@ -40,7 +40,7 @@ npx playwright install chromium
 npx playwright test
 ```
 
-Point it at apps running elsewhere with `API_URL`, `BLAZOR_URL` and `REACT_URL`, and at another admin account with `ADMIN_USERNAME` and `ADMIN_PASSWORD`. The tests share one database, so they run one at a time, and names include a run id so they can run again without a reset. The admin flow is one ordered series (create a question, edit it, build a survey, preview, answer, delete) in a single signed-in tab.
+Point it at apps running elsewhere with `API_URL`, `BLAZOR_URL` and `REACT_URL`, and at other accounts with `ADMIN_USERNAME` and `ADMIN_PASSWORD`, `PROFESSOR_USERNAME` and `PROFESSOR_PASSWORD`, and `STUDENT_USERNAME` and `STUDENT_PASSWORD`. The tests share one database, so they run one at a time, and names include a run id so they can run again without a reset. The admin flow is one ordered series (create a question, edit it, build a survey, preview, answer, delete) in a single signed-in tab.
 
 The Blazor layout sets `data-interactive="true"` once its circuit is connected, and the tests wait for it before clicking, because clicks on a prerendered page are ignored until then. If a page never gets there, the failure message lists the browser's console errors and failed requests.
 

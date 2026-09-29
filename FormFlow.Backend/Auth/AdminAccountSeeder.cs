@@ -1,4 +1,5 @@
 using FormFlow.Backend.Repositories;
+using FormFlow.Data.Models;
 using Microsoft.AspNetCore.Identity;
 
 namespace FormFlow.Backend.Auth
@@ -6,7 +7,8 @@ namespace FormFlow.Backend.Auth
     /// <summary>
     /// Creates the accounts listed under Accounts (each with a Username, Password and Role) that don't
     /// exist yet, and keeps each listed account's role in step with configuration. Passwords of existing
-    /// accounts are never changed. Passwords are only ever stored hashed.
+    /// accounts are never changed. Passwords are only ever stored hashed. An account without a Role is a
+    /// student, the role with the least access.
     /// </summary>
     public class AdminAccountSeeder(IUserRepository users, IPasswordHasher<AdminUser> hasher, IConfiguration config,
         ILogger<AdminAccountSeeder> logger)
@@ -19,16 +21,16 @@ namespace FormFlow.Backend.Auth
             {
                 var username = account["Username"]?.Trim();
                 var password = account["Password"];
-                var role = account["Role"]?.Trim().ToLowerInvariant() ?? JwtSettings.ViewerRole;
+                var role = account["Role"]?.Trim().ToLowerInvariant() ?? Roles.Student;
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
                 {
                     logger.LogWarning("Skipping {Section}:{Index}, which needs both a Username and a Password.", Section, account.Key);
                     continue;
                 }
-                if (!JwtSettings.IsKnownRole(role))
+                if (!Roles.IsKnown(role))
                 {
-                    logger.LogWarning("Skipping account '{Username}': Role must be '{Admin}' or '{Viewer}'.",
-                        username, JwtSettings.AdminRole, JwtSettings.ViewerRole);
+                    logger.LogWarning("Skipping account '{Username}': Role must be one of {Roles}.",
+                        username, string.Join(", ", Roles.All));
                     continue;
                 }
 

@@ -66,22 +66,33 @@ export const admin = {
     password: process.env.ADMIN_PASSWORD ?? "password",
 };
 
-/** The view-only test account. Override with VIEWER_USERNAME and VIEWER_PASSWORD. */
-export const viewer = {
-    username: process.env.VIEWER_USERNAME ?? "student",
-    password: process.env.VIEWER_PASSWORD ?? "password",
+/** The professor/scientist test account. Override with PROFESSOR_USERNAME and PROFESSOR_PASSWORD. */
+export const professor = {
+    username: process.env.PROFESSOR_USERNAME ?? "professor",
+    password: process.env.PROFESSOR_PASSWORD ?? "password",
 };
 
-let adminToken: string | undefined;
+/** The student test account, which can only take surveys. Override with STUDENT_USERNAME and STUDENT_PASSWORD. */
+export const student = {
+    username: process.env.STUDENT_USERNAME ?? "student",
+    password: process.env.STUDENT_PASSWORD ?? "password",
+};
 
-/** Headers for API calls that need an admin, signing in once per test run. */
-export async function adminHeaders(request: APIRequestContext) {
-    if (!adminToken) {
-        const response = await request.post(`${urls.api}/api/auth/login`, { data: admin });
-        expect(response.status(), "admin sign-in through the API").toBe(200);
-        adminToken = (await response.json()).token;
+const tokens = new Map<string, string>();
+
+/** Headers for API calls made as an account, signing in once per test run. */
+export async function headersFor(request: APIRequestContext, account: { username: string; password: string }) {
+    if (!tokens.has(account.username)) {
+        const response = await request.post(`${urls.api}/api/auth/login`, { data: account });
+        expect(response.status(), `${account.username} sign-in through the API`).toBe(200);
+        tokens.set(account.username, (await response.json()).token);
     }
-    return { Authorization: `Bearer ${adminToken}` };
+    return { Authorization: `Bearer ${tokens.get(account.username)}` };
+}
+
+/** Headers for API calls that need an admin. */
+export function adminHeaders(request: APIRequestContext) {
+    return headersFor(request, admin);
 }
 
 /** Fills in the Blazor sign-in form on the current page. */
@@ -93,9 +104,12 @@ export async function submitSignIn(page: Page, username: string, password: strin
     await page.getByRole("button", { name: "Sign in" }).click();
 }
 
-/** Signs in to the Blazor admin pages. The sign-in lasts for this tab, across page loads. */
-export async function signIn(page: Page, account = admin) {
+/**
+ * Signs in through the Blazor sign-in page. Admins and professors land on the survey builder,
+ * students on the list of surveys. The sign-in lasts for this tab, across page loads.
+ */
+export async function signIn(page: Page, account = admin, landsOn = /\/admin\/surveys$/) {
     await openBlazor(page, "/login");
     await submitSignIn(page, account.username, account.password);
-    await expect(page).toHaveURL(/\/admin\/surveys$/);
+    await expect(page).toHaveURL(landsOn);
 }

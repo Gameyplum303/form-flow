@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using FormFlow.Backend.Auth;
@@ -25,8 +26,10 @@ namespace FormFlow.Backend.Endpoints
         {
             var group = app.MapGroup("/api/surveys/{surveyId:guid}").WithTags("Responses");
 
-            group.MapPost("/responses", (Guid surveyId, SubmitResponseRequest request, ISurveyRepository surveys,
-                IQuestionRepository questionRepository, IResponseRepository responses, ResponseValidator validator) =>
+            // Anyone can answer a survey. When the person is signed in, the response records who sent it.
+            group.MapPost("/responses", (Guid surveyId, SubmitResponseRequest request, ClaimsPrincipal principal,
+                ISurveyRepository surveys, IQuestionRepository questionRepository, IResponseRepository responses,
+                ResponseValidator validator) =>
             {
                 var survey = surveys.FindById(surveyId);
                 if (survey is null)
@@ -51,6 +54,7 @@ namespace FormFlow.Backend.Endpoints
                     Id = Guid.NewGuid(),
                     SurveyId = surveyId,
                     SubmittedAt = DateTime.UtcNow,
+                    SubmittedBy = CurrentUser.From(principal) is { IsSignedIn: true } user ? user.Username : null,
                     Answers = result.Answers
                 });
 
@@ -63,21 +67,7 @@ namespace FormFlow.Backend.Endpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status429TooManyRequests);
 
-            group.MapGet("/responses", (Guid surveyId, ISurveyRepository surveys, IResponseRepository responses) =>
-            {
-                if (surveys.FindById(surveyId) is null)
-                {
-                    return Results.NotFound();
-                }
-                return Results.Ok(responses.FindBySurveyId(surveyId).ToList());
-            })
-            .WithName("GetResponses")
-            .RequireAuthorization(JwtSettings.ViewerPolicy)
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces<List<SurveyResponse>>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound);
-
-            group.MapGet("/results", (Guid surveyId, ISurveyRepository surveys, IQuestionRepository questionRepository,
+            group.MapGet("/responses", (Guid surveyId, ClaimsPrincipal principal, ISurveyRepository surveys,
                 IResponseRepository responses) =>
             {
                 var survey = surveys.FindById(surveyId);
@@ -85,18 +75,20 @@ namespace FormFlow.Backend.Endpoints
                 {
                     return Results.NotFound();
                 }
-
-                var questions = SurveyEndpoints.LoadQuestions(survey, questionRepository);
-                var stored = responses.FindBySurveyId(surveyId).ToList();
-                return Results.Ok(SurveyResultsBuilder.Build(survey, questions, stored));
+                if (!CurrentUser.From(principal).CanManage(survey))
+                {
+                    return CurrentUser.NotYours("surveys");
+                }
+                return Results.Ok(responses.FindBySurveyId(surveyId).ToList());
             })
-            .WithName("GetSurveyResults")
-            .RequireAuthorization(JwtSettings.ViewerPolicy)
+            .WithName("GetResponses")
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces<SurveyResults>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces<List<SurveyResponse>>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
-            group.MapGet("/responses/export", (Guid surveyId, ISurveyRepository surveys,
+            group.MapGet("/results", (Guid surveyId, ClaimsPrincipal principal, ISurveyRepository surveys,
                 IQuestionRepository questionRepository, IResponseRepository responses) =>
             {
                 var survey = surveys.FindById(surveyId);
@@ -104,14 +96,43 @@ namespace FormFlow.Backend.Endpoints
                 {
                     return Results.NotFound();
                 }
+                if (!CurrentUser.From(principal).CanManage(survey))
+                {
+                    return CurrentUser.NotYours("surveys");
+                }
+
+                var questions = SurveyEndpoints.LoadQuestions(survey, questionRepository);
+                var stored = responses.FindBySurveyId(surveyId).ToList();
+                return Results.Ok(SurveyResultsBuilder.Build(survey, questions, stored));
+            })
+            .WithName("GetSurveyResults")
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces<SurveyResults>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound);
+
+            group.MapGet("/responses/export", (Guid surveyId, ClaimsPrincipal principal, ISurveyRepository surveys,
+                IQuestionRepository questionRepository, IResponseRepository responses) =>
+            {
+                var survey = surveys.FindById(surveyId);
+                if (survey is null)
+                {
+                    return Results.NotFound();
+                }
+                if (!CurrentUser.From(principal).CanManage(survey))
+                {
+                    return CurrentUser.NotYours("surveys");
+                }
 
                 var questions = SurveyEndpoints.LoadQuestions(survey, questionRepository);
                 var csv = CsvExporter.Export(questions, responses.FindBySurveyId(surveyId));
                 return Results.File(Encoding.UTF8.GetBytes(csv), "text/csv", $"{FileNameFor(survey.Title)}-responses.csv");
             })
             .WithName("ExportResponses")
-            .RequireAuthorization(JwtSettings.ViewerPolicy)
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
             .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status200OK, contentType: "text/csv")
             .Produces(StatusCodes.Status404NotFound);
         }

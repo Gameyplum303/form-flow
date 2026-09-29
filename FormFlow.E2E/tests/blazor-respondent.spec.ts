@@ -89,7 +89,7 @@ test.describe("Blazor: taking a survey", () => {
             return text;
         });
         expect(csv.split("\r\n")[0]).toBe(
-            "response_id,submitted_at,first_name,last_name,email,age,is_student,study_level,contact_method,subscribe_newsletter,skills,campus_preference,program_start,experience_rating,comments");
+            "response_id,submitted_at,submitted_by,first_name,last_name,email,age,is_student,study_level,contact_method,subscribe_newsletter,skills,campus_preference,program_start,experience_rating,comments");
         expect(csv).toContain("Turing");
         expect(csv).toContain("csharp; sql");
     });

@@ -1,0 +1,61 @@
+@using FormFlow.Blazor.Services
+@using FormFlow.Data.Models
+@implements IDisposable
+@inject AdminSession Session
+@inject NavigationManager Nav
+
+@* Who is signed in, the administrator's "View as" switch, and sign in or out. Shown in both menus. *@
+@if (Session.IsSignedIn)
+{
+    <div class="nav-item px-3 signed-in">
+        <span class="signed-in-as">Signed in as @Session.Username (@Roles.DisplayName(Session.Role))</span>
+
+        @if (Session.IsAdmin)
+        {
+            <label class="view-as" @onclick:stopPropagation="true">
+                View as
+                <select value="@(Session.ViewAs ?? Roles.Admin)" @onchange="ChangeViewAsync" aria-label="View the site as">
+                    @foreach (var role in Roles.All)
+                    {
+                        <option value="@role">@Roles.DisplayName(role)</option>
+                    }
+                </select>
+            </label>
+        }
+
+        <button type="button" class="nav-link sign-out" @onclick="SignOutAsync" @onclick:stopPropagation="true">
+            <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span>
+            Sign out
+        </button>
+    </div>
+}
+else if (ShowSignIn)
+{
+    <div class="nav-item px-3">
+        <NavLink class="nav-link" href="/login">
+            <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span>
+            Sign in
+        </NavLink>
+    </div>
+}
+
+@code {
+    /// <summary>Whether to offer a Sign in link when nobody is signed in.</summary>
+    [Parameter] public bool ShowSignIn { get; set; }
+
+    protected override void OnInitialized() => Session.Changed += OnSessionChanged;
+
+    // On admin pages, AdminGuard sees the change and sends the browser to the sign-in page.
+    private Task SignOutAsync() => Session.SignOutAsync();
+
+    private async Task ChangeViewAsync(ChangeEventArgs e)
+    {
+        var role = e.Value?.ToString();
+        await Session.SetViewAsAsync(role == Roles.Admin ? null : role);
+        Nav.NavigateTo(Session.Access.CanBuild ? "/admin/surveys" : "/surveys");
+    }
+
+    private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Session.Changed -= OnSessionChanged;
+}

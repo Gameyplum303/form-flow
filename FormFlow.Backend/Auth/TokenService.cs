@@ -27,7 +27,7 @@ namespace FormFlow.Backend.Auth
                 SigningCredentials = new SigningCredentials(settings.SigningKey, SecurityAlgorithms.HmacSha256),
             });
 
-            return new LoginResponse { Token = token, Username = user.Username, Role = user.Role, ExpiresAt = expires };
+            return new LoginResponse { Token = token, UserId = user.Id, Username = user.Username, Role = user.Role, ExpiresAt = expires };
         }
     }
 }

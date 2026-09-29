@@ -15,6 +15,13 @@
     {
         <MudAlert Severity="Severity.Warning" Class="mb-4">Question not found.</MudAlert>
     }
+    else if (_notYours)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">
+            You can only edit questions you created. You can still use this one in your surveys.
+        </MudAlert>
+        <MudButton Variant="Variant.Outlined" Href="/admin/questions">Back to questions</MudButton>
+    }
     @if (_successMessage is not null)
     {
         <MudAlert Severity="Severity.Success" 
@@ -34,6 +41,8 @@
         </MudAlert>
     }
 
+    @if (!_notYours)
+    {
     <MudForm @ref="_form" Model="@newQuestion" @bind-IsValid="_isValid">
         <MudTextField T="string"
                       Label="Label"
@@ -220,6 +229,7 @@
             
         </MudButton>
     </MudForm>
+    }
 </MudPaper>
 
 @code {
@@ -233,6 +243,9 @@
     private string? _errorMessage;
     private string? _successMessage;
     private bool _notFound;
+    private bool _notYours;
+
+    [CascadingParameter] public AdminAccess? Access { get; set; }
 
     private NewQuestion newQuestion = new();
     private List<QuestionDefinition> _bank = new();
@@ -284,6 +297,11 @@
             if (existing is null)
             {
                 _notFound = true;
+                return;
+            }
+            if (!(Access ?? AdminAccess.Administrator).CanManage(existing))
+            {
+                _notYours = true;
                 return;
             }
             Load(existing);

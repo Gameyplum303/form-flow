@@ -51,9 +51,11 @@ namespace FormFlow.Backend.Tests.Endpoints
         public async Task EveryConfiguredAccount_CanSignIn()
         {
             (await AdminClient.LoginAsync(_client, "Rogers", "password")).Token.Should().NotBeNullOrWhiteSpace();
+            (await AdminClient.LoginAsync(_client, "professor", "password")).Role.Should().Be("professor");
             var student = await AdminClient.LoginAsync(_client, "STUDENT", "password");
             student.Username.Should().Be("student");
-            student.Role.Should().Be("viewer");
+            student.Role.Should().Be("student");
+            student.UserId.Should().NotBeEmpty();
         }
 
         [Fact]
@@ -65,7 +67,7 @@ namespace FormFlow.Backend.Tests.Endpoints
             {
                 ["Accounts:0:Username"] = "student",
                 ["Accounts:0:Password"] = "changed",
-                ["Accounts:0:Role"] = "admin",
+                ["Accounts:0:Role"] = "professor",
                 ["Accounts:1:Username"] = " Grace ",
                 ["Accounts:1:Password"] = "hopper",
                 ["Accounts:2:Username"] = "no-password",
@@ -78,14 +80,14 @@ namespace FormFlow.Backend.Tests.Endpoints
 
             var student = users.FindByUsername("student")!;
             hasher.VerifyHashedPassword(student, student.PasswordHash, "password").Should().Be(PasswordVerificationResult.Success);
-            student.Role.Should().Be("admin");
+            student.Role.Should().Be("professor");
             var grace = users.FindByUsername("grace")!;
             grace.Username.Should().Be("Grace");
-            grace.Role.Should().Be("viewer", "accounts without a role are view-only");
+            grace.Role.Should().Be("student", "accounts without a role get the least access");
             hasher.VerifyHashedPassword(grace, grace.PasswordHash, "hopper").Should().Be(PasswordVerificationResult.Success);
             users.FindByUsername("no-password").Should().BeNull();
             users.FindByUsername("odd-role").Should().BeNull();
-            users.Count().Should().Be(3);
+            users.Count().Should().Be(4);
         }
 
         [Theory]
@@ -121,6 +123,7 @@ namespace FormFlow.Backend.Tests.Endpoints
             var me = await _client.GetFromJsonAsync<JsonElement>("/api/auth/me");
             me.GetProperty("username").GetString().Should().Be("Rogers");
             me.GetProperty("role").GetString().Should().Be("admin");
+            me.GetProperty("id").GetGuid().Should().NotBeEmpty();
         }
 
         [Theory]
@@ -133,6 +136,7 @@ namespace FormFlow.Backend.Tests.Endpoints
         [InlineData("GET", "/api/surveys/{survey}/responses")]
         [InlineData("GET", "/api/surveys/{survey}/results")]
         [InlineData("GET", "/api/surveys/{survey}/responses/export")]
+        [InlineData("GET", "/api/surveys/managed")]
         public async Task AdminEndpoints_RejectAnonymousCalls(string method, string path)
         {
             var response = await _client.SendAsync(await RequestAsync(method, path));
@@ -147,29 +151,28 @@ namespace FormFlow.Backend.Tests.Endpoints
         [InlineData("POST", "/api/surveys")]
         [InlineData("PUT", "/api/surveys/{survey}")]
         [InlineData("DELETE", "/api/surveys/{survey}")]
-        public async Task ViewOnlyAccount_CannotChangeAnything(string method, string path)
+        [InlineData("GET", "/api/surveys/{survey}/responses")]
+        [InlineData("GET", "/api/surveys/{survey}/results")]
+        [InlineData("GET", "/api/surveys/{survey}/responses/export")]
+        [InlineData("GET", "/api/surveys/managed")]
+        public async Task Students_CanOnlyTakeSurveys(string method, string path)
         {
             var request = await RequestAsync(method, path);
-            _client.AsViewer();
+            _client.AsStudent();
 
             var response = await _client.SendAsync(request);
 
             response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         }
 
-        [Theory]
-        [InlineData("/api/surveys/{survey}/responses")]
-        [InlineData("/api/surveys/{survey}/results")]
-        [InlineData("/api/surveys/{survey}/responses/export")]
-        [InlineData("/api/auth/me")]
-        public async Task ViewOnlyAccount_CanReadResponsesAndResults(string path)
+        [Fact]
+        public async Task Students_CanSeeWhoTheyAre()
         {
-            var request = await RequestAsync("GET", path);
-            _client.AsViewer();
+            _client.AsStudent();
 
-            var response = await _client.SendAsync(request);
+            var me = await _client.GetFromJsonAsync<JsonElement>("/api/auth/me");
 
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            me.GetProperty("role").GetString().Should().Be("student");
         }
 
         private async Task<HttpRequestMessage> RequestAsync(string method, string path)

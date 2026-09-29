@@ -1,5 +1,7 @@
 import { expect, Page, test } from "@playwright/test";
-import { admin, answer, choose, demoSurveyTitle, openBlazor, question, runId, signIn, submitSignIn, surveyByTitle, viewer } from "./helpers";
+import {
+    admin, answer, choose, demoSurveyTitle, headersFor, openBlazor, professor, question, runId, signIn, student, submitSignIn, surveyByTitle, urls,
+} from "./helpers";
 
 const key = `campus_job_${runId}`;
 const label = `Which campus job do you have? (${runId})`;
@@ -47,22 +49,69 @@ test.describe("Blazor: signing in", () => {
     });
 });
 
-test.describe("Blazor: view-only account", () => {
-    test("can see surveys and results but not change anything", async ({ page, request }) => {
-        await signIn(page, viewer);
-        await expect(page.getByText(`Signed in as ${viewer.username} (view only)`)).toBeVisible();
-        await expect(page.getByText("You're signed in with a view-only account.")).toBeVisible();
-        await expect(questionRow(page, demoSurveyTitle)).toHaveCount(1);
+test.describe("Blazor: roles", () => {
+    test("students can take surveys but can't open the survey builder", async ({ page }) => {
+        await signIn(page, student, /\/surveys$/);
+        await expect(page.getByText(`Signed in as ${student.username} (Student)`)).toBeVisible();
+        await expect(page.getByRole("link", { name: "Survey Builder" })).toHaveCount(0);
+
+        await openBlazor(page, "/admin/surveys");
+        await expect(page.getByText("Students can take surveys but can't open the survey builder.")).toBeVisible();
         await expect(page.getByText("+ Create Survey")).toHaveCount(0);
-        await expect(page.getByRole("button", { name: `Delete ${demoSurveyTitle}` })).toHaveCount(0);
+    });
 
-        await questionRow(page, demoSurveyTitle).getByRole("button", { name: "Results" }).click();
-        await expect(page.getByText(/^\d+ responses?/)).toBeVisible();
+    test("professors see and manage only their own surveys", async ({ page, request }) => {
+        const headers = await headersFor(request, professor);
+        const questions: { id: string; key: string }[] = await (await request.get(`${urls.api}/api/questions`)).json();
+        const title = `Lab sign-up ${runId}`;
+        const created = await request.post(`${urls.api}/api/surveys`, {
+            headers, data: { title, description: "Professor's survey", questionIds: [questions.find(q => q.key === "first_name")!.id] },
+        });
+        expect(created.status()).toBe(201);
 
-        const survey = await surveyByTitle(request, demoSurveyTitle);
-        await openBlazor(page, `/admin/surveys/${survey.id}/edit`);
-        await expect(page.getByText("Only admins can create or edit questions and surveys.")).toBeVisible();
+        await signIn(page, professor);
+        await expect(page.getByText(`Signed in as ${professor.username} (Professor/Scientist)`)).toBeVisible();
+        await expect(questionRow(page, title)).toHaveCount(1);
+        await expect(questionRow(page, demoSurveyTitle)).toHaveCount(0);
+
+        const demo = await surveyByTitle(request, demoSurveyTitle);
+        await openBlazor(page, `/admin/surveys/${demo.id}/edit`);
+        await expect(page.getByText("You can only edit surveys you created.")).toBeVisible();
         await expect(page.getByRole("button", { name: "Save Survey" })).toHaveCount(0);
+
+        // Everyone's questions can go in a survey, but only their creators can change them.
+        await openQuestionBank(page);
+        const firstName = page.locator("tr", { has: page.locator("td", { hasText: /^first_name$/ }) });
+        await expect(firstName.getByText("Administrators")).toBeVisible();
+        await expect(firstName.getByRole("button", { name: "Edit" })).toHaveCount(0);
+
+        await openBlazor(page, "/admin/surveys");
+        await confirmDelete(page, title);
+        await expect(questionRow(page, title)).toHaveCount(0);
+    });
+
+    test("administrators can view the site as a professor or a student", async ({ page }) => {
+        await signIn(page);
+        await expect(questionRow(page, demoSurveyTitle)).toHaveCount(1);
+        const viewAs = page.getByLabel("View the site as");
+
+        await viewAs.selectOption("professor");
+        await expect(page.locator("[data-view-as-banner]")).toContainText("You're viewing the site as a Professor/Scientist.");
+        await expect(page).toHaveURL(/\/admin\/surveys$/);
+        await expect(questionRow(page, demoSurveyTitle)).toHaveCount(0);
+
+        await page.getByLabel("View the site as").selectOption("student");
+        await expect(page).toHaveURL(/\/surveys$/);
+        await expect(page.locator("[data-view-as-banner]")).toContainText("You're viewing the site as a Student.");
+        await expect(page.getByRole("link", { name: "Survey Builder" })).toHaveCount(0);
+
+        // The preview lasts across page loads until the administrator turns it off.
+        await openBlazor(page, "/admin/surveys");
+        await expect(page.getByText("Students can take surveys but can't open the survey builder.")).toBeVisible();
+        await page.getByRole("button", { name: "Back to Administrator view" }).click();
+        await expect(page).toHaveURL(/\/admin\/surveys$/);
+        await expect(page.locator("[data-view-as-banner]")).toHaveCount(0);
+        await expect(questionRow(page, demoSurveyTitle)).toHaveCount(1);
     });
 });
 
