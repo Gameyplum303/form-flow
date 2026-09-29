@@ -78,8 +78,8 @@ public class AdminQuestionsPageTests
 
         cut.FindAll("button").First(b => b.TextContent.Trim() == "Edit").Click();
 
-        ctx.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri
-            .Should().EndWith($"/admin/questions/{_questions.Questions[0].Id}/edit");
+        var nav = ctx.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+        cut.WaitForAssertion(() => nav.Uri.Should().EndWith($"/admin/questions/{_questions.Questions[0].Id}/edit"));
     }
 
     [Fact]

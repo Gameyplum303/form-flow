@@ -73,7 +73,8 @@ namespace FormFlow.Blazor.Tests.Admin
             cut.WaitForAssertion(() => Assert.Contains("Survey A", cut.Markup));
             cut.FindAll("button").First(b => b.TextContent.Contains("Preview", StringComparison.OrdinalIgnoreCase)).Click();
 
-            Assert.Equal($"admin/surveys/{survey.Id}/preview", nav.Uri.Replace(nav.BaseUri, ""));
+            // The click can be dispatched after Click() returns while the table is still rendering, so wait for it.
+            cut.WaitForAssertion(() => Assert.Equal($"admin/surveys/{survey.Id}/preview", nav.Uri.Replace(nav.BaseUri, "")));
         }
 
         [Fact]
