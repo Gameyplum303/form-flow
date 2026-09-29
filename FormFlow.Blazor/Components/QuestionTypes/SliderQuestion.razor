@@ -1,0 +1,52 @@
+@inherits QuestionComponentBase
+@using System.Globalization
+@using FormFlow.Data.Models
+
+@* A whole number picked on a slider between the question's minimum and maximum. It stays unanswered,
+   with the handle at the minimum and no value shown, until the person moves it. *@
+<QuestionField Question="Question" Error="@Error" For="@InputId">
+    <div class="slider-field">
+        <div class="slider-track">
+            <MudSlider T="int"
+                       Value="@(_value ?? Min)"
+                       ValueChanged="OnChangedAsync"
+                       Min="Min"
+                       Max="Max"
+                       Step="1"
+                       Color="Color.Primary"
+                       Class="@(_value is null ? "slider-unanswered" : null)"
+                       id="@InputId"
+                       aria-valuetext="@(_value is null ? "Not answered" : null)" />
+            <div class="scale-ends" aria-hidden="true">
+                <span>@Min</span>
+                <span>@(_value is null ? "Move the slider to answer" : "")</span>
+                <span>@Max</span>
+            </div>
+        </div>
+        <span class="slider-value" aria-hidden="true" data-slider-value>@(_value?.ToString(CultureInfo.InvariantCulture) ?? "–")</span>
+    </div>
+</QuestionField>
+
+@code {
+    private int? _value;
+
+    private int Min => (int)QuestionTypes.SliderRange(Question).Min;
+
+    private int Max => (int)QuestionTypes.SliderRange(Question).Max;
+
+    protected override void OnParametersSet()
+    {
+        var source = Value is not null ? BoundValue : _value is null ? Question.DefaultValue : null;
+        if (Value is not null || source is not null)
+        {
+            _value = int.TryParse(source, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var position)
+                && position >= Min && position <= Max ? position : null;
+        }
+    }
+
+    private Task OnChangedAsync(int value)
+    {
+        _value = value;
+        return ReportAsync(value.ToString(CultureInfo.InvariantCulture));
+    }
+}

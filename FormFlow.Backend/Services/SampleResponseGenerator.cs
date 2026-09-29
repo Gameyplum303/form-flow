@@ -118,7 +118,7 @@ namespace FormFlow.Backend.Services
 
         // Students are a little keener to recommend the place than everyone else.
         private static string Nps(bool student, Random random) =>
-            Math.Min(QuestionTypes.NpsMax, random.Next(student ? 4 : 2, QuestionTypes.NpsMax + 1) + random.Next(0, 2))
+            Math.Min(QuestionTypes.NpsMax, random.Next(student ? 6 : 3, QuestionTypes.NpsMax + 1) + random.Next(0, 2))
                 .ToString(CultureInfo.InvariantCulture);
 
         // Students spend more of the range (hours of study, say) than others.

@@ -1,0 +1,51 @@
+@inherits QuestionComponentBase
+@using FormFlow.Data.Models
+
+@* "How likely are you to recommend...": a row of buttons from 0 to 10 with the ends labelled.
+   The chosen button is pressed; pressing it again clears the answer. *@
+<QuestionField Question="Question" Error="@Error">
+    <div class="nps-scale" role="group" aria-label="@Question.Label">
+        @for (var n = 0; n <= QuestionTypes.NpsMax; n++)
+        {
+            var score = n;
+            <MudButton Variant="@(_value == score ? Variant.Filled : Variant.Outlined)"
+                       Color="Color.Primary"
+                       DropShadow="false"
+                       Class="nps-button"
+                       aria-pressed="@(_value == score ? "true" : "false")"
+                       aria-label="@EndLabel(score)"
+                       OnClick="@(() => OnChangedAsync(score))">@score</MudButton>
+        }
+    </div>
+    <div class="scale-ends" aria-hidden="true">
+        <span>Not likely</span>
+        <span>Extremely likely</span>
+    </div>
+</QuestionField>
+
+@code {
+    private int? _value;
+
+    protected override void OnParametersSet()
+    {
+        var source = Value is not null ? BoundValue : _value is null ? Question.DefaultValue : null;
+        if (Value is not null || source is not null)
+        {
+            _value = int.TryParse(source, out var score) && score >= 0 && score <= QuestionTypes.NpsMax ? score : null;
+        }
+    }
+
+    /// <summary>The ends of the scale say what they mean; the numbers between speak for themselves.</summary>
+    private static string? EndLabel(int score) => score switch
+    {
+        0 => "0, not likely",
+        QuestionTypes.NpsMax => $"{QuestionTypes.NpsMax}, extremely likely",
+        _ => null,
+    };
+
+    private Task OnChangedAsync(int score)
+    {
+        _value = _value == score ? null : score;
+        return ReportAsync(_value?.ToString());
+    }
+}
