@@ -20,8 +20,8 @@ namespace FormFlow.Backend.Tests.Repositories
             using var db = CreateInMemoryDb();
             var repo = new SurveyRepository(db);
 
-            repo.Surveys.Should().NotBeNull();
-            repo.Surveys.Name.Should().Be("surveys");
+            repo.FindAll().Should().BeEmpty();
+            SurveyRepository.CollectionName.Should().Be("surveys");
         }
 
         [Fact]
@@ -40,10 +40,10 @@ namespace FormFlow.Backend.Tests.Repositories
                 CreatedAt = DateTime.UtcNow
             };
 
-            repo.Surveys.Insert(survey);
+            repo.Insert(survey);
 
             // Attempt duplicate insert
-            Action act = () => repo.Surveys.Insert(survey);
+            Action act = () => repo.Insert(survey);
 
             act.Should().Throw<LiteException>();
         }
@@ -63,9 +63,9 @@ namespace FormFlow.Backend.Tests.Repositories
                 CreatedAt = DateTime.UtcNow
             };
 
-            repo.Surveys.Insert(survey);
+            repo.Insert(survey);
 
-            var retrieved = repo.Surveys.FindById(survey.Id);
+            var retrieved = repo.FindById(survey.Id);
 
             retrieved.Should().NotBeNull();
             retrieved!.Id.Should().Be(survey.Id);
@@ -79,7 +79,7 @@ namespace FormFlow.Backend.Tests.Repositories
             using var db = CreateInMemoryDb();
             var repo = new SurveyRepository(db);
 
-            var result = repo.Surveys.FindById(Guid.NewGuid());
+            var result = repo.FindById(Guid.NewGuid());
 
             result.Should().BeNull();
         }

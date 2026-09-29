@@ -33,5 +33,15 @@ namespace FormFlow.Backend.Repositories
         {
             return _questions.FindOne(predicate);
         }
+
+        public bool Update(Question question)
+        {
+            return _questions.Update(question);
+        }
+
+        public bool Delete(Guid id)
+        {
+            return _questions.Delete(id);
+        }
     }
 }

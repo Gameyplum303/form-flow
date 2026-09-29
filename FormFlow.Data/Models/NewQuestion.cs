@@ -10,5 +10,7 @@ namespace FormFlow.Data.Models
         public string? DefaultValue { get; set; }
         public string? HelpText { get; set; }
         public List<Option> Options { get; set; } = new();
+        public VisibleIf? VisibleIf { get; set; }
+        public string? ValidationConfigs { get; set; }
     }
 }

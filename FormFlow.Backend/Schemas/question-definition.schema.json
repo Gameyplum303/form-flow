@@ -80,10 +80,11 @@
   },
   "required": ["id", "key", "label", "type"],
   "if": {
-    "properties": { "type": { "enum": ["dropdown", "radio", "checkbox", "multiselect"] } },
+    "properties": { "type": { "enum": ["dropdown", "radio", "multiselect"] } },
     "required": ["type"]
   },
   "then": {
-    "required": ["options"]
+    "required": ["options"],
+    "properties": { "options": { "minItems": 1 } }
   }
 }

@@ -1,7 +1,5 @@
 using FormFlow.Data.Models;
 using FormFlow.Backend.Repositories;
-using System.Text.RegularExpressions;
-using System.Runtime.CompilerServices;
 
 namespace FormFlow.Backend.Endpoints
 {
@@ -9,17 +7,19 @@ namespace FormFlow.Backend.Endpoints
     {
         public static void MapSurveyEndpoints(this IEndpointRouteBuilder app)
         {
+            var group = app.MapGroup("/api/surveys").WithTags("Surveys");
+
             // GET All Surveys
-            app.MapGet("/api/surveys", (ISurveyRepository repo) =>
+            group.MapGet("", (ISurveyRepository repo) =>
             {
-                var surveys = repo.Surveys.FindAll().ToList();
+                var surveys = repo.FindAll().ToList();
                 return Results.Json(surveys);
             })
             .WithName("GetAllSurveys")
             .Produces<List<SurveyDefinition>>(StatusCodes.Status200OK);
 
             // GET survey by id
-            app.MapGet("/api/surveys/{id}", (string id, ISurveyRepository repo) =>
+            group.MapGet("/{id}", (string id, ISurveyRepository repo) =>
             {
                 if (!Guid.TryParse(id, out var parsedId))
                 {
@@ -29,7 +29,7 @@ namespace FormFlow.Backend.Endpoints
                     });
                 }
 
-                var survey = repo.Surveys.FindById(parsedId);
+                var survey = repo.FindById(parsedId);
 
                 if (survey is null)
                 {
@@ -42,23 +42,33 @@ namespace FormFlow.Backend.Endpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound);
 
-            app.MapPost("/api/surveys", (NewSurvey dto, ISurveyRepository repo) =>
+            // GET the survey's questions, in survey order, so a client can render it in one call
+            group.MapGet("/{id:guid}/questions", (Guid id, ISurveyRepository repo, IQuestionRepository questions) =>
             {
-                if (string.IsNullOrWhiteSpace(dto.Title) || string.IsNullOrWhiteSpace(dto.Description))
+                var survey = repo.FindById(id);
+                if (survey is null)
                 {
-                    return Results.BadRequest(new { error = "Title is required. " });
+                    return Results.NotFound();
                 }
+                return Results.Ok(LoadQuestions(survey, questions));
+            })
+            .WithName("GetSurveyQuestions")
+            .Produces<List<QuestionDefinition>>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound);
 
-                if (dto.QuestionIds == null || dto.QuestionIds.Count == 0)
+            group.MapPost("", (NewSurvey dto, ISurveyRepository repo, IQuestionRepository questions) =>
+            {
+                var error = Validate(dto, questions);
+                if (error is not null)
                 {
-                    return Results.BadRequest(new { error = "At least one question is required. " });
+                    return Results.BadRequest(new { error });
                 }
 
                 var survey = new SurveyDefinition
                 {
                     Id = Guid.NewGuid(),
-                    Title = dto.Title,
-                    Description = dto.Description,
+                    Title = dto.Title.Trim(),
+                    Description = dto.Description.Trim(),
                     QuestionIds = dto.QuestionIds,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -70,6 +80,87 @@ namespace FormFlow.Backend.Endpoints
             .WithName("CreateSurvey")
             .Produces<SurveyDefinition>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest);
+
+            group.MapPut("/{id:guid}", (Guid id, NewSurvey dto, ISurveyRepository repo, IQuestionRepository questions) =>
+            {
+                var existing = repo.FindById(id);
+                if (existing is null)
+                {
+                    return Results.NotFound();
+                }
+
+                var error = Validate(dto, questions);
+                if (error is not null)
+                {
+                    return Results.BadRequest(new { error });
+                }
+
+                existing.Title = dto.Title.Trim();
+                existing.Description = dto.Description.Trim();
+                existing.QuestionIds = dto.QuestionIds;
+                repo.Update(existing);
+
+                return Results.Ok(existing);
+            })
+            .WithName("UpdateSurvey")
+            .Produces<SurveyDefinition>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
+
+            group.MapDelete("/{id:guid}", (Guid id, ISurveyRepository repo, IResponseRepository responses) =>
+            {
+                if (!repo.Delete(id))
+                {
+                    return Results.NotFound();
+                }
+
+                // Responses are meaningless without their survey.
+                responses.DeleteBySurveyId(id);
+                return Results.NoContent();
+            })
+            .WithName("DeleteSurvey")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound);
+        }
+
+        /// <summary>
+        /// Loads a survey's questions in survey order, skipping any that no longer exist.
+        /// </summary>
+        public static List<QuestionDefinition> LoadQuestions(SurveyDefinition survey, IQuestionRepository questions) =>
+            survey.QuestionIds
+                .Select(questions.FindById)
+                .OfType<QuestionDefinition>()
+                .ToList();
+
+        private static string? Validate(NewSurvey dto, IQuestionRepository questions)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Title))
+            {
+                return "Title is required.";
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.Description))
+            {
+                return "Description is required.";
+            }
+
+            if (dto.QuestionIds == null || dto.QuestionIds.Count == 0)
+            {
+                return "At least one question is required.";
+            }
+
+            if (dto.QuestionIds.Distinct().Count() != dto.QuestionIds.Count)
+            {
+                return "A question can only appear once in a survey.";
+            }
+
+            var missing = dto.QuestionIds.Where(q => questions.FindById(q) is null).ToList();
+            if (missing.Count > 0)
+            {
+                return $"Unknown question ids: {string.Join(", ", missing)}";
+            }
+
+            return null;
         }
     }
 }

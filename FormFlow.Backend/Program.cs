@@ -1,12 +1,9 @@
 using FormFlow.Backend;
 using FormFlow.Backend.Endpoints;
 using FormFlow.Backend.Repositories;
-using FormFlow.Data.Models;
 using FormFlow.Data.Services;
 
 using LiteDB;
-
-
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,9 +16,13 @@ builder.Services.AddSingleton<ILiteDatabase>(sp =>
 
 builder.Services.AddSingleton<IQuestionRepository, QuestionRepository>();
 builder.Services.AddSingleton<ISurveyRepository, SurveyRepository>();
+builder.Services.AddSingleton<IResponseRepository, ResponseRepository>();
 builder.Services.AddSingleton<QuestionValidator>();
+builder.Services.AddSingleton<QuestionValidationEngine>();
+builder.Services.AddSingleton<ResponseValidator>();
 builder.Services.AddSingleton<DatabaseSeeder>();
 
+builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddCors(options =>
 {
@@ -35,24 +36,28 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-    var dbContext = scope.ServiceProvider.GetRequiredService<ILiteDatabase>();
-    var collection = dbContext.GetCollection<QuestionDefinition>("questions");
-    //seeder.SeedInLine(collection);
-    seeder.SeedFromJson(collection);
-}
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+app.Services.GetRequiredService<DatabaseSeeder>().Seed();
 
-app.UseHttpsRedirection();
+// The API docs are part of the demo, so they are served in every environment.
+app.MapOpenApi();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/openapi/v1.json", "FormFlow API");
+    options.RoutePrefix = "swagger";
+});
+
+if (!app.Configuration.GetValue<bool>("DisableHttpsRedirection"))
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("AllowAll");
 
+app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 app.MapQuestionEndpoints();
 app.MapSurveyEndpoints();
-
+app.MapResponseEndpoints();
 
 app.Run();
+
+// Exposed so integration tests can use WebApplicationFactory<Program>.
+public partial class Program;
