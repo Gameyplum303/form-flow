@@ -2,6 +2,7 @@ using System.Security.Claims;
 using FormFlow.Backend.Auth;
 using FormFlow.Backend.Repositories;
 using FormFlow.Data.Models;
+using FormFlow.Data.Services;
 
 namespace FormFlow.Backend.Endpoints
 {
@@ -80,6 +81,7 @@ namespace FormFlow.Backend.Endpoints
                     Title = dto.Title.Trim(),
                     Description = dto.Description.Trim(),
                     QuestionIds = dto.QuestionIds,
+                    PageBreaks = SurveyPaging.Normalize(dto.QuestionIds, dto.PageBreaks),
                     CreatedAt = clock.GetUtcNow().UtcDateTime,
                     // New surveys stay private until their owner publishes them.
                     Status = SurveyStatuses.Draft,
@@ -117,6 +119,7 @@ namespace FormFlow.Backend.Endpoints
                 existing.Title = dto.Title.Trim();
                 existing.Description = dto.Description.Trim();
                 existing.QuestionIds = dto.QuestionIds;
+                existing.PageBreaks = SurveyPaging.Normalize(dto.QuestionIds, dto.PageBreaks);
                 repo.Update(existing);
 
                 return Results.Ok(existing);
@@ -127,6 +130,26 @@ namespace FormFlow.Backend.Endpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces<SurveyDefinition>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
+
+            // Copy a survey into a new draft the caller owns: their own, any survey for an administrator, or any published one
+            group.MapPost("/{id:guid}/duplicate", (Guid id, ClaimsPrincipal principal, ISurveyRepository repo, TimeProvider clock) =>
+            {
+                var survey = repo.FindById(id);
+                var user = CurrentUser.From(principal);
+                if (survey is null || !user.CanOpen(survey))
+                {
+                    return Results.NotFound();
+                }
+
+                var copy = DraftCopy(survey, $"Copy of {survey.Title}", user, repo, clock);
+                return Results.Created($"/api/surveys/{copy.Id}", copy);
+            })
+            .WithName("DuplicateSurvey")
+            .RequireAuthorization(JwtSettings.BuilderPolicy)
+            .Produces<SurveyDefinition>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
             // Publish or unpublish a survey, choose whether it is on the public list, and when it closes
@@ -190,6 +213,29 @@ namespace FormFlow.Backend.Endpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
+        }
+
+        /// <summary>
+        /// Stores a copy of a survey or template as a new draft owned by the caller: the same questions and
+        /// pages, with a new share code, no responses, and no close date.
+        /// </summary>
+        public static SurveyDefinition DraftCopy(SurveyDefinition source, string title, CurrentUser user,
+            ISurveyRepository repo, TimeProvider clock)
+        {
+            var copy = new SurveyDefinition
+            {
+                Id = Guid.NewGuid(),
+                Title = title,
+                Description = source.Description,
+                QuestionIds = source.QuestionIds.ToList(),
+                PageBreaks = SurveyPaging.Normalize(source.QuestionIds, source.PageBreaks),
+                CreatedAt = clock.GetUtcNow().UtcDateTime,
+                Status = SurveyStatuses.Draft,
+                Listed = false,
+                ShareCode = repo.NewShareCode(),
+            };
+            user.Own(copy);
+            return repo.Insert(copy);
         }
 
         /// <summary>

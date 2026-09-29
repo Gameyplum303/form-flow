@@ -26,7 +26,8 @@ namespace FormFlow.Backend.Repositories
         private const int ShareCodeLength = 8;
 
         public SurveyDefinition? FindByShareCode(string code) =>
-            string.IsNullOrWhiteSpace(code) ? null : _surveys.FindOne(s => s.ShareCode == code.Trim().ToLowerInvariant());
+            string.IsNullOrWhiteSpace(code) ? null
+            : _surveys.FindOne(s => s.ShareCode == code.Trim().ToLowerInvariant()) is { IsTemplate: false } survey ? survey : null;
 
         public string NewShareCode()
         {
@@ -42,7 +43,8 @@ namespace FormFlow.Backend.Repositories
 
         public int AssignMissingShareCodes()
         {
-            var missing = _surveys.Find(s => s.ShareCode == null).ToList();
+            // Templates can't be shared, so they have no code.
+            var missing = _surveys.Find(s => s.ShareCode == null).Where(s => !s.IsTemplate).ToList();
             foreach (var survey in missing)
             {
                 survey.ShareCode = NewShareCode();
@@ -57,15 +59,16 @@ namespace FormFlow.Backend.Repositories
             return survey;
         }
 
-        public SurveyDefinition? FindById(Guid id)
-        {
-            return _surveys.FindById(id);
-        }
+        public SurveyDefinition? FindById(Guid id) =>
+            _surveys.FindById(id) is { IsTemplate: false } survey ? survey : null;
 
-        public IEnumerable<SurveyDefinition> FindAll()
-        {
-            return _surveys.FindAll();
-        }
+        // Surveys stored before templates existed have no IsTemplate field, so filter in memory.
+        public IEnumerable<SurveyDefinition> FindAll() => _surveys.FindAll().Where(s => !s.IsTemplate);
+
+        public IEnumerable<SurveyDefinition> FindTemplates() => _surveys.FindAll().Where(s => s.IsTemplate);
+
+        public SurveyDefinition? FindTemplate(Guid id) =>
+            _surveys.FindById(id) is { IsTemplate: true } template ? template : null;
 
         public IEnumerable<SurveyDefinition> FindByQuestionId(Guid questionId)
         {

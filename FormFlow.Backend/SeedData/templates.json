@@ -1,0 +1,400 @@
+[
+  {
+    "id": "a6d146ae-bc2e-5d9f-bc52-d34e324635a9",
+    "title": "Course evaluation",
+    "description": "End-of-term feedback on a course: the teaching, the workload, and what to keep or change.",
+    "questions": [
+      {
+        "id": "c194a24f-0bcc-5e55-a7a4-8ef46aae7e5d",
+        "key": "course_eval_course",
+        "label": "Which course are you evaluating?",
+        "type": "text",
+        "required": true,
+        "placeholder": "For example, SENG 3000"
+      },
+      {
+        "id": "ecaefc48-8699-5c0f-a1e9-606574f33d5d",
+        "key": "course_eval_attendance",
+        "label": "How often did you attend class?",
+        "type": "radio",
+        "required": true,
+        "options": [
+          {
+            "value": "always",
+            "label": "Every class"
+          },
+          {
+            "value": "most",
+            "label": "Most classes"
+          },
+          {
+            "value": "some",
+            "label": "Some classes"
+          },
+          {
+            "value": "rarely",
+            "label": "Rarely"
+          }
+        ]
+      },
+      {
+        "id": "e307458d-f148-5d32-b62e-b820e9ad700b",
+        "key": "course_eval_overall",
+        "label": "Overall, how would you rate this course?",
+        "type": "rating",
+        "required": true,
+        "helpText": "1 star is poor, 5 stars is excellent."
+      },
+      {
+        "id": "7c707fd4-bba9-5564-9d48-d260b40ffdf4",
+        "key": "course_eval_teaching",
+        "label": "How clear was the teaching?",
+        "type": "rating",
+        "required": true
+      },
+      {
+        "id": "eeb7dc22-47b9-52ae-9d23-9e900170232d",
+        "key": "course_eval_workload",
+        "label": "How was the workload?",
+        "type": "dropdown",
+        "required": true,
+        "options": [
+          {
+            "value": "light",
+            "label": "Too light"
+          },
+          {
+            "value": "right",
+            "label": "About right"
+          },
+          {
+            "value": "heavy",
+            "label": "Too heavy"
+          }
+        ]
+      },
+      {
+        "id": "55683f7d-effb-5272-931d-6e38199ce5de",
+        "key": "course_eval_hours",
+        "label": "About how many hours a week did you spend on the course outside class?",
+        "type": "number",
+        "required": false,
+        "validationConfigs": "[{\"validationType\":\"MinValue\",\"minValue\":0},{\"validationType\":\"MaxValue\",\"maxValue\":80}]"
+      },
+      {
+        "id": "4b2cc940-b515-5cc9-a071-cea0e1263324",
+        "key": "course_eval_helped",
+        "label": "What helped you learn the most?",
+        "type": "long_text",
+        "required": false,
+        "placeholder": "Optional"
+      },
+      {
+        "id": "02b4f190-25d4-5713-85a4-39b0bffd32eb",
+        "key": "course_eval_change",
+        "label": "What should change next time?",
+        "type": "long_text",
+        "required": false,
+        "placeholder": "Optional"
+      },
+      {
+        "id": "a7c05aca-0c8e-5310-960e-bcd05287d4e3",
+        "key": "course_eval_recommend",
+        "label": "Would you recommend this course to another student?",
+        "type": "yes_no",
+        "required": true
+      }
+    ],
+    "pageBreaks": [
+      "course_eval_overall",
+      "course_eval_helped"
+    ]
+  },
+  {
+    "id": "ccd70378-fbc2-5877-a3ec-5a0b1ee497b6",
+    "title": "Event feedback",
+    "description": "A short survey to send after a workshop, talk or meetup.",
+    "questions": [
+      {
+        "id": "cddb2535-2f61-5135-b94d-5b478ce7abfc",
+        "key": "event_feedback_overall",
+        "label": "How would you rate the event overall?",
+        "type": "rating",
+        "required": true
+      },
+      {
+        "id": "13b705a9-49b8-583d-b7db-97809a672c40",
+        "key": "event_feedback_enjoyed",
+        "label": "Which parts did you enjoy?",
+        "type": "multiselect",
+        "required": false,
+        "options": [
+          {
+            "value": "talks",
+            "label": "Talks"
+          },
+          {
+            "value": "workshops",
+            "label": "Workshops"
+          },
+          {
+            "value": "networking",
+            "label": "Networking"
+          },
+          {
+            "value": "food",
+            "label": "Food and drinks"
+          },
+          {
+            "value": "venue",
+            "label": "The venue"
+          }
+        ]
+      },
+      {
+        "id": "6858d7d5-9fa9-56a8-9bf9-faa41b50e6fe",
+        "key": "event_feedback_length",
+        "label": "Was the event the right length?",
+        "type": "radio",
+        "required": true,
+        "options": [
+          {
+            "value": "short",
+            "label": "Too short"
+          },
+          {
+            "value": "right",
+            "label": "About right"
+          },
+          {
+            "value": "long",
+            "label": "Too long"
+          }
+        ]
+      },
+      {
+        "id": "9f299e8a-6dd0-53a6-b491-a59b3d695c98",
+        "key": "event_feedback_again",
+        "label": "Would you come to another event like this?",
+        "type": "yes_no",
+        "required": true
+      },
+      {
+        "id": "15512ea7-b4b8-593f-85e4-3b48cd2f2335",
+        "key": "event_feedback_comments",
+        "label": "Anything else we should know?",
+        "type": "long_text",
+        "required": false,
+        "placeholder": "Optional"
+      }
+    ],
+    "pageBreaks": []
+  },
+  {
+    "id": "e9c2b4ab-68a2-5613-921a-9b253986d41a",
+    "title": "Research study intake",
+    "description": "Enrol participants in a study: consent first, then contact details and availability. People who don't consent skip straight to the end.",
+    "questions": [
+      {
+        "id": "1b5c01a9-d73f-5db7-ace2-f19927e1ee44",
+        "key": "research_intake_consent",
+        "label": "Do you consent to take part in this study?",
+        "type": "yes_no",
+        "required": true,
+        "helpText": "Taking part is voluntary, and you can withdraw at any time without giving a reason."
+      },
+      {
+        "id": "43b1948d-2de9-54bb-9238-b6f2805427e2",
+        "key": "research_intake_decline_reason",
+        "label": "Would you tell us why not?",
+        "type": "long_text",
+        "required": false,
+        "placeholder": "Optional",
+        "visibleIf": {
+          "key": "research_intake_consent",
+          "shouldEqual": false
+        }
+      },
+      {
+        "id": "f1b3dda5-3a40-5ca2-8b3b-0ce1f3081f2c",
+        "key": "research_intake_name",
+        "label": "Full name",
+        "type": "text",
+        "required": true,
+        "visibleIf": {
+          "key": "research_intake_consent",
+          "shouldEqual": true
+        }
+      },
+      {
+        "id": "59222106-4a30-53f1-9f2a-65667c763e95",
+        "key": "research_intake_email",
+        "label": "Email address",
+        "type": "email",
+        "required": true,
+        "helpText": "We only use it to arrange your sessions.",
+        "visibleIf": {
+          "key": "research_intake_consent",
+          "shouldEqual": true
+        }
+      },
+      {
+        "id": "6ba16702-e659-5270-84fe-c7841850d0a4",
+        "key": "research_intake_birth_date",
+        "label": "Date of birth",
+        "type": "date",
+        "required": true,
+        "visibleIf": {
+          "key": "research_intake_consent",
+          "shouldEqual": true
+        }
+      },
+      {
+        "id": "1f476e36-81e5-58ff-8f95-d93bb7cb7162",
+        "key": "research_intake_availability",
+        "label": "When are you available for sessions?",
+        "type": "checkbox",
+        "required": true,
+        "options": [
+          {
+            "value": "mornings",
+            "label": "Weekday mornings"
+          },
+          {
+            "value": "afternoons",
+            "label": "Weekday afternoons"
+          },
+          {
+            "value": "evenings",
+            "label": "Weekday evenings"
+          },
+          {
+            "value": "weekends",
+            "label": "Weekends"
+          }
+        ],
+        "visibleIf": {
+          "key": "research_intake_consent",
+          "shouldEqual": true
+        }
+      },
+      {
+        "id": "e672cbeb-c278-5d04-88e4-1d4c677cd3d3",
+        "key": "research_intake_prior",
+        "label": "Have you taken part in one of our studies before?",
+        "type": "yes_no",
+        "required": true,
+        "visibleIf": {
+          "key": "research_intake_consent",
+          "shouldEqual": true
+        }
+      },
+      {
+        "id": "288d5c30-2b5b-5d81-8418-351cf4e464d3",
+        "key": "research_intake_prior_details",
+        "label": "Which study, and when?",
+        "type": "text",
+        "required": true,
+        "visibleIf": {
+          "key": "research_intake_prior",
+          "shouldEqual": true
+        }
+      }
+    ],
+    "pageBreaks": [
+      "research_intake_name",
+      "research_intake_availability"
+    ]
+  },
+  {
+    "id": "34b0c214-296e-5092-a934-c71b4af1e2ff",
+    "title": "Customer satisfaction",
+    "description": "How satisfied customers are after contacting you, and whether their issue was resolved.",
+    "questions": [
+      {
+        "id": "62f35836-86da-554f-a911-8292c9af3b57",
+        "key": "customer_sat_reason",
+        "label": "What did you contact us about?",
+        "type": "dropdown",
+        "required": true,
+        "options": [
+          {
+            "value": "billing",
+            "label": "Billing"
+          },
+          {
+            "value": "order",
+            "label": "An order"
+          },
+          {
+            "value": "product",
+            "label": "A product question"
+          },
+          {
+            "value": "support",
+            "label": "Technical support"
+          },
+          {
+            "value": "other",
+            "label": "Something else"
+          }
+        ]
+      },
+      {
+        "id": "6e44bb9e-da49-5483-bc82-b45aaefc2816",
+        "key": "customer_sat_overall",
+        "label": "How satisfied are you with the help you got?",
+        "type": "rating",
+        "required": true
+      },
+      {
+        "id": "d4755466-0f65-53db-b3e5-81f261fa4870",
+        "key": "customer_sat_recommend",
+        "label": "How likely are you to recommend us to a friend?",
+        "type": "rating",
+        "required": true,
+        "helpText": "1 is not at all likely, 10 is extremely likely.",
+        "validationConfigs": "[{\"validationType\":\"MaxValue\",\"maxValue\":10}]"
+      },
+      {
+        "id": "6e2cb2b8-636e-5d9e-982f-481780edd870",
+        "key": "customer_sat_resolved",
+        "label": "Was your issue resolved?",
+        "type": "yes_no",
+        "required": true
+      },
+      {
+        "id": "a0cbd03e-2b85-5ad7-a2a5-558c134f914e",
+        "key": "customer_sat_unresolved",
+        "label": "What is still unresolved?",
+        "type": "long_text",
+        "required": true,
+        "visibleIf": {
+          "key": "customer_sat_resolved",
+          "shouldEqual": false
+        }
+      },
+      {
+        "id": "a9e7ed8b-e552-5df5-b568-1b60d5e37a3e",
+        "key": "customer_sat_follow_up",
+        "label": "May we contact you about your answers?",
+        "type": "yes_no",
+        "required": true
+      },
+      {
+        "id": "ba8e772e-43bd-5696-b261-9dcc697bc3ee",
+        "key": "customer_sat_email",
+        "label": "Your email address",
+        "type": "email",
+        "required": true,
+        "visibleIf": {
+          "key": "customer_sat_follow_up",
+          "shouldEqual": true
+        }
+      }
+    ],
+    "pageBreaks": [
+      "customer_sat_resolved"
+    ]
+  }
+]
