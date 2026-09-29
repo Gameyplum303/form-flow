@@ -16,11 +16,17 @@ namespace FormFlow.Backend.Endpoints
     public class SubmitResponseRequest
     {
         public Dictionary<string, JsonElement> Answers { get; set; } = new();
+
+        /// <summary>The respondent's temporary id for this browser (see <see cref="SurveyResponse.RespondentId"/>).</summary>
+        public string? RespondentId { get; set; }
     }
 
     public static class ResponseEndpoints
     {
         public const string SubmitRateLimit = "submissions";
+        public const string ClosedMessage = "This survey is closed and no longer takes answers.";
+        public const string AlreadyAnsweredMessage = "You've already answered this survey. Thank you!";
+        private const int MaxRespondentIdLength = 64;
 
         public static void MapResponseEndpoints(this IEndpointRouteBuilder app)
         {
@@ -29,12 +35,27 @@ namespace FormFlow.Backend.Endpoints
             // Anyone can answer a survey. When the person is signed in, the response records who sent it.
             group.MapPost("/responses", (Guid surveyId, SubmitResponseRequest request, ClaimsPrincipal principal,
                 ISurveyRepository surveys, IQuestionRepository questionRepository, IResponseRepository responses,
-                ResponseValidator validator) =>
+                ResponseValidator validator, TimeProvider clock) =>
             {
                 var survey = surveys.FindById(surveyId);
-                if (survey is null)
+                var user = CurrentUser.From(principal);
+                if (survey is null || !user.CanOpen(survey))
                 {
                     return Results.NotFound();
+                }
+                if (survey.IsClosed(clock.GetUtcNow().UtcDateTime))
+                {
+                    return Results.Conflict(new { error = ClosedMessage });
+                }
+
+                var respondentId = request.RespondentId?.Trim();
+                if (respondentId is { Length: > MaxRespondentIdLength })
+                {
+                    return Results.BadRequest(new { error = $"respondentId must be at most {MaxRespondentIdLength} characters." });
+                }
+                if (!string.IsNullOrEmpty(respondentId) && responses.HasAnswered(surveyId, respondentId))
+                {
+                    return Results.Conflict(new { error = AlreadyAnsweredMessage });
                 }
 
                 if (!TryReadAnswers(request.Answers, out var answers, out var formatErrors))
@@ -54,7 +75,8 @@ namespace FormFlow.Backend.Endpoints
                     Id = Guid.NewGuid(),
                     SurveyId = surveyId,
                     SubmittedAt = DateTime.UtcNow,
-                    SubmittedBy = CurrentUser.From(principal) is { IsSignedIn: true } user ? user.Username : null,
+                    SubmittedBy = user.IsSignedIn ? user.Username : null,
+                    RespondentId = string.IsNullOrEmpty(respondentId) ? null : respondentId,
                     Answers = result.Answers
                 });
 
@@ -65,7 +87,14 @@ namespace FormFlow.Backend.Endpoints
             .Produces<SurveyResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
             .Produces(StatusCodes.Status429TooManyRequests);
+
+            // Lets a survey page say straight away that this browser already answered.
+            group.MapGet("/answered", (Guid surveyId, string? respondentId, IResponseRepository responses) =>
+                Results.Ok(new { answered = !string.IsNullOrWhiteSpace(respondentId) && responses.HasAnswered(surveyId, respondentId.Trim()) }))
+            .WithName("HasAnswered")
+            .Produces(StatusCodes.Status200OK);
 
             group.MapGet("/responses", (Guid surveyId, ClaimsPrincipal principal, ISurveyRepository surveys,
                 IResponseRepository responses) =>

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using LiteDB;
 using FormFlow.Data.Models;
 
@@ -15,6 +16,39 @@ namespace FormFlow.Backend.Repositories
             _surveys = db.GetCollection<SurveyDefinition>(CollectionName);
 
             _surveys.EnsureIndex(s => s.Id, true);
+
+            // Not unique: surveys stored before sharing existed have no code until AssignMissingShareCodes runs.
+            _surveys.EnsureIndex(s => s.ShareCode);
+        }
+
+        // No 0/o, 1/l/i, so a code read aloud or copied by hand comes out right.
+        private const string ShareCodeAlphabet = "23456789abcdefghjkmnpqrstuvwxyz";
+        private const int ShareCodeLength = 8;
+
+        public SurveyDefinition? FindByShareCode(string code) =>
+            string.IsNullOrWhiteSpace(code) ? null : _surveys.FindOne(s => s.ShareCode == code.Trim().ToLowerInvariant());
+
+        public string NewShareCode()
+        {
+            while (true)
+            {
+                var code = RandomNumberGenerator.GetString(ShareCodeAlphabet, ShareCodeLength);
+                if (FindByShareCode(code) is null)
+                {
+                    return code;
+                }
+            }
+        }
+
+        public int AssignMissingShareCodes()
+        {
+            var missing = _surveys.Find(s => s.ShareCode == null).ToList();
+            foreach (var survey in missing)
+            {
+                survey.ShareCode = NewShareCode();
+                _surveys.Update(survey);
+            }
+            return missing.Count;
         }
 
         public SurveyDefinition Insert(SurveyDefinition survey)

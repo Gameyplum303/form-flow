@@ -1,0 +1,181 @@
+@page "/admin/surveys/{Id:guid}/share"
+@using System.Globalization
+@using FormFlow.Blazor.Services
+@using QRCoder
+@inject ISurveyService SurveyService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<PageTitle>Share survey</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_survey is null)
+{
+    <MudAlert Severity="Severity.Warning">Survey not found.</MudAlert>
+    <MudButton Class="mt-4" Variant="Variant.Outlined" Href="/admin/surveys">Back to surveys</MudButton>
+}
+else if (!Current.CanManage(_survey))
+{
+    <MudAlert Severity="Severity.Warning">You can only share surveys you created.</MudAlert>
+    <MudButton Class="mt-4" Variant="Variant.Outlined" Href="/admin/surveys">Back to surveys</MudButton>
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+        <MudText Typo="Typo.h4">Share "@_survey.Title"</MudText>
+        <SurveyStatusChip Survey="_survey" />
+    </MudStack>
+
+    <MudGrid>
+        <MudItem xs="12" md="7">
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" Class="mb-2">Who can answer</MudText>
+                <MudRadioGroup T="string" @bind-Value="_status">
+                    <MudRadio T="string" Value="SurveyStatuses.Draft" Color="Color.Primary">
+                        Draft: only you can open it while you finish it
+                    </MudRadio>
+                    <MudRadio T="string" Value="SurveyStatuses.Published" Color="Color.Primary">
+                        Published: anyone with the link can answer, without an account
+                    </MudRadio>
+                </MudRadioGroup>
+
+                <MudCheckBox T="bool" @bind-Value="_listed" Color="Color.Primary" Class="mt-2"
+                             Disabled="_status != SurveyStatuses.Published">
+                    Also show it on the public list of surveys
+                </MudCheckBox>
+
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">When it closes</MudText>
+                <label for="share-closes-at" class="d-block mb-1">Stop taking answers at</label>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <input id="share-closes-at" type="datetime-local" class="share-close-input"
+                           value="@CloseText" @onchange="@(e => CloseText = e.Value?.ToString())" />
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="_closesAtUtc is null"
+                               OnClick="@(() => _closesAtUtc = null)">Clear</MudButton>
+                </MudStack>
+                <MudText Typo="Typo.caption" Class="d-block mt-1">Leave empty to keep the survey open until you unpublish it.</MudText>
+
+                <MudButton Class="mt-4" Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveAsync">
+                    Save sharing settings
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" Class="mb-2">Share link</MudText>
+                <MudTextField T="string" Value="Link" ReadOnly="true" Variant="Variant.Outlined" data-share-link />
+                <MudStack Row="true" Spacing="2" Class="mt-2">
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyAsync">Copy link</MudButton>
+                    <MudButton Variant="Variant.Text" Href="@Link" Target="_blank">Open</MudButton>
+                </MudStack>
+                @if (!_survey.IsPublished())
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">The link works for everyone once you publish the survey.</MudAlert>
+                }
+                <div class="share-qr mt-3" data-share-qr>@QrCode</div>
+                <MudText Typo="Typo.caption">Students can scan this to open the survey on their phones.</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudButton Class="mt-4" Variant="Variant.Text" Href="/admin/surveys">Back to surveys</MudButton>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] public AdminAccess? Access { get; set; }
+
+    private AdminAccess Current => Access ?? AdminAccess.Administrator;
+
+    private SurveyDefinition? _survey;
+    private bool _loading = true;
+    private bool _saving;
+    private string _status = SurveyStatuses.Draft;
+    private bool _listed;
+    private DateTime? _closesAtUtc;
+
+    /// <summary>Minutes from the browser's local time to UTC, so the close time is entered in local time.</summary>
+    private int _timezoneOffset;
+
+    private const string LocalFormat = "yyyy-MM-ddTHH:mm";
+
+    // Blazor passes datetime-local values on with seconds added.
+    private static readonly string[] InputFormats = [LocalFormat, "yyyy-MM-ddTHH:mm:ss"];
+
+    private string Link => Nav.BaseUri + "s/" + _survey?.ShareCode;
+
+    private string? CloseText
+    {
+        get => _closesAtUtc?.AddMinutes(-_timezoneOffset).ToString(LocalFormat, CultureInfo.InvariantCulture);
+        set => _closesAtUtc = DateTime.TryParseExact(value, InputFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var local)
+            ? DateTime.SpecifyKind(local.AddMinutes(_timezoneOffset), DateTimeKind.Utc)
+            : null;
+    }
+
+    private MarkupString QrCode
+    {
+        get
+        {
+            using var generator = new QRCodeGenerator();
+            using var data = generator.CreateQrCode(Link, QRCodeGenerator.ECCLevel.M);
+            return new MarkupString(new SvgQRCode(data).GetGraphic(4));
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _survey = await SurveyService.GetSurveyAsync(Id);
+        if (_survey is not null)
+        {
+            _status = _survey.Status;
+            _listed = _survey.Listed;
+            _closesAtUtc = _survey.ClosesAt;
+        }
+        _loading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _timezoneOffset = await JS.InvokeAsync<int>("formFlow.timezoneOffset");
+            if (_timezoneOffset != 0)
+            {
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        var (saved, error) = await SurveyService.UpdateSharingAsync(Id, new SurveySharing
+        {
+            Status = _status,
+            Listed = _status == SurveyStatuses.Published && _listed,
+            ClosesAt = _closesAtUtc,
+        });
+        _saving = false;
+
+        if (saved is null)
+        {
+            Snackbar.Add($"The sharing settings could not be saved: {error}", Severity.Error);
+            return;
+        }
+
+        _survey = saved;
+        _listed = saved.Listed;
+        Snackbar.Add(saved.IsPublished() ? "Saved. The survey is published." : "Saved. The survey is a draft.", Severity.Success);
+    }
+
+    private async Task CopyAsync()
+    {
+        var copied = await JS.InvokeAsync<bool>("formFlow.copyText", Link);
+        Snackbar.Add(copied ? "Link copied." : "Your browser blocked copying. Select the link and copy it instead.",
+            copied ? Severity.Success : Severity.Warning);
+    }
+}

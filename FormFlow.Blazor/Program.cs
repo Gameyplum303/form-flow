@@ -24,6 +24,9 @@ builder.Services.AddHttpClient<ISurveyService, SurveyService>(client =>
 // The signed-in admin for this circuit; the services above add its token to API calls.
 builder.Services.AddScoped<AdminSession>();
 
+// Someone taking surveys without an account, remembered per browser.
+builder.Services.AddScoped<IRespondentIdentity, RespondentIdentity>();
+
 builder.Services.AddHttpClient<IAuthService, AuthService>(client =>
 {
     var url = builder.Configuration["BackendAPI:BaseUrl"];

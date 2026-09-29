@@ -141,6 +141,7 @@ namespace FormFlow.Backend.Tests.Endpoints
         [InlineData("GET", "/api/surveys/{survey}/results")]
         [InlineData("GET", "/api/surveys/{survey}/responses/export")]
         [InlineData("GET", "/api/surveys/managed")]
+        [InlineData("PUT", "/api/surveys/{survey}/sharing")]
         public async Task AdminEndpoints_RejectAnonymousCalls(string method, string path)
         {
             var response = await _client.SendAsync(await RequestAsync(method, path));

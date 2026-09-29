@@ -280,7 +280,7 @@
 
         if (success)
         {
-            Snackbar.Add(IsEdit ? "Survey saved." : "Survey created successfully!", Severity.Success);
+            Snackbar.Add(IsEdit ? "Survey saved." : "Survey created as a draft. Use Share to publish it.", Severity.Success);
             Nav.NavigateTo("/admin/surveys");
         }
         else

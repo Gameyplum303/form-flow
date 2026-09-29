@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { admin, adminHeaders, demoSurveyTitle, headersFor, newSignUp, professor, runId, surveyByTitle, urls } from "./helpers";
+import { admin, adminHeaders, demoSurveyTitle, headersFor, newSignUp, professor, publish, runId, surveyByTitle, urls } from "./helpers";
 
 test.describe("API", () => {
     test("serves Swagger UI and the OpenAPI document", async ({ request }) => {
@@ -77,6 +77,8 @@ test.describe("API", () => {
         const survey = await created.json();
         try {
             expect(survey.ownerName).toBe(professor.username);
+            expect(survey.status).toBe("draft");
+            await publish(request, survey.id, headers);
             const managed: { id: string }[] = await (await request.get(`${urls.api}/api/surveys/managed`, { headers })).json();
             expect(managed.map(s => s.id)).toContain(survey.id);
             expect(managed.map(s => s.id)).not.toContain(demo.id);
@@ -145,11 +147,52 @@ test.describe("API", () => {
         expect(created.status()).toBe(201);
         const survey = await created.json();
         try {
+            await publish(request, survey.id, headers);
             expect((await request.post(`${urls.api}/api/surveys/${survey.id}/responses`, {
                 data: { answers: { first_name: "=HYPERLINK(\"http://example.com\")" } },
             })).status()).toBe(201);
             const csv = await (await request.get(`${urls.api}/api/surveys/${survey.id}/responses/export`, { headers })).text();
             expect(csv).toContain(`"'=HYPERLINK(""http://example.com"")"`);
+        } finally {
+            expect((await request.delete(`${urls.api}/api/surveys/${survey.id}`, { headers })).status()).toBe(204);
+        }
+    });
+
+    test("shares a survey by link, takes one answer per browser, and closes it", async ({ request }) => {
+        const headers = await headersFor(request, professor);
+        const questions: { id: string; key: string }[] = await (await request.get(`${urls.api}/api/questions`)).json();
+        const created = await request.post(`${urls.api}/api/surveys`, {
+            headers, data: { title: `Shared ${runId}`, description: "By link", questionIds: [questions.find(q => q.key === "first_name")!.id] },
+        });
+        const survey = await created.json();
+        const answer = (respondentId: string) => request.post(`${urls.api}/api/surveys/${survey.id}/responses`, {
+            data: { answers: { first_name: "Ada" }, respondentId },
+        });
+        try {
+            // A draft is private to its owner.
+            expect((await request.get(`${urls.api}/api/share/${survey.shareCode}`)).status()).toBe(404);
+            expect((await answer("browser-a")).status()).toBe(404);
+
+            // Published without listing: reachable by its link, missing from the public list.
+            await publish(request, survey.id, headers, { listed: false });
+            const shared = await request.get(`${urls.api}/api/share/${survey.shareCode.toUpperCase()}`);
+            expect(shared.status()).toBe(200);
+            expect((await shared.json()).id).toBe(survey.id);
+            const listed: { id: string }[] = await (await request.get(`${urls.api}/api/surveys`)).json();
+            expect(listed.map(s => s.id)).not.toContain(survey.id);
+
+            expect((await answer("browser-a")).status()).toBe(201);
+            const again = await answer("browser-a");
+            expect(again.status()).toBe(409);
+            expect((await again.json()).error).toBe("You've already answered this survey. Thank you!");
+            expect(await (await request.get(`${urls.api}/api/surveys/${survey.id}/answered?respondentId=browser-a`)).json())
+                .toEqual({ answered: true });
+            expect((await answer("browser-b")).status()).toBe(201);
+
+            await publish(request, survey.id, headers, { closesAt: new Date(Date.now() - 60_000).toISOString() });
+            const closed = await answer("browser-c");
+            expect(closed.status()).toBe(409);
+            expect((await closed.json()).error).toBe("This survey is closed and no longer takes answers.");
         } finally {
             expect((await request.delete(`${urls.api}/api/surveys/${survey.id}`, { headers })).status()).toBe(204);
         }

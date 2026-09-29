@@ -95,6 +95,7 @@ namespace FormFlow.Blazor.Tests.Admin
             cut.Markup.Should().NotContain("Created by", "only administrators see who made each survey");
             cut.FindAll("button").Should().Contain(b => b.TextContent.Trim() == "Edit");
             cut.FindAll("button").Should().Contain(b => b.TextContent.Trim() == "Results");
+            cut.FindAll("button").Should().Contain(b => b.TextContent.Trim() == "Share");
         }
 
         [Fact]
@@ -135,6 +136,40 @@ namespace FormFlow.Blazor.Tests.Admin
             cut.FindAll("tbody tr")[0].TextContent.Should().Contain("professor");
             cut.FindAll("tbody tr")[1].TextContent.Should().Contain("Administrators");
             cut.FindAll("button").Where(b => b.TextContent.Trim() == "Edit").Should().HaveCount(2);
+        }
+
+        [Fact]
+        public async Task SurveyList_ShowsEachSurveysSharingStatus()
+        {
+            await using var ctx = CreateContext();
+            var draft = Survey("Draft one");
+            draft.Status = SurveyStatuses.Draft;
+            var linkOnly = Survey("Link one");
+            linkOnly.Listed = false;
+            var closed = Survey("Closed one");
+            closed.ClosesAt = DateTime.UtcNow.AddDays(-1);
+            _service.Surveys.AddRange([draft, linkOnly, closed, Survey("Listed one")]);
+
+            var cut = ctx.Render<AdminSurveysList>();
+            cut.WaitForAssertion(() => Assert.Contains("Listed one", cut.Markup));
+
+            cut.FindAll("[data-survey-status]").Select(c => c.GetAttribute("data-survey-status"))
+                .Should().Equal("Draft", "Published, link only", "Closed", "Published");
+        }
+
+        [Fact]
+        public async Task SurveyList_ShareButton_OpensTheSharePage()
+        {
+            await using var ctx = CreateContext();
+            var survey = Survey("Survey A");
+            _service.Surveys.Add(survey);
+            var nav = ctx.Services.GetRequiredService<NavigationManager>();
+
+            var cut = ctx.Render<AdminSurveysList>();
+            cut.WaitForAssertion(() => Assert.Contains("Survey A", cut.Markup));
+            cut.FindAll("button").First(b => b.TextContent.Trim() == "Share").Click();
+
+            cut.WaitForAssertion(() => Assert.Equal($"admin/surveys/{survey.Id}/share", nav.Uri.Replace(nav.BaseUri, "")));
         }
 
         [Fact]

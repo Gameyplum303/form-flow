@@ -63,7 +63,19 @@ The API checks the question again when it is saved and any errors are shown on t
 
 ## Surveys (`/admin/surveys`)
 
-A table of surveys with their question counts. Delete asks for confirmation and also deletes the survey's responses.
+A table of surveys with their question counts and sharing status: **Draft**, **Published** (on the public list), **Published, link only**, or **Closed**. **Share** opens the survey's Share page. Delete asks for confirmation and also deletes the survey's responses.
+
+New surveys are drafts, so nobody else can open them until they're published.
+
+## Share (`/admin/surveys/{id}/share`)
+
+Controls who can answer a survey:
+
+- **Draft** or **Published**. A published survey can be answered by anyone with the link, without an account.
+- **Also show it on the public list of surveys**. Leave it off to share the survey only by its link.
+- **Stop taking answers at**, in the browser's local time. After that the survey drops off the public list and shows a "closed" message. **Clear** removes the close date.
+
+**Save sharing settings** applies them. The right side shows the share link (`/s/{code}`) with **Copy link** and **Open**, and a QR code of the link for students to scan. Each browser can answer a survey once; coming back shows a thank-you instead of the form.
 
 ## Create or edit a survey
 
@@ -81,4 +93,4 @@ Shows the number of responses and when the latest arrived, then a card per quest
 - number questions: average, minimum and maximum,
 - text questions: the five most recent answers.
 
-**Download CSV** calls the API's export endpoint. **Open survey** goes to the respondent page.
+**Download CSV** calls the API's export endpoint. **Share** goes to the survey's Share page.

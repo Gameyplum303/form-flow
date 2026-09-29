@@ -58,6 +58,18 @@ export async function surveyByTitle(request: APIRequestContext, title: string) {
     return survey!;
 }
 
+/** Publishes a survey through the API, since new surveys start as private drafts. */
+export async function publish(
+    request: APIRequestContext, surveyId: string, headers: Record<string, string>,
+    sharing: { listed?: boolean; closesAt?: string | null } = {},
+) {
+    const response = await request.put(`${urls.api}/api/surveys/${surveyId}/sharing`, {
+        headers, data: { status: "published", listed: sharing.listed ?? false, closesAt: sharing.closesAt ?? null },
+    });
+    expect(response.status(), "publishing the survey").toBe(200);
+    return response.json();
+}
+
 export const demoSurveyTitle = "Student Experience Survey";
 
 /** The admin account docker compose creates. Override with ADMIN_USERNAME and ADMIN_PASSWORD. */

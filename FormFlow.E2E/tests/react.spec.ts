@@ -34,6 +34,8 @@ test.describe("React: taking a survey", () => {
         await page.getByLabel(/How old are you/).fill("40");
         await page.getByRole("button", { name: "Submit" }).click();
         await expect(page.getByText(/Thank you/)).toBeVisible();
+        await page.reload();
+        await expect(page.getByText("You've already answered this survey. Thank you!")).toBeVisible();
 
         const survey = await surveyByTitle(request, demoSurveyTitle);
         const responses = await (await request.get(`${urls.api}/api/surveys/${survey.id}/responses`, { headers: await adminHeaders(request) })).json();
@@ -47,6 +49,14 @@ test.describe("React: taking a survey", () => {
             experience_rating: ["3"],
             comments: ["More study rooms, please."],
         });
+    });
+
+    test("opens a survey from its share link", async ({ page, request }) => {
+        const listed = await surveyByTitle(request, demoSurveyTitle);
+        const survey = await (await request.get(`${urls.api}/api/surveys/${listed.id}`)).json();
+        await page.goto(`${urls.react}/#/s/${survey.shareCode}`);
+        await expect(page.getByRole("heading", { name: demoSurveyTitle })).toBeVisible();
+        await expect(page.getByLabel(/First Name/)).toBeVisible();
     });
 
     test("shows a message when the survey does not exist", async ({ page }) => {

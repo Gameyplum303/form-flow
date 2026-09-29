@@ -72,13 +72,17 @@ namespace FormFlow.Backend.Tests.Endpoints
             var professor = Professor();
             var seeded = await InMemoryApiFactory.GetQuestionAsync(professor, "first_name");
             var survey = await CreateSurveyAsync(professor, "Lab feedback", seeded.Id);
+            (await professor.PutAsJsonAsync($"/api/surveys/{survey.Id}/sharing",
+                new SurveySharing { Status = SurveyStatuses.Published })).StatusCode.Should().Be(HttpStatusCode.OK);
             await _factory.CreateClient().PostAsJsonAsync($"/api/surveys/{survey.Id}/responses",
                 new { answers = new Dictionary<string, object> { ["first_name"] = "Ada" } });
 
             var edit = await professor.PutAsJsonAsync($"/api/surveys/{survey.Id}",
                 new NewSurvey { Title = "Lab feedback, week 2", Description = "About things", QuestionIds = [seeded.Id] });
             edit.StatusCode.Should().Be(HttpStatusCode.OK);
-            (await edit.Content.ReadFromJsonAsync<SurveyDefinition>())!.OwnerName.Should().Be("professor", "editing keeps the owner");
+            var edited = (await edit.Content.ReadFromJsonAsync<SurveyDefinition>())!;
+            edited.OwnerName.Should().Be("professor", "editing keeps the owner");
+            edited.Status.Should().Be(SurveyStatuses.Published, "editing keeps the sharing settings");
 
             (await professor.GetFromJsonAsync<SurveyResults>($"/api/surveys/{survey.Id}/results"))!.TotalResponses.Should().Be(1);
             (await professor.GetAsync($"/api/surveys/{survey.Id}/responses")).StatusCode.Should().Be(HttpStatusCode.OK);
@@ -92,6 +96,7 @@ namespace FormFlow.Backend.Tests.Endpoints
         [InlineData("GET", "/api/surveys/{survey}/results")]
         [InlineData("GET", "/api/surveys/{survey}/responses")]
         [InlineData("GET", "/api/surveys/{survey}/responses/export")]
+        [InlineData("PUT", "/api/surveys/{survey}/sharing")]
         [InlineData("PUT", "/api/questions/{question}")]
         [InlineData("DELETE", "/api/questions/{question}")]
         public async Task Professor_CannotTouchAnotherProfessorsWork_OrTheDemoData(string method, string path)

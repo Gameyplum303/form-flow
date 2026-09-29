@@ -75,6 +75,7 @@ var app = builder.Build();
 
 app.Services.GetRequiredService<DatabaseSeeder>().Seed();
 app.Services.GetRequiredService<AdminAccountSeeder>().Seed();
+app.Services.GetRequiredService<ISurveyRepository>().AssignMissingShareCodes();
 
 // The API docs are part of the demo, so they are served in every environment.
 app.MapOpenApi();
