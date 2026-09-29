@@ -6,21 +6,20 @@
 
 <PageTitle>Survey Management</PageTitle>
 
-<MudPaper Class="pa-6" Elevation="2">
+<MudPaper Class="pa-6" Elevation="1">
 
-    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-4">
-
-        <MudText Typo="Typo.h5" Class="mb-4">Survey Management</MudText>
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <PageHeading CssClass="mb-0">Survey Management</PageHeading>
 
         @if (Current.CanBuild)
         {
             <MudButton Variant="Variant.Filled"
-                    Color="Color.Primary"
-                    Href="/admin/surveys/create">
-                + Create Survey
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Href="/admin/surveys/create">
+                Create Survey
             </MudButton>
         }
-
     </MudStack>
 
     @if (surveys is null)
@@ -33,29 +32,27 @@
     }
     else
     {
-        <MudTable Items="@surveys" 
-                Hover="true" 
-                Dense="true"
-                Bordered="true"
-                Elevation="3">
-            <ToolBarContent>
-                <MudText Typo="Typo.h6" Class="mb-2">Surveys</MudText>
-            </ToolBarContent>
+        <MudTable Items="@surveys"
+                  Hover="true"
+                  Dense="true"
+                  Outlined="true"
+                  Elevation="0">
             <HeaderContent>
-                <MudTh>Title</MudTh>
-                <MudTh>Description</MudTh>
+                <MudTh>Survey</MudTh>
                 <MudTh>Questions</MudTh>
                 <MudTh>Status</MudTh>
                 @if (Current.IsAdmin)
                 {
                     <MudTh>Created by</MudTh>
                 }
-                <MudTh></MudTh>
+                <MudTh><span class="visually-hidden">Actions</span></MudTh>
             </HeaderContent>
 
             <RowTemplate>
-                <MudTd>@context.Title</MudTd>
-                <MudTd>@context.Description</MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.subtitle2">@context.Title</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Description</MudText>
+                </MudTd>
                 <MudTd>@context.QuestionIds.Count</MudTd>
                 <MudTd><SurveyStatusChip Survey="context" /></MudTd>
                 @if (Current.IsAdmin)
@@ -64,59 +61,44 @@
                 }
 
                 <MudTd>
-                    <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
-
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Wrap="Wrap.NoWrap">
                         @if (Current.CanManage(context))
                         {
-                            <MudButton Variant="Variant.Filled"
-                                    Color="Color.Primary"
-                                    Size="Size.Small"
-                                    OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/edit"))">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                       OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/edit"))">
                                 Edit
                             </MudButton>
-                        }
-
-                        @if (Current.CanManage(context))
-                        {
-                            <MudButton Variant="Variant.Filled"
-                                    Color="Color.Primary"
-                                    Size="Size.Small"
-                                    OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/share"))">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                       OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/share"))">
                                 Share
                             </MudButton>
                         }
 
-                        <MudButton Variant="Variant.Filled"
-                                Color="Color.Primary"
-                                Size="Size.Small"
-                                OnClick="@(_ => PreviewSurvey(context.Id))">
-                            Preview 
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   OnClick="@(_ => PreviewSurvey(context.Id))">
+                            Preview
                         </MudButton>
 
-                        <MudButton Variant="Variant.Filled"
-                                Color="Color.Secondary"
-                                Size="Size.Small"
-                                OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/results"))">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   OnClick="@(_ => Nav.NavigateTo($"/admin/surveys/{context.Id}/results"))">
                             Results
                         </MudButton>
 
                         @if (Current.CanManage(context))
                         {
                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                    Color="Color.Error"
-                                    Size="Size.Small"
-                                    aria-label="@($"Delete {context.Title}")"
-                                    OnClick="@(_ => DeleteSurvey(context))" />
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           aria-label="@($"Delete {context.Title}")"
+                                           OnClick="@(_ => DeleteSurvey(context))" />
                         }
-
                     </MudStack>
                 </MudTd>
             </RowTemplate>
 
             <PagerContent>
-                <MudTablePager RowsPerPageString="10" />
+                <MudTablePager RowsPerPageString="Rows per page:" />
             </PagerContent>
-    
         </MudTable>
     }
 </MudPaper>  

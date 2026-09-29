@@ -26,7 +26,7 @@ else if (!Current.CanManage(_survey))
 else
 {
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-        <MudText Typo="Typo.h4">Share "@_survey.Title"</MudText>
+        <PageHeading CssClass="mb-0">Share "@_survey.Title"</PageHeading>
         <SurveyStatusChip Survey="_survey" />
     </MudStack>
 

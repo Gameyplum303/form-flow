@@ -8,9 +8,9 @@
 
 <PageTitle>@(IsEdit ? "Edit Survey" : "Create Survey")</PageTitle>
 
-<MudPaper Class="pa-6" Elevation="2">
+<MudPaper Class="pa-6" Elevation="1">
 
-        <MudText Typo="Typo.h4" Class="mb-4">@(IsEdit ? "Edit Survey" : "Create Survey")</MudText>
+        <PageHeading>@(IsEdit ? "Edit Survey" : "Create Survey")</PageHeading>
 
         @if (_notFound)
         {
@@ -44,7 +44,7 @@
 
             <MudDivider Class="my-4" />
 
-            <MudText Typo="Typo.h5" Class="mb-2">Select Questions</MudText>
+            <MudText Typo="Typo.h6" Class="mb-2">Select Questions</MudText>
 
             @if (QuestionBank is null)
             {
@@ -64,7 +64,7 @@
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="w-100">
                                     <div>
                                         <MudText Typo="Typo.subtitle1">@q.Label</MudText>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@q.Type</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@QuestionTypes.DisplayName(q.Type)</MudText>
                                     </div>
 
                                     <MudButton Variant="Variant.Filled"
@@ -82,7 +82,7 @@
 
             <MudDivider Class="my-4" />
 
-            <MudText Typo="Typo.h5" Class="mb-2">Selected Questions</MudText>
+            <MudText Typo="Typo.h6" Class="mb-2">Selected Questions</MudText>
 
             @if (!SelectedQuestions.Any())
             {

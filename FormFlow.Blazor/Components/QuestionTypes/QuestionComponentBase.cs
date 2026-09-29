@@ -1,6 +1,8 @@
 using FormFlow.Data.Models;
 using Microsoft.AspNetCore.Components;
 
+namespace FormFlow.Blazor.Components.QuestionTypes;
+
 /// <summary>
 /// Base for every question type component. A component can be used on its own (it keeps
 /// its answer internally, as in the admin preview) or bound by a parent form through
@@ -26,6 +28,9 @@ public abstract class QuestionComponentBase : ComponentBase
     public string? Error { get; set; }
 
     protected bool HasError => !string.IsNullOrWhiteSpace(Error);
+
+    /// <summary>A unique id for the question's input, so its label can point at it.</summary>
+    protected string InputId { get; } = $"question-{Guid.NewGuid():N}";
 
     /// <summary>The bound single value, if a parent supplied one.</summary>
     protected string? BoundValue => Value is { Count: > 0 } ? Value[0] : null;

@@ -6,7 +6,7 @@
 
 <PageTitle>@(_survey?.Title ?? "Survey")</PageTitle>
 
-<MudPaper Class="pa-6" Elevation="2" MaxWidth="720px">
+<MudPaper Class="pa-6" Elevation="1" MaxWidth="720px">
     @if (_loading)
     {
         <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
@@ -18,19 +18,19 @@
     }
     else if (_submitted)
     {
-        <MudText Typo="Typo.h4" Class="mb-2">Thank you!</MudText>
+        <PageHeading CssClass="mb-2">Thank you!</PageHeading>
         <MudText Class="mb-4">Your answers to "@_survey.Title" were recorded.</MudText>
         <MudButton Variant="Variant.Text" Href="/surveys">Back to surveys</MudButton>
     }
     else if (ClosedMessage is { } closed)
     {
-        <MudText Typo="Typo.h4" Class="mb-2">@_survey.Title</MudText>
+        <PageHeading CssClass="mb-2">@_survey.Title</PageHeading>
         <MudAlert Severity="Severity.Info" Class="mb-4" data-survey-closed>@closed</MudAlert>
         <MudButton Variant="Variant.Text" Href="/surveys">Back to surveys</MudButton>
     }
     else
     {
-        <MudText Typo="Typo.h4" Class="mb-1">@_survey.Title</MudText>
+        <PageHeading CssClass="mb-1">@_survey.Title</PageHeading>
         <MudText Typo="Typo.body1" Class="mb-4">@_survey.Description</MudText>
 
         @if (!_survey.IsPublished())

@@ -7,28 +7,25 @@
 
 <PageTitle>Question Management</PageTitle>
 
+<MudPaper Class="pa-6" Elevation="1">
 
-<MudPaper Class="pa-4" Elevation="1">
-    
-
-    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-4">
-
-        <MudText Typo="Typo.h5" Class="mb-2">Question Management</MudText>
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <PageHeading CssClass="mb-0">Question Management</PageHeading>
 
         @if (Current.CanBuild)
         {
             <MudButton Variant="Variant.Filled"
-                        Color="Color.Primary"
-                        Href="/admin/questions/create">
-                Create New Question            
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Href="/admin/questions/create">
+                Create Question
             </MudButton>
         }
-        
     </MudStack>
 
     @if (questions is null)
     {
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" /> 
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
     }
     else if (!questions.Any())
     {
@@ -36,27 +33,24 @@
     }
     else
     {
-        <MudTable Items="@questions" 
-                Hover="true" 
-                Dense="true"
-                Bordered="true"
-                Elevation="3">
-            <ToolBarContent>
-                <MudText Typo="Typo.h6">Question Bank</MudText>
-            </ToolBarContent>
+        <MudTable Items="@questions"
+                  Hover="true"
+                  Dense="true"
+                  Outlined="true"
+                  Elevation="0">
             <HeaderContent>
                 <MudTh>Label</MudTh>
                 <MudTh>Key</MudTh>
                 <MudTh>Type</MudTh>
                 <MudTh>Shown when</MudTh>
                 <MudTh>Created by</MudTh>
-                <MudTh></MudTh>
+                <MudTh><span class="visually-hidden">Actions</span></MudTh>
             </HeaderContent>
 
             <RowTemplate>
                 <MudTd>@context.Label</MudTd>
-                <MudTd>@context.Key</MudTd>
-                <MudTd>@context.Type</MudTd>
+                <MudTd><code>@context.Key</code></MudTd>
+                <MudTd>@QuestionTypes.DisplayName(context.Type)</MudTd>
                 <MudTd>
                     @if (context.VisibleIf is { } rule)
                     {
@@ -71,26 +65,26 @@
                 <MudTd>@OwnerLabel(context)</MudTd>
 
                 <MudTd>
-                    <MudStack Row="true" Spacing="2">
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Wrap="Wrap.NoWrap">
                         @if (Current.CanManage(context))
                         {
-                            <MudButton Variant="Variant.Filled"
-                                    Color="Color.Primary"
-                                    Size="Size.Small"
-                                    OnClick="@(_ => EditQuestion(context.Id))">
-                                Edit        
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       OnClick="@(_ => EditQuestion(context.Id))">
+                                Edit
                             </MudButton>
                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                    Color="Color.Error"
-                                    Size="Size.Small"
-                                    aria-label="@($"Delete {context.Label}")"
-                                    OnClick="@(_ => DeleteQuestion(context))" />
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           aria-label="@($"Delete {context.Label}")"
+                                           OnClick="@(_ => DeleteQuestion(context))" />
                         }
                     </MudStack>
                 </MudTd>
             </RowTemplate>
             <PagerContent>
-                <MudTablePager RowsPerPageString="10" />
+                <MudTablePager RowsPerPageString="Rows per page:" />
             </PagerContent>
         </MudTable>
     }

@@ -1,6 +1,5 @@
 ﻿@inherits LayoutComponentBase
 @inject NavigationManager Nav
-@using MudBlazor
 
 <MudThemeProvider />
 <MudPopoverProvider />
@@ -10,18 +9,12 @@
 @* data-interactive turns true once the circuit is connected, so browser tests know when clicks will be handled. *@
 <div class="page" data-interactive="@(RendererInfo.IsInteractive ? "true" : "false")">
     <div class="sidebar">
-        @if (Nav.Uri.Contains("/admin"))
-        {
-            <AdminNavMenu />
-        }
-        else{
-            <NavMenu />
-        }
+        <NavMenu AdminArea="Nav.IsAdminArea()" />
     </div>
 
     <main>
         <div class="top-row px-4">
-            <a href="https://github.com/Gameyplum303/form-flow" target="_blank">About</a>
+            <a href="https://github.com/Gameyplum303/form-flow" target="_blank" rel="noopener noreferrer">About</a>
         </div>
 
         <article class="content px-4">
