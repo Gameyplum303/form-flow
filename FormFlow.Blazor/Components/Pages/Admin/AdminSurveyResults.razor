@@ -150,6 +150,15 @@ else
                                     Average rating: <strong>@rating.Average</strong> of @question.Options.Count
                                 </MudText>
                             }
+                            @if (question.Nps is { } nps)
+                            {
+                                <MudStack Row="true" Spacing="6" Wrap="Wrap.Wrap" Class="mb-3" data-nps>
+                                    <div><MudText Typo="Typo.caption">NPS</MudText><MudText Typo="Typo.h6" HtmlTag="div" data-nps-score>@NpsScore(nps.Score)</MudText></div>
+                                    <div><MudText Typo="Typo.caption">Promoters (9–10)</MudText><MudText Typo="Typo.h6" HtmlTag="div">@nps.Promoters</MudText></div>
+                                    <div><MudText Typo="Typo.caption">Passives (7–8)</MudText><MudText Typo="Typo.h6" HtmlTag="div">@nps.Passives</MudText></div>
+                                    <div><MudText Typo="Typo.caption">Detractors (0–6)</MudText><MudText Typo="Typo.h6" HtmlTag="div">@nps.Detractors</MudText></div>
+                                </MudStack>
+                            }
                             var total = Math.Max(1, question.Options.Sum(o => o.Count));
                             @foreach (var option in question.Options)
                             {
@@ -169,6 +178,43 @@ else
                                 <div><MudText Typo="Typo.caption">Max</MudText><MudText Typo="Typo.h6" HtmlTag="div">@numbers.Max</MudText></div>
                             </MudStack>
                         }
+                        else if (question.Rows.Count > 0)
+                        {
+                            var hasAverages = question.Rows.Any(r => r.Average is not null);
+                            <div class="likert-scroll">
+                                <MudSimpleTable Dense="true" Bordered="true" Class="likert-results" data-likert-results>
+                                    <thead>
+                                        <tr>
+                                            <th>Statement</th>
+                                            @foreach (var option in question.Rows[0].Options)
+                                            {
+                                                <th>@option.Label</th>
+                                            }
+                                            @if (hasAverages)
+                                            {
+                                                <th>Average</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var row in question.Rows)
+                                        {
+                                            <tr data-likert-result-row="@row.Value">
+                                                <th scope="row">@row.Label</th>
+                                                @foreach (var option in row.Options)
+                                                {
+                                                    <td>@Share(option.Count, row.AnsweredCount)</td>
+                                                }
+                                                @if (hasAverages)
+                                                {
+                                                    <td><strong>@(row.Average?.ToString() ?? "–")</strong></td>
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </MudSimpleTable>
+                            </div>
+                        }
                         else if (question.RecentAnswers.Count > 0)
                         {
                             <MudText Typo="Typo.caption">Most recent answers</MudText>
@@ -184,8 +230,7 @@ else
                             <MudText Typo="Typo.body2">No answers.</MudText>
                         }
 
-                        @if (_results.Comparison is { } comparison && question.Key != comparison.Key &&
-                             (question.Options.Count > 0 || question.Numbers is not null))
+                        @if (_results.Comparison is { } comparison && question.Key != comparison.Key && CanCompare(question))
                         {
                             <MudSimpleTable Dense="true" Bordered="true" Class="mt-3 comparison" data-comparison>
                                 <thead>
@@ -222,6 +267,30 @@ else
                                                 <td>@(group.Questions[questionIndex].Numbers?.Average.ToString() ?? "–")</td>
                                             }
                                         </tr>
+                                    }
+                                    @if (question.Nps is not null)
+                                    {
+                                        <tr>
+                                            <th scope="row">NPS</th>
+                                            @foreach (var group in comparison.Groups)
+                                            {
+                                                <td>@(group.Questions[questionIndex].Nps is { } groupNps ? NpsScore(groupNps.Score) : "–")</td>
+                                            }
+                                        </tr>
+                                    }
+                                    @for (var r = 0; r < question.Rows.Count; r++)
+                                    {
+                                        var rowIndex = r;
+                                        @if (question.Rows[rowIndex].Average is not null)
+                                        {
+                                            <tr>
+                                                <th scope="row">Average: @question.Rows[rowIndex].Label</th>
+                                                @foreach (var group in comparison.Groups)
+                                                {
+                                                    <td>@(group.Questions[questionIndex].Rows[rowIndex].Average?.ToString() ?? "–")</td>
+                                                }
+                                            </tr>
+                                        }
                                     }
                                     <tr>
                                         <th scope="row">Answered</th>
@@ -391,6 +460,13 @@ else
             _ => day.ToString("MMM d, yyyy", CultureInfo.InvariantCulture),
         };
     }
+
+    /// <summary>Whether a question has numbers to compare between groups: counts, averages, an NPS or row averages.</summary>
+    private static bool CanCompare(QuestionResult question) =>
+        question.Options.Count > 0 || question.Numbers is not null || question.Rows.Any(r => r.Average is not null);
+
+    /// <summary>An NPS reads with its sign, as +25 or -10.</summary>
+    private static string NpsScore(int score) => score > 0 ? $"+{score}" : score.ToString(CultureInfo.InvariantCulture);
 
     private static string Share(int count, int answered) =>
         answered == 0 ? "–" : $"{count} ({(count * 100.0 / answered).ToString("0", CultureInfo.InvariantCulture)}%)";

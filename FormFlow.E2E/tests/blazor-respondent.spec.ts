@@ -40,6 +40,13 @@ test.describe("Blazor: taking a survey", () => {
         await question(page, "program_start").locator("input[type=date]").fill("2025-08-18");
         await question(page, "experience_rating").locator(".mud-rating-item").nth(3).click();
         await expect(question(page, "experience_rating").getByText("4 of 5")).toBeVisible();
+        // A likert grid row, an NPS score and a slider.
+        await question(page, "campus_services").getByRole("radiogroup", { name: "Lab equipment is up to date." })
+            .getByRole("radio", { name: "Agree", exact: true }).check();
+        await question(page, "recommend_score").getByRole("button", { name: "9", exact: true }).click();
+        await expect(question(page, "recommend_score").getByRole("button", { name: "9", exact: true })).toHaveAttribute("aria-pressed", "true");
+        await question(page, "study_hours").locator("input[type=range]").fill("12");
+        await expect(question(page, "study_hours").locator("[data-slider-value]")).toHaveText("12");
         await question(page, "comments").locator("textarea").first().fill("The labs are great.");
         await question(page, "comments").locator("textarea").first().press("Tab");
 
@@ -60,6 +67,9 @@ test.describe("Blazor: taking a survey", () => {
 
         const after = await (await request.get(`${urls.api}/api/surveys/${survey.id}/results`, { headers: await adminHeaders(request) })).json();
         expect(after.totalResponses).toBe(before.totalResponses + 1);
+        const labs = (await (await request.get(`${urls.api}/api/surveys/${survey.id}/responses`, { headers: await adminHeaders(request) })).json())
+            .find((r: any) => r.answers.first_name?.[0] === "Ada" && r.answers.campus_services);
+        expect(labs.answers).toMatchObject({ campus_services: ["labs=4"], recommend_score: ["9"], study_hours: ["12"] });
     });
 
     test("results page shows statistics, filters and compares groups, and downloads CSV", async ({ page, request }) => {
@@ -69,6 +79,7 @@ test.describe("Blazor: taking a survey", () => {
                 answers: {
                     first_name: "Alan", last_name: "Turing", email: "alan@example.com", age: 41, is_student: false,
                     study_level: "phd", contact_method: "email", skills: ["csharp", "sql"], experience_rating: 5,
+                    campus_services: ["library=5", "labs=3"], recommend_score: 10, study_hours: 20,
                 },
             },
         });
@@ -77,8 +88,10 @@ test.describe("Blazor: taking a survey", () => {
         await signIn(page);
         await openBlazor(page, `/admin/surveys/${survey.id}/results`);
         await expect(page.getByText(/^\d+ responses?, latest/)).toBeVisible();
-        await expect(page.getByText("Average", { exact: true })).toBeVisible();
+        await expect(page.locator("[data-result-key='age']").getByText("Average", { exact: true })).toBeVisible();
         await expect(page.locator("[data-average-rating]")).toContainText(/Average rating: [\d.]+ of 5/);
+        await expect(page.locator("[data-nps-score]")).toHaveText(/^[+-]?\d+$/);
+        await expect(page.locator("[data-likert-result-row=library]")).toContainText("The library has the resources I need.");
 
         const [download] = await Promise.all([
             page.waitForEvent("download"),
@@ -91,7 +104,8 @@ test.describe("Blazor: taking a survey", () => {
             return text;
         });
         expect(csv.split("\r\n")[0]).toBe(
-            "response_id,submitted_at,submitted_by,first_name,last_name,email,age,is_student,study_level,contact_method,subscribe_newsletter,skills,campus_preference,program_start,experience_rating,comments");
+            "response_id,submitted_at,submitted_by,first_name,last_name,email,age,is_student,study_level,contact_method,subscribe_newsletter,skills,campus_preference,program_start,experience_rating," +
+            "campus_services[library],campus_services[labs],campus_services[advising],recommend_score,study_hours,comments");
         expect(csv).toContain("Turing");
         expect(csv).toContain("csharp; sql");
 

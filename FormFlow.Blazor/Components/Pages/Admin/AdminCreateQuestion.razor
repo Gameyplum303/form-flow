@@ -100,9 +100,60 @@
                       Lines="3"
                       Class="mb-4" />
 
-        @if (IsOptionBasedType)
+        @if (IsLikert)
         {
-            <MudText Typo="Typo.subtitle1" Class="mb-2">Options</MudText>
+            <MudText Typo="Typo.subtitle1" Class="mb-2">Rows</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">The statements people rate, one per row of the grid.</MudText>
+            @if (!AreRowsValid)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-2">
+                    Add at least one row. Each row needs a label and a value, and a value can't contain "=".
+                </MudAlert>
+            }
+
+            @for (int i = 0; i < _newQuestion.Rows.Count; i++)
+            {
+                var index = i;
+                <MudGrid Class="mb-2" data-row-editor="@index">
+                    <MudItem xs="5">
+                        <MudTextField T="string" Variant="Variant.Outlined"
+                                      Label="Statement"
+                                      @bind-Value="_newQuestion.Rows[index].Label"
+                                      Immediate="true" />
+                    </MudItem>
+                    <MudItem xs="5">
+                        <MudTextField T="string" Variant="Variant.Outlined"
+                                      Label="Value"
+                                      @bind-Value="_newQuestion.Rows[index].Value"
+                                      Immediate="true" />
+                    </MudItem>
+                    <MudItem xs="2" Class="d-flex align-center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Color="Color.Error"
+                                       aria-label="Remove row"
+                                       OnClick="() => RemoveRow(index)" />
+                    </MudItem>
+                </MudGrid>
+            }
+
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="AddRow"
+                       Class="mb-4">
+                Add Row
+            </MudButton>
+        }
+
+        @if (ShowsOptions)
+        {
+            <MudText Typo="Typo.subtitle1" Class="mb-2">@(IsLikert ? "Scale" : "Options")</MudText>
+            @if (IsLikert)
+            {
+                <MudText Typo="Typo.body2" Class="mb-2">
+                    The columns every row is rated on. Leave empty for Strongly disagree (1) to Strongly agree (5).
+                </MudText>
+            }
             @if (!AreOptionsValid)
             {
                 <MudAlert Severity="Severity.Error" Class="mb-2">
@@ -168,10 +219,12 @@
                 else
                 {
                     <MudItem xs="6">
-                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Minimum value" @bind-Value="_minValue" Clearable="true" />
+                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Minimum value" @bind-Value="_minValue" Clearable="true"
+                                         HelperText="@(IsSlider ? $"Leave empty for {QuestionTypes.DefaultSliderMin}." : null)" />
                     </MudItem>
                     <MudItem xs="6">
-                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Maximum value" @bind-Value="_maxValue" Clearable="true" />
+                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Maximum value" @bind-Value="_maxValue" Clearable="true"
+                                         HelperText="@(IsSlider ? $"Leave empty for {QuestionTypes.DefaultSliderMax}." : null)" />
                     </MudItem>
                 }
             </MudGrid>
@@ -265,16 +318,31 @@
     private bool IsEdit => Id is not null;
 
     private bool IsOptionBasedType => QuestionTypes.IsChoice(_newQuestion.Type);
+    private bool IsLikert => IsType(QuestionTypes.Likert);
+    private bool IsSlider => IsType(QuestionTypes.Slider);
+
+    /// <summary>Choice questions list their options; a likert grid can list its scale, or use the default one.</summary>
+    private bool ShowsOptions => IsOptionBasedType || IsLikert;
     private bool AreOptionsValid =>
-        !IsOptionBasedType ||
-        (_newQuestion.Options.Count > 0 &&
-         _newQuestion.Options.All(o => 
-            !string.IsNullOrWhiteSpace(o.Label) && 
+        !ShowsOptions ||
+        ((_newQuestion.Options.Count > 0 || IsLikert) &&
+         _newQuestion.Options.All(o =>
+            !string.IsNullOrWhiteSpace(o.Label) &&
             !string.IsNullOrWhiteSpace(o.Value)));
 
+    private bool AreRowsValid =>
+        !IsLikert ||
+        (_newQuestion.Rows.Count > 0 &&
+         _newQuestion.Rows.All(r =>
+            !string.IsNullOrWhiteSpace(r.Label) &&
+            !string.IsNullOrWhiteSpace(r.Value) &&
+            !r.Value.Contains(QuestionTypes.LikertSeparator)));
+
     private bool HasLengthRules => QuestionTypes.HasLengthRules(_newQuestion.Type);
-    private bool HasValueRules => string.Equals(_newQuestion.Type, QuestionTypes.Number, StringComparison.OrdinalIgnoreCase);
-    private bool IsRating => string.Equals(_newQuestion.Type, QuestionTypes.Rating, StringComparison.OrdinalIgnoreCase);
+    private bool HasValueRules => IsType(QuestionTypes.Number) || IsSlider;
+    private bool IsRating => IsType(QuestionTypes.Rating);
+
+    private bool IsType(string type) => string.Equals(_newQuestion.Type, type, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Yes/no questions this one could depend on (never itself).</summary>
     private List<QuestionDefinition> YesNoQuestions =>
@@ -285,6 +353,7 @@
     private bool CanCreate =>
         (_isValid || IsEdit) &&
         AreOptionsValid &&
+        AreRowsValid &&
         !string.IsNullOrWhiteSpace(_newQuestion.Label) &&
         !string.IsNullOrWhiteSpace(_newQuestion.Key) &&
         !string.IsNullOrWhiteSpace(_newQuestion.Type);
@@ -323,7 +392,8 @@
             Placeholder = q.Placeholder,
             DefaultValue = q.DefaultValue,
             HelpText = q.HelpText,
-            Options = q.Options.Select(o => new Option { Label = o.Label, Value = o.Value }).ToList()
+            Options = q.Options.Select(o => new Option { Label = o.Label, Value = o.Value }).ToList(),
+            Rows = q.Rows.Select(r => new Option { Label = r.Label, Value = r.Value }).ToList()
         };
         _visibleIfKey = q.VisibleIf?.Key;
         _visibleIfEquals = q.VisibleIf?.ShouldEqual ?? true;
@@ -388,6 +458,16 @@
         _newQuestion.Options.RemoveAt(index);
     }
 
+    private void AddRow()
+    {
+        _newQuestion.Rows.Add(new Option { Label = string.Empty, Value = string.Empty });
+    }
+
+    private void RemoveRow(int index)
+    {
+        _newQuestion.Rows.RemoveAt(index);
+    }
+
     private async Task SaveQuestionAsync()
     {
         if (_form is null || !CanCreate || _isSubmitting)
@@ -403,9 +483,13 @@
             _successMessage = null;
             _errorMessage = null;
 
-            if (!IsOptionBasedType)
+            if (!ShowsOptions)
             {
                 _newQuestion.Options = new();
+            }
+            if (!IsLikert)
+            {
+                _newQuestion.Rows = new();
             }
             _newQuestion.ValidationConfigs = BuildRules();
             _newQuestion.VisibleIf = _visibleIfKey is null

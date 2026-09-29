@@ -26,6 +26,8 @@ test.describe("React: taking a survey", () => {
         await page.getByLabel(/campus location/).selectOption("west");
         await page.getByLabel(/start your current program/).fill("2024-01-15");
         await page.getByRole("group", { name: /rate your experience/ }).getByLabel("3 of 5").check();
+        await page.getByRole("radiogroup", { name: "Advisors are easy to reach." }).getByLabel("Strongly agree").check();
+        await page.getByRole("group", { name: /recommend this university/ }).getByRole("button", { name: "7", exact: true }).click();
         await page.getByLabel(/Anything else/).fill("More study rooms, please.");
 
         await page.getByRole("button", { name: "Submit" }).click();
@@ -48,7 +50,10 @@ test.describe("React: taking a survey", () => {
             program_start: ["2024-01-15"],
             experience_rating: ["3"],
             comments: ["More study rooms, please."],
+            campus_services: ["advising=5"],
+            recommend_score: ["7"],
         });
+        expect(saved.answers.study_hours).toBeUndefined();
     });
 
     test("opens a survey from its share link", async ({ page, request }) => {
