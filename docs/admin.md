@@ -4,7 +4,7 @@ The admin area is part of the Blazor app and uses its own layout and menu (`Admi
 
 ## Signing in
 
-Every `/admin` page needs a sign-in. `AdminGuard` (in `MainLayout`) sends a signed-out visitor to `/login?returnUrl=…` and brings them back to the page they asked for once they sign in. Development and docker compose create three accounts, all with the password `password`: `Rogers` (Administrator), `professor` (Professor/Scientist) and `student` (Student). The sign-in page shows the test accounts when the `LoginHint` setting is set.
+Every `/admin` page needs a sign-in. `AdminGuard` (in `MainLayout`) sends a signed-out visitor to `/login?returnUrl=…` and brings them back to the page they asked for once they sign in. Development and docker compose create two accounts, both with the password `password`: `Rogers` (Administrator) and `professor` (Professor/Scientist). The sign-in page shows the test account when the `LoginHint` setting is set. Professors and scientists who sign up sign in with their email address.
 
 ## Roles
 
@@ -12,9 +12,13 @@ Every `/admin` page needs a sign-in. `AdminGuard` (in `MainLayout`) sends a sign
 |---|---|
 | Administrator | Every admin page, with Edit and Delete on every question and survey, a **Created by** column, and results for every survey. Can switch to another role's view (below). |
 | Professor/Scientist | The survey builder, showing only the surveys they created. The question bank lists every question, so any of them can go in a survey, but Edit and Delete appear only on their own. Opening someone else's survey or question for editing shows "You can only edit…" instead of the form. |
-| Student | Takes surveys. Signing in lands on `/surveys`, the menu has no **Survey Builder** link, and `/admin` pages say that students can't open the survey builder. |
+| Student | Takes surveys without an account. An administrator can preview this view with **View as**: the menu has no **Survey Builder** link, and `/admin` pages say that students can't open the survey builder. |
 
-The API enforces the same rules (see [api.md](api.md#authentication)), so hiding a button is only a convenience. When a student is signed in, their responses record their username in `submittedBy`, which shows in the CSV export. How surveys will be shared with students isn't decided yet, so every survey is still listed for everyone.
+The API enforces the same rules (see [api.md](api.md#authentication)), so hiding a button is only a convenience. Responses sent while signed in, for example a professor trying out their own survey, record the username in `submittedBy`, which shows in the CSV export. How surveys will be shared with students isn't decided yet, so every survey is still listed for everyone.
+
+### Signing up and approval
+
+Professors and scientists sign up at `/signup` (linked from the home page, the menu and the sign-in page) with their name, email, password, date of birth, organization and how they'll use FormFlow. The page checks the same rules as the API before sending, and shows each problem under its field. A new account waits for approval: signing in with it says so. Administrators see a **Sign-ups** link in the admin menu, which opens `/admin/signups`, a table of waiting sign-ups with **Approve** and **Decline** (which asks first, then deletes the sign-up). Set `SignUp:RequireApproval` to `false` on the API to let new professors sign in straight away.
 
 ### Viewing the site as another role
 
@@ -24,7 +28,9 @@ The API issues the token (see [api.md](api.md#authentication)). `AdminSession` k
 
 | Route | Page | Purpose |
 |---|---|---|
-| `/login` | `Login` | Admin sign-in |
+| `/login` | `Login` | Sign in with a username or email |
+| `/signup` | `SignUp` | Professor/scientist sign-up |
+| `/admin/signups` | `AdminSignUps` | Approve or decline sign-ups (administrators only) |
 | `/admin/surveys` | `AdminSurveysList` | The surveys you manage (every survey for an administrator), with Edit, Preview, Results and Delete |
 | `/admin/surveys/create` | `AdminCreateSurvey` | Build a new survey |
 | `/admin/surveys/{id}/edit` | `AdminCreateSurvey` | Edit an existing survey |

@@ -24,11 +24,11 @@ Reading questions and surveys and submitting answers are public. Everything else
 |---|---|---|
 | `admin` | Administrator | Everything: create, edit and delete any question or survey, and read every survey's responses and results |
 | `professor` | Professor/Scientist | Create questions and surveys, and edit, delete and read the responses and results of the ones they created |
-| `student` | Student | Take surveys only |
+| `student` | Student | Take surveys. Students don't have accounts; the role exists so administrators can preview the site as a student. |
 
 Questions and surveys record who created them in `ownerId` and `ownerName`. The seeded demo data has no owner and belongs to administrators. Every professor can put any question in their surveys, but only change their own.
 
-Endpoints marked **Builder** need the `admin` or `professor` role and return `403` for a student; for a professor they also return `403` on a question or survey someone else created. Endpoints marked **Signed in** accept any role. Both return `401` without a valid token.
+Endpoints marked **Builder** need the `admin` or `professor` role; for a professor they return `403` on a question or survey someone else created. Endpoints marked **Admin** need the `admin` role. Endpoints marked **Signed in** accept any role. Both return `401` without a valid token.
 
 ### `POST /api/auth/login`
 
@@ -40,7 +40,10 @@ Endpoints marked **Builder** need the `admin` or `professor` role and return `40
 |---|---|
 | 200 | `{ "token": "eyJ…", "userId": "…", "username": "Rogers", "role": "admin", "expiresAt": "2026-09-29T20:00:00Z" }` |
 | 401 | Problem details titled "Invalid username or password." The same answer is given for an unknown user and a wrong password, and both take the same time. |
+| 403 | The password is right but the account is a sign-up still waiting for approval: problem details titled "Your account is waiting for an administrator's approval." |
 | 429 | More than `RateLimits:LoginPerMinute` attempts from one IP address in a minute |
+
+Professors and scientists who signed up sign in with their email address as the username.
 
 Send the token on admin requests:
 
@@ -53,6 +56,36 @@ Tokens are signed JWTs carrying the account's id (`sub`), username and role and 
 ### `GET /api/auth/me` (Signed in)
 
 Returns `{ "id": "…", "username": "Rogers", "role": "admin" }` for the token's user, so a client can check that its token is still valid.
+
+### `POST /api/auth/signup`
+
+Asks for a professor/scientist account. Administrators are added through configuration, and students take surveys without an account.
+
+```json
+{
+  "name": "Ada Lovelace",
+  "email": "ada@lab.example",
+  "password": "analytical",
+  "dateOfBirth": "1990-12-10",
+  "intendedUse": "Surveys for my lab's study participants.",
+  "organization": "Analytical Engines Lab"
+}
+```
+
+| Status | When |
+|---|---|
+| 201 | `{ "status": "pending" }`: the account waits for an administrator. With `SignUp:RequireApproval` set to `false` it is `"active"` and can sign in straight away. |
+| 400 | Validation problem details with `errors` keyed by field: every field is required, `email` must look like an email address, `password` needs at least 8 characters, `dateOfBirth` must be an ISO date at least 18 years ago, and `name`, `organization` and `intendedUse` are limited to 100, 200 and 1000 characters |
+| 409 | Validation problem details with an `email` error: an account with this email already exists |
+| 429 | Shares the sign-in rate limit |
+
+### `GET /api/accounts/pending` (Admin)
+
+Sign-ups waiting for approval, oldest first: `[{ "id": "…", "name": "…", "email": "…", "dateOfBirth": "1990-12-10", "intendedUse": "…", "organization": "…", "createdAt": "…" }]`.
+
+### `POST /api/accounts/{id}/approve` and `POST /api/accounts/{id}/decline` (Admin)
+
+Approving lets the account sign in. Declining deletes the sign-up, so the person can sign up again. Both return 204, or 404 when there is no sign-up waiting with that id (active accounts can't be declined).
 
 ### Accounts
 

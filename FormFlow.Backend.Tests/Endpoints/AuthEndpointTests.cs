@@ -51,11 +51,10 @@ namespace FormFlow.Backend.Tests.Endpoints
         public async Task EveryConfiguredAccount_CanSignIn()
         {
             (await AdminClient.LoginAsync(_client, "Rogers", "password")).Token.Should().NotBeNullOrWhiteSpace();
-            (await AdminClient.LoginAsync(_client, "professor", "password")).Role.Should().Be("professor");
-            var student = await AdminClient.LoginAsync(_client, "STUDENT", "password");
-            student.Username.Should().Be("student");
-            student.Role.Should().Be("student");
-            student.UserId.Should().NotBeEmpty();
+            var professor = await AdminClient.LoginAsync(_client, "PROFESSOR", "password");
+            professor.Username.Should().Be("professor");
+            professor.Role.Should().Be("professor");
+            professor.UserId.Should().NotBeEmpty();
         }
 
         [Fact]
@@ -65,29 +64,34 @@ namespace FormFlow.Backend.Tests.Endpoints
             var hasher = _factory.Services.GetRequiredService<IPasswordHasher<AdminUser>>();
             var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Accounts:0:Username"] = "student",
+                ["Accounts:0:Username"] = "professor",
                 ["Accounts:0:Password"] = "changed",
-                ["Accounts:0:Role"] = "professor",
+                ["Accounts:0:Role"] = "admin",
                 ["Accounts:1:Username"] = " Grace ",
                 ["Accounts:1:Password"] = "hopper",
                 ["Accounts:2:Username"] = "no-password",
                 ["Accounts:3:Username"] = "odd-role",
                 ["Accounts:3:Password"] = "x",
                 ["Accounts:3:Role"] = "superuser",
+                ["Accounts:4:Username"] = "a-student",
+                ["Accounts:4:Password"] = "x",
+                ["Accounts:4:Role"] = "student",
             }).Build();
 
             new AdminAccountSeeder(users, hasher, config, NullLogger<AdminAccountSeeder>.Instance).Seed();
 
-            var student = users.FindByUsername("student")!;
-            hasher.VerifyHashedPassword(student, student.PasswordHash, "password").Should().Be(PasswordVerificationResult.Success);
-            student.Role.Should().Be("professor");
+            var professor = users.FindByUsername("professor")!;
+            hasher.VerifyHashedPassword(professor, professor.PasswordHash, "password").Should().Be(PasswordVerificationResult.Success);
+            professor.Role.Should().Be("admin");
             var grace = users.FindByUsername("grace")!;
             grace.Username.Should().Be("Grace");
-            grace.Role.Should().Be("student", "accounts without a role get the least access");
+            grace.Role.Should().Be("professor", "administrators have to be listed as admins");
+            grace.Status.Should().Be("active");
             hasher.VerifyHashedPassword(grace, grace.PasswordHash, "hopper").Should().Be(PasswordVerificationResult.Success);
             users.FindByUsername("no-password").Should().BeNull();
             users.FindByUsername("odd-role").Should().BeNull();
-            users.Count().Should().Be(4);
+            users.FindByUsername("a-student").Should().BeNull("students take surveys without an account");
+            users.Count().Should().Be(3);
         }
 
         [Theory]
@@ -145,34 +149,17 @@ namespace FormFlow.Backend.Tests.Endpoints
         }
 
         [Theory]
-        [InlineData("POST", "/api/questions")]
-        [InlineData("PUT", "/api/questions/{question}")]
-        [InlineData("DELETE", "/api/questions/{question}")]
-        [InlineData("POST", "/api/surveys")]
-        [InlineData("PUT", "/api/surveys/{survey}")]
-        [InlineData("DELETE", "/api/surveys/{survey}")]
-        [InlineData("GET", "/api/surveys/{survey}/responses")]
-        [InlineData("GET", "/api/surveys/{survey}/results")]
-        [InlineData("GET", "/api/surveys/{survey}/responses/export")]
-        [InlineData("GET", "/api/surveys/managed")]
-        public async Task Students_CanOnlyTakeSurveys(string method, string path)
+        [InlineData("GET", "/api/accounts/pending")]
+        [InlineData("POST", "/api/accounts/{account}/approve")]
+        [InlineData("POST", "/api/accounts/{account}/decline")]
+        public async Task OnlyAdministrators_ReviewSignUps(string method, string path)
         {
             var request = await RequestAsync(method, path);
-            _client.AsStudent();
+            (await _client.SendAsync(await RequestAsync(method, path))).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
-            var response = await _client.SendAsync(request);
+            _client.AsProfessor();
 
-            response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        }
-
-        [Fact]
-        public async Task Students_CanSeeWhoTheyAre()
-        {
-            _client.AsStudent();
-
-            var me = await _client.GetFromJsonAsync<JsonElement>("/api/auth/me");
-
-            me.GetProperty("role").GetString().Should().Be("student");
+            (await _client.SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         }
 
         private async Task<HttpRequestMessage> RequestAsync(string method, string path)
@@ -180,7 +167,8 @@ namespace FormFlow.Backend.Tests.Endpoints
             var survey = await InMemoryApiFactory.GetDemoSurveyAsync(_client);
             var question = await InMemoryApiFactory.GetQuestionAsync(_client, "first_name");
             return new HttpRequestMessage(new HttpMethod(method),
-                path.Replace("{survey}", survey.Id.ToString()).Replace("{question}", question.Id.ToString()))
+                path.Replace("{survey}", survey.Id.ToString()).Replace("{question}", question.Id.ToString())
+                    .Replace("{account}", Guid.NewGuid().ToString()))
             {
                 Content = method is "POST" or "PUT" ? new StringContent("{}", Encoding.UTF8, "application/json") : null
             };

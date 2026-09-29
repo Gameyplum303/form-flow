@@ -18,11 +18,11 @@
     <EditForm Model="_form" OnValidSubmit="SignInAsync">
         <MudStack Spacing="3">
             <MudTextField @bind-Value="_form.Username"
-                          Label="Username"
+                          Label="Username or email"
                           Variant="Variant.Outlined"
                           autocomplete="username"
                           Required="true"
-                          RequiredError="Enter your username." />
+                          RequiredError="Enter your username or email." />
             <MudTextField @bind-Value="_form.Password"
                           Label="Password"
                           InputType="InputType.Password"
@@ -42,6 +42,9 @@
                        Disabled="_busy">
                 Sign in
             </MudButton>
+            <MudText Typo="Typo.body2">
+                Professor or scientist without an account? <MudLink Href="/signup">Sign up</MudLink>
+            </MudText>
         </MudStack>
     </EditForm>
 </MudPaper>
@@ -57,7 +60,7 @@
     {
         if (string.IsNullOrWhiteSpace(_form.Username) || string.IsNullOrEmpty(_form.Password))
         {
-            _error = "Enter your username and password.";
+            _error = "Enter your username or email and your password.";
             return;
         }
 
