@@ -24,6 +24,9 @@ namespace FormFlow.Backend.Auth
             IsAdmin || (IsSignedIn && Role == Roles.Professor && item.OwnerId is { } owner && owner == Id);
 
         /// <summary>Marks a new item as created by this account.</summary>
+        /// <summary>Published surveys are open to anyone with the link; drafts only to the people who manage them.</summary>
+        public bool CanOpen(SurveyDefinition survey) => survey.IsPublished() || CanManage(survey);
+
         public void Own(IOwned item)
         {
             item.OwnerId = Id;

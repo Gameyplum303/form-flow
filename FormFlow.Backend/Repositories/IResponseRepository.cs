@@ -11,6 +11,9 @@ namespace FormFlow.Backend.Repositories
 
         int CountBySurveyId(Guid surveyId);
 
+        /// <summary>Whether the browser with this respondent id already answered the survey.</summary>
+        bool HasAnswered(Guid surveyId, string respondentId);
+
         /// <summary>Deletes every response to a survey and returns how many were removed.</summary>
         int DeleteBySurveyId(Guid surveyId);
     }

@@ -165,7 +165,7 @@ Same body and rules as `POST`.
 
 ## Surveys
 
-A survey is a title, a description and an ordered list of question ids.
+A survey is a title, a description and an ordered list of question ids. The API adds its sharing settings: `status` (`draft` or `published`), `listed`, `shareCode` and `closesAt`.
 
 ```json
 {
@@ -180,15 +180,31 @@ A survey is a title, a description and an ordered list of question ids.
 
 | Method | Path | Access | Result |
 |---|---|---|---|
-| `GET` | `/api/surveys` | Public | All surveys |
-| `GET` | `/api/surveys/{id}` | Public | One survey; 400 if `id` is not a GUID, 404 if missing |
-| `GET` | `/api/surveys/{id}/questions` | Public | The survey's questions in survey order, so a client can render it with one call; 404 if missing |
+| `GET` | `/api/surveys` | Public | The public list: published, listed surveys that haven't closed |
+| `GET` | `/api/surveys/{id}` | Public | One survey; 400 if `id` is not a GUID, 404 if missing or a draft the caller can't manage |
+| `GET` | `/api/share/{code}` | Public | The survey with that share code (not case sensitive); 404 if there is none or it's a draft the caller can't manage |
+| `GET` | `/api/surveys/{id}/questions` | Public | The survey's questions in survey order, so a client can render it with one call; 404 like `GET /api/surveys/{id}` |
 | `GET` | `/api/surveys/managed` | Builder | The surveys the caller can manage, newest first: every survey for an administrator, their own for a professor |
 | `POST` | `/api/surveys` | Builder | 201 with the stored survey, owned by the caller, or 400 `{ "error": "..." }` |
 | `PUT` | `/api/surveys/{id}` | Builder | 200 with the updated survey (keeps `createdAt` and the owner), 400, 403, or 404 |
 | `DELETE` | `/api/surveys/{id}` | Builder | 204, also deleting the survey's responses; 403 or 404 |
+| `PUT` | `/api/surveys/{id}/sharing` | Builder | 200 with the updated survey; 400 for an unknown status, 403 or 404 |
 
 A survey is rejected with 400 when the title or description is empty, when it has no questions, when a question appears twice, or when a question id doesn't exist.
+
+### Sharing
+
+A new survey is a `draft` with `listed: false` and a random 8-character `shareCode`. Only the people who manage a draft (its owner and administrators) can open or answer it. Its share link is `/s/{shareCode}` in the Blazor app and `#/s/{shareCode}` in the React app. Editing a survey keeps its sharing settings, which change only through `PUT /api/surveys/{id}/sharing`:
+
+```json
+{ "status": "published", "listed": false, "closesAt": "2026-10-15T17:00:00Z" }
+```
+
+- `published` surveys can be opened and answered by anyone with the link, without an account.
+- `listed` surveys also appear in `GET /api/surveys`. A draft is never listed.
+- `closesAt` (UTC, optional) is when the survey stops taking answers. It drops off the public list then, and submissions get 409.
+
+Surveys stored before sharing existed have no status and are treated as published and listed.
 
 ---
 
@@ -206,9 +222,12 @@ Submits one set of answers, keyed by question key. An answer can be a string, nu
     "is_student": true,
     "campus_preference": "north",
     "skills": ["csharp", "sql"]
-  }
+  },
+  "respondentId": "4f9c2b7e8d1a4c3b9e6f0a2d5c8b7e1f"
 }
 ```
+
+`respondentId` is optional, up to 64 characters. Respondents have no account, so the Blazor and React apps each keep a random id per browser and send it; the API then refuses a second answer from the same id. Clearing the browser's storage starts a new id, so this stops accidental repeats rather than determined ones. `GET /api/surveys/{id}/answered?respondentId=...` returns `{ "answered": true }` or `false`, so a client can show a thank-you instead of the form.
 
 The server validates the whole submission against the survey's questions:
 
@@ -223,7 +242,8 @@ The server validates the whole submission against the survey's questions:
 |---|---|
 | 201 | Stored. Body is the saved response with normalized answers. Taking a survey needs no account; when the request carries a token, `submittedBy` records the username. |
 | 400 | RFC 7807 validation problem, with one entry per question key |
-| 404 | No survey with that id |
+| 404 | No survey with that id, or a draft the caller can't manage |
+| 409 | `{ "error": "..." }` when the survey has closed or this `respondentId` already answered |
 | 429 | More than `RateLimits:SubmissionsPerMinute` submissions from one IP address in a minute |
 
 Example 400 body:

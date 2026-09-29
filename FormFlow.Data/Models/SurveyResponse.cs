@@ -18,6 +18,12 @@ namespace FormFlow.Data.Models
         public string? SubmittedBy { get; set; }
 
         /// <summary>
+        /// A random id the respondent's browser keeps for the survey, so the same browser can't answer
+        /// twice without anyone needing an account. Null when the client didn't send one.
+        /// </summary>
+        public string? RespondentId { get; set; }
+
+        /// <summary>
         /// Answers keyed by question key. Single-value questions hold one entry;
         /// checkbox and multiselect questions hold one entry per selected option.
         /// Questions that were hidden or left blank are absent.

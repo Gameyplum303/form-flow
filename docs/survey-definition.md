@@ -31,6 +31,14 @@ namespace FormFlow.Data.Models
         public required string Description { get; set; }
         public required List<Guid> QuestionIds { get; set; }
         public required DateTime CreatedAt { get; set; }
+        public Guid? OwnerId { get; set; }
+        public string? OwnerName { get; set; }
+
+        // Sharing
+        public string Status { get; set; } = SurveyStatuses.Published; // "draft" or "published"
+        public bool Listed { get; set; } = true;
+        public string? ShareCode { get; set; }
+        public DateTime? ClosesAt { get; set; }
     }
 }
 ```
@@ -42,6 +50,7 @@ namespace FormFlow.Data.Models
 * All fields are **required** and enforced by C# 11 `required` properties.
 * Clients create and update surveys with the `NewSurvey` body (`title`, `description`, `questionIds`). The API sets `id` and `createdAt`. See [api.md](api.md#surveys).
 * Missing required fields during JSON deserialization will throw a `JsonException`.
+* **Status**, **Listed**, **ShareCode** and **ClosesAt** are the sharing settings. The defaults (published and listed) describe surveys stored before sharing existed; the API creates new surveys as unlisted drafts. See [api.md](api.md#sharing).
 
 ---
 

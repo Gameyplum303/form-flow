@@ -20,6 +20,9 @@ public sealed class FakeSurveyService : ISurveyService
     public Task<SurveyDefinition?> GetSurveyAsync(Guid id) =>
         Task.FromResult(Surveys.FirstOrDefault(s => s.Id == id));
 
+    public Task<SurveyDefinition?> GetSurveyByShareCodeAsync(string code) =>
+        Task.FromResult(Surveys.FirstOrDefault(s => string.Equals(s.ShareCode, code, StringComparison.OrdinalIgnoreCase)));
+
     public Task<List<QuestionDefinition>> GetSurveyQuestionsAsync(Guid id) =>
         Task.FromResult(Questions.TryGetValue(id, out var q) ? q : new List<QuestionDefinition>());
 
@@ -51,11 +54,38 @@ public sealed class FakeSurveyService : ISurveyService
         return Task.FromResult(NextDeleteResult);
     }
 
-    public Task<SubmitResult> SubmitResponseAsync(Guid surveyId, Dictionary<string, List<string>> answers)
+    public string? NextSharingError { get; set; }
+    public (Guid Id, SurveySharing Sharing)? LastSharing { get; private set; }
+
+    /// <summary>Applies the settings to the stored survey, like the API does.</summary>
+    public Task<(SurveyDefinition? Survey, string? Error)> UpdateSharingAsync(Guid id, SurveySharing sharing)
+    {
+        LastSharing = (id, sharing);
+        var survey = Surveys.FirstOrDefault(s => s.Id == id);
+        if (NextSharingError is not null || survey is null)
+        {
+            return Task.FromResult<(SurveyDefinition?, string?)>((null, NextSharingError ?? "Survey not found."));
+        }
+        survey.Status = sharing.Status;
+        survey.Listed = sharing.Listed;
+        survey.ClosesAt = sharing.ClosesAt;
+        return Task.FromResult<(SurveyDefinition?, string?)>((survey, null));
+    }
+
+    public string? LastRespondentId { get; private set; }
+
+    public Task<SubmitResult> SubmitResponseAsync(Guid surveyId, Dictionary<string, List<string>> answers, string? respondentId = null)
     {
         LastSubmitted = answers.ToDictionary(a => a.Key, a => a.Value.ToList());
+        LastRespondentId = respondentId;
         return Task.FromResult(NextSubmitResult);
     }
+
+    /// <summary>Respondent ids that have already answered, per survey.</summary>
+    public HashSet<(Guid SurveyId, string RespondentId)> Answered { get; } = new();
+
+    public Task<bool> HasAnsweredAsync(Guid surveyId, string respondentId) =>
+        Task.FromResult(Answered.Contains((surveyId, respondentId)));
 
     public Task<SurveyResults?> GetResultsAsync(Guid surveyId) => Task.FromResult(Results);
 

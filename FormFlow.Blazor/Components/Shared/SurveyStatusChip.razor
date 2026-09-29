@@ -1,0 +1,18 @@
+@* A survey's sharing state at a glance: Draft, Published (listed or link only), or Closed. *@
+<MudChip T="string" Size="Size.Small" Color="@Color" Variant="Variant.Outlined" data-survey-status="@Label">@Label</MudChip>
+
+@code {
+    [Parameter, EditorRequired] public SurveyDefinition Survey { get; set; } = default!;
+
+    private string Label =>
+        !Survey.IsPublished() ? "Draft"
+        : Survey.IsClosed(DateTime.UtcNow) ? "Closed"
+        : Survey.Listed ? "Published" : "Published, link only";
+
+    private Color Color => Label switch
+    {
+        "Draft" => Color.Default,
+        "Closed" => Color.Warning,
+        _ => Color.Success,
+    };
+}

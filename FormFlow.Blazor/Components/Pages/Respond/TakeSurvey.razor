@@ -1,6 +1,8 @@
 @page "/surveys/{Id:guid}"
+@page "/s/{Code}"
 @using FormFlow.Blazor.Services
 @inject ISurveyService SurveyService
+@inject IRespondentIdentity Respondent
 
 <PageTitle>@(_survey?.Title ?? "Survey")</PageTitle>
 
@@ -18,15 +20,25 @@
     {
         <MudText Typo="Typo.h4" Class="mb-2">Thank you!</MudText>
         <MudText Class="mb-4">Your answers to "@_survey.Title" were recorded.</MudText>
-        <MudStack Row="true" Spacing="2">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartOver">Submit another response</MudButton>
-            <MudButton Variant="Variant.Text" Href="/surveys">Back to surveys</MudButton>
-        </MudStack>
+        <MudButton Variant="Variant.Text" Href="/surveys">Back to surveys</MudButton>
+    }
+    else if (ClosedMessage is { } closed)
+    {
+        <MudText Typo="Typo.h4" Class="mb-2">@_survey.Title</MudText>
+        <MudAlert Severity="Severity.Info" Class="mb-4" data-survey-closed>@closed</MudAlert>
+        <MudButton Variant="Variant.Text" Href="/surveys">Back to surveys</MudButton>
     }
     else
     {
         <MudText Typo="Typo.h4" Class="mb-1">@_survey.Title</MudText>
         <MudText Typo="Typo.body1" Class="mb-4">@_survey.Description</MudText>
+
+        @if (!_survey.IsPublished())
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4" data-draft-notice>
+                This survey is a draft, so only the people who manage it can open it. Publish it from its Share page to collect answers.
+            </MudAlert>
+        }
 
         @if (_message is not null)
         {
@@ -56,6 +68,9 @@
 @code {
     [Parameter] public Guid Id { get; set; }
 
+    /// <summary>The code from a share link, /s/{code}.</summary>
+    [Parameter] public string? Code { get; set; }
+
     private SurveyDefinition? _survey;
     private List<QuestionDefinition> _questions = [];
     private Dictionary<string, List<string>> _answers = new();
@@ -64,15 +79,27 @@
     private bool _loading = true;
     private bool _submitting;
     private bool _submitted;
+    private bool _alreadyAnswered;
+
+    /// <summary>A message that ends the survey for this person, or null while they can still answer.</summary>
+    private string? _finalMessage;
+
+    private string? ClosedMessage =>
+        _survey is null ? null
+        : _survey.IsClosed(DateTime.UtcNow) ? "This survey is closed and no longer takes answers."
+        : _alreadyAnswered ? "You've already answered this survey. Thank you!"
+        : _finalMessage;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _survey = await SurveyService.GetSurveyAsync(Id);
+            _survey = Code is not null
+                ? await SurveyService.GetSurveyByShareCodeAsync(Code)
+                : await SurveyService.GetSurveyAsync(Id);
             if (_survey is not null)
             {
-                _questions = await SurveyService.GetSurveyQuestionsAsync(Id);
+                _questions = await SurveyService.GetSurveyQuestionsAsync(_survey.Id);
                 StartOver();
             }
         }
@@ -81,6 +108,28 @@
             _survey = null;
         }
         _loading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // The respondent id lives in browser storage, which is only readable once the page is interactive.
+        if (!firstRender || _survey is null || !_survey.IsPublished())
+        {
+            return;
+        }
+
+        try
+        {
+            _alreadyAnswered = await SurveyService.HasAnsweredAsync(_survey.Id, await Respondent.GetIdAsync());
+        }
+        catch (HttpRequestException)
+        {
+            // Not knowing is fine: the server still refuses a second answer on submit.
+        }
+        if (_alreadyAnswered)
+        {
+            StateHasChanged();
+        }
     }
 
     private void StartOver()
@@ -106,12 +155,17 @@
         _submitting = true;
         _message = null;
 
-        var result = await SurveyService.SubmitResponseAsync(Id, _answers);
+        var result = await SurveyService.SubmitResponseAsync(_survey!.Id, _answers, await Respondent.GetIdAsync());
         _submitting = false;
 
         if (result.Success)
         {
             _submitted = true;
+            return;
+        }
+        if (!result.CanRetry)
+        {
+            _finalMessage = result.Message;
             return;
         }
 
