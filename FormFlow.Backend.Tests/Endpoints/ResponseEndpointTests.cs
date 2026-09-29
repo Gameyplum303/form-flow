@@ -163,6 +163,40 @@ namespace FormFlow.Backend.Tests.Endpoints
         }
 
         [Fact]
+        public async Task Results_CountStarsAndAverageRatings_AndStoreNewTypes()
+        {
+            var survey = await InMemoryApiFactory.GetDemoSurveyAsync(_client);
+            (await _client.PostAsJsonAsync($"/api/surveys/{survey.Id}/responses", ValidAnswers(a =>
+            {
+                a["experience_rating"] = "5";
+                a["program_start"] = "2025-08-18";
+                a["comments"] = "Great labs.";
+            }))).StatusCode.Should().Be(HttpStatusCode.Created);
+            await _client.PostAsJsonAsync($"/api/surveys/{survey.Id}/responses", ValidAnswers(a => a["experience_rating"] = 4));
+
+            var results = await _client.GetFromJsonAsync<SurveyResults>($"/api/surveys/{survey.Id}/results");
+
+            var rating = results!.Questions.Single(q => q.Key == "experience_rating");
+            rating.Options.Select(o => o.Label).Should().Equal("1 star", "2 stars", "3 stars", "4 stars", "5 stars");
+            rating.Options.Select(o => o.Count).Should().Equal(0, 0, 0, 1, 1);
+            rating.Numbers!.Average.Should().Be(4.5m);
+            results.Questions.Single(q => q.Key == "program_start").RecentAnswers.Should().Equal("2025-08-18");
+            results.Questions.Single(q => q.Key == "comments").RecentAnswers.Should().Equal("Great labs.");
+        }
+
+        [Theory]
+        [InlineData("email", "not-an-email")]
+        [InlineData("experience_rating", "6")]
+        [InlineData("program_start", "18/08/2025")]
+        public async Task Submit_RejectsBadAnswersToTheNewTypes(string key, string answer)
+        {
+            var (_, response) = await SubmitAsync(ValidAnswers(a => a[key] = answer));
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            (await response.Content.ReadAsStringAsync()).Should().Contain(key);
+        }
+
+        [Fact]
         public async Task Export_ReturnsCsvWithHeaderAndOneRowPerResponse()
         {
             var survey = await InMemoryApiFactory.GetDemoSurveyAsync(_client);

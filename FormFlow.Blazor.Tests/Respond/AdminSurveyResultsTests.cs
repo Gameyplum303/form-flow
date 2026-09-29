@@ -54,6 +54,33 @@ public class AdminSurveyResultsTests
     }
 
     [Fact]
+    public async Task Ratings_ShowTheAverageAboveTheStarCounts()
+    {
+        await using var ctx = CreateContext();
+        var id = Guid.NewGuid();
+        _service.Results = new SurveyResults
+        {
+            SurveyId = id,
+            Title = "Campus survey",
+            TotalResponses = 2,
+            Questions =
+            [
+                new QuestionResult
+                {
+                    Key = "stars", Label = "Rate it", Type = "rating", AnsweredCount = 2,
+                    Options = Enumerable.Range(1, 5).Select(n => new OptionCount { Value = $"{n}", Label = $"{n} stars", Count = n >= 4 ? 1 : 0 }).ToList(),
+                    Numbers = new NumberSummary { Min = 4, Max = 5, Average = 4.5m }
+                }
+            ]
+        };
+
+        var cut = ctx.Render<AdminSurveyResults>(p => p.Add(x => x.Id, id));
+
+        cut.WaitForAssertion(() => cut.Find("[data-average-rating]").TextContent.Should().Contain("Average rating: 4.5 of 5"));
+        cut.Markup.Should().Contain("5 stars");
+    }
+
+    [Fact]
     public async Task DownloadCsv_saves_the_file_through_the_browser()
     {
         await using var ctx = CreateContext();

@@ -19,7 +19,7 @@
     "id": "ee9b5673-3e3f-4d03-8ad5-3be0f8460003",
     "key": "email",
     "label": "Email Address",
-    "type": "text",
+    "type": "email",
     "required": true,
     "placeholder": "Enter your email address",
     "helpText": "We will only use this address to contact you when needed."
@@ -104,5 +104,33 @@
       { "value": "east", "label": "East campus" },
       { "value": "west", "label": "West campus" }
     ]
+  },
+  {
+    "id": "b78e1f5b-1b1a-4fa5-8b94-8a0f4d1a0011",
+    "key": "program_start",
+    "label": "When did you start your current program?",
+    "type": "date",
+    "required": false,
+    "visibleIf": {
+      "key": "is_student",
+      "shouldEqual": true
+    }
+  },
+  {
+    "id": "c89f2a6c-2c2b-4fb5-9ca5-9b1a5e2b0012",
+    "key": "experience_rating",
+    "label": "How would you rate your experience so far?",
+    "type": "rating",
+    "required": false,
+    "helpText": "1 star is poor, 5 stars is excellent."
+  },
+  {
+    "id": "d9a03b7d-3d3c-4fc5-adb6-ac2b6f3c0013",
+    "key": "comments",
+    "label": "Anything else you would like to tell us?",
+    "type": "long_text",
+    "required": false,
+    "placeholder": "Optional",
+    "validationConfigs": "[{\"validationType\":\"MaxLength\",\"maxLength\":1000}]"
   }
 ]

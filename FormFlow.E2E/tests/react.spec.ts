@@ -24,6 +24,9 @@ test.describe("React: taking a survey", () => {
         await page.getByRole("group", { name: /contact method/ }).getByLabel("Email").check();
         await page.getByRole("group", { name: /skills/ }).getByLabel("SQL").check();
         await page.getByLabel(/campus location/).selectOption("west");
+        await page.getByLabel(/start your current program/).fill("2024-01-15");
+        await page.getByRole("group", { name: /rate your experience/ }).getByLabel("3 of 5").check();
+        await page.getByLabel(/Anything else/).fill("More study rooms, please.");
 
         await page.getByRole("button", { name: "Submit" }).click();
         await expect(page.getByText("Value must be ≥ 0.")).toBeVisible();
@@ -40,6 +43,9 @@ test.describe("React: taking a survey", () => {
             age: ["40"],
             campus_preference: ["west"],
             skills: ["sql"],
+            program_start: ["2024-01-15"],
+            experience_rating: ["3"],
+            comments: ["More study rooms, please."],
         });
     });
 

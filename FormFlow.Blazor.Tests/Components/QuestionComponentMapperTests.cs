@@ -15,6 +15,10 @@ namespace FormFlow.Blazor.Tests.Components
         [InlineData("multiselect", typeof(MultiselectQuestion))]
         [InlineData("checkbox", typeof(CheckboxQuestion))]
         [InlineData("radio", typeof(RadioQuestion))]
+        [InlineData("long_text", typeof(LongTextQuestion))]
+        [InlineData("email", typeof(EmailQuestion))]
+        [InlineData("date", typeof(DateQuestion))]
+        [InlineData("rating", typeof(RatingQuestion))]
         public void Resolve_Returns_Correct_Component_Type(string type, Type expected)
         {
             // Act

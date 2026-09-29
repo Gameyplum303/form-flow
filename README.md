@@ -15,7 +15,7 @@ It started as the capstone team project for the Software Engineering BS at East 
 
 ## Highlights
 
-- **Questions are data, not code.** Seven question types (text, number, yes/no, dropdown, radio, checkbox, multiselect) with labels, help text, options, required flags and validation rules, all stored in LiteDB and editable at runtime.
+- **Questions are data, not code.** Eleven question types (text, long text, number, email, date, star rating, yes/no, dropdown, radio, checkbox, multiselect) with labels, help text, options, required flags and validation rules, all stored in LiteDB and editable at runtime.
 - **Conditional questions.** A question can be shown only when a yes/no question has a given answer ("Preferred campus" appears only for students). The same rule runs in C# on the server and in TypeScript in the browser, and hidden answers are dropped before they are saved.
 - **One validator, three clients.** Every submission goes through a single server-side `ResponseValidator` that returns RFC 7807 problem details keyed by question, so the Blazor and React apps show the same errors next to the same fields.
 - **Full admin loop.** Create, edit, reorder and delete questions and surveys, preview a survey, see per-question results (option counts, number stats, recent text answers) and download responses as CSV.
@@ -183,10 +183,10 @@ npx playwright test
 
 | Suite | Tests | Covers |
 |---|---|---|
-| `FormFlow.Data.Tests` | 39 | Question rules, response validation, visibility chains and cycles |
-| `FormFlow.Backend.Tests` | 114 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in and admin and view-only access rules, rate limits, repositories, seeding, CSV escaping |
-| `FormFlow.Blazor.Tests` | 141 | Each question component, two-way binding, sign-in and the admin guard, admin pages, taking a survey, results page |
-| `FormFlow.React.Tests` | 20 | Visibility logic, the form component, and the app against a mocked API |
+| `FormFlow.Data.Tests` | 70 | Question rules, response validation for every question type, rating scales, visibility chains and cycles |
+| `FormFlow.Backend.Tests` | 118 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in and admin and view-only access rules, rate limits, repositories, seeding, CSV escaping |
+| `FormFlow.Blazor.Tests` | 160 | Each question component, two-way binding, sign-in and the admin guard, admin pages, taking a survey, results page |
+| `FormFlow.React.Tests` | 25 | Visibility logic, the form component, and the app against a mocked API |
 | `FormFlow.E2E` | 22 | Playwright in Chromium: signing in as an admin and a view-only account, the full admin flow, taking surveys in both apps, CSV download, API security |
 
 CI runs all of these, measures .NET code coverage (85% of lines), and checks ESLint and `dotnet format --verify-no-changes` on every push and pull request. The browser tests run against the Docker images started with docker compose. See [docs/testing.md](docs/testing.md).
