@@ -5,6 +5,7 @@ using FormFlow.Backend.Repositories;
 
 namespace FormFlow.Backend.Endpoints
 {
+    /// <summary>Survey endpoints: the public list, share links, and building and sharing surveys.</summary>
     public static class SurveyEndpoints
     {
         public static void MapSurveyEndpoints(this IEndpointRouteBuilder app)
@@ -12,10 +13,11 @@ namespace FormFlow.Backend.Endpoints
             var group = app.MapGroup("/api/surveys").WithTags("Surveys");
 
             // GET the public list: published, listed surveys that are still open
-            group.MapGet("", (ISurveyRepository repo, TimeProvider clock) =>
+            group.MapGet("", (ClaimsPrincipal principal, ISurveyRepository repo, TimeProvider clock) =>
             {
                 var now = clock.GetUtcNow().UtcDateTime;
-                return Results.Json(repo.FindAll().Where(s => s.IsOnPublicList(now)).ToList());
+                var user = CurrentUser.From(principal);
+                return Results.Json(repo.FindAll().Where(s => s.IsOnPublicList(now)).Select(user.ShowOwnerToBuilders).ToList());
             })
             .WithName("GetAllSurveys")
             .Produces<List<SurveyDefinition>>(StatusCodes.Status200OK);
@@ -33,27 +35,18 @@ namespace FormFlow.Backend.Endpoints
             .Produces(StatusCodes.Status403Forbidden);
 
             // GET survey by id
-            group.MapGet("/{id}", (string id, ClaimsPrincipal principal, ISurveyRepository repo) =>
+            group.MapGet("/{id:guid}", (Guid id, ClaimsPrincipal principal, ISurveyRepository repo) =>
             {
-                if (!Guid.TryParse(id, out var parsedId))
-                {
-                    return Results.BadRequest(new
-                    {
-                        error = "Invalid survey id. Must be a GUID."
-                    });
-                }
-
-                var survey = repo.FindById(parsedId);
-
-                if (survey is null || !CurrentUser.From(principal).CanOpen(survey))
+                var survey = repo.FindById(id);
+                var user = CurrentUser.From(principal);
+                if (survey is null || !user.CanOpen(survey))
                 {
                     return Results.NotFound();
                 }
-                return Results.Ok(survey);
+                return Results.Ok(user.ShowOwnerToBuilders(survey));
             })
             .WithName("GetSurveyById")
             .Produces<SurveyDefinition>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound);
 
             // GET the survey's questions, in survey order, so a client can render it in one call
@@ -61,17 +54,19 @@ namespace FormFlow.Backend.Endpoints
                 IQuestionRepository questions) =>
             {
                 var survey = repo.FindById(id);
-                if (survey is null || !CurrentUser.From(principal).CanOpen(survey))
+                var user = CurrentUser.From(principal);
+                if (survey is null || !user.CanOpen(survey))
                 {
                     return Results.NotFound();
                 }
-                return Results.Ok(LoadQuestions(survey, questions));
+                return Results.Ok(LoadQuestions(survey, questions).Select(user.ShowOwnerToBuilders).ToList());
             })
             .WithName("GetSurveyQuestions")
             .Produces<List<QuestionDefinition>>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
-            group.MapPost("", (NewSurvey dto, ClaimsPrincipal principal, ISurveyRepository repo, IQuestionRepository questions) =>
+            group.MapPost("", (NewSurvey dto, ClaimsPrincipal principal, ISurveyRepository repo, IQuestionRepository questions,
+                TimeProvider clock) =>
             {
                 var error = Validate(dto, questions);
                 if (error is not null)
@@ -85,7 +80,7 @@ namespace FormFlow.Backend.Endpoints
                     Title = dto.Title.Trim(),
                     Description = dto.Description.Trim(),
                     QuestionIds = dto.QuestionIds,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = clock.GetUtcNow().UtcDateTime,
                     // New surveys stay private until their owner publishes them.
                     Status = SurveyStatuses.Draft,
                     Listed = false,
@@ -108,13 +103,9 @@ namespace FormFlow.Backend.Endpoints
                 IQuestionRepository questions) =>
             {
                 var existing = repo.FindById(id);
-                if (existing is null)
+                if (CurrentUser.From(principal).CannotManage(existing, "surveys", out var denied))
                 {
-                    return Results.NotFound();
-                }
-                if (!CurrentUser.From(principal).CanManage(existing))
-                {
-                    return CurrentUser.NotYours("surveys");
+                    return denied;
                 }
 
                 var error = Validate(dto, questions);
@@ -142,13 +133,9 @@ namespace FormFlow.Backend.Endpoints
             group.MapPut("/{id:guid}/sharing", (Guid id, SurveySharing sharing, ClaimsPrincipal principal, ISurveyRepository repo) =>
             {
                 var existing = repo.FindById(id);
-                if (existing is null)
+                if (CurrentUser.From(principal).CannotManage(existing, "surveys", out var denied))
                 {
-                    return Results.NotFound();
-                }
-                if (!CurrentUser.From(principal).CanManage(existing))
-                {
-                    return CurrentUser.NotYours("surveys");
+                    return denied;
                 }
                 if (!SurveyStatuses.IsKnown(sharing.Status))
                 {
@@ -171,9 +158,12 @@ namespace FormFlow.Backend.Endpoints
 
             // Open a survey from its share link
             app.MapGet("/api/share/{code}", (string code, ClaimsPrincipal principal, ISurveyRepository repo) =>
-                repo.FindByShareCode(code) is { } survey && CurrentUser.From(principal).CanOpen(survey)
-                    ? Results.Ok(survey)
-                    : Results.NotFound())
+            {
+                var user = CurrentUser.From(principal);
+                return repo.FindByShareCode(code) is { } survey && user.CanOpen(survey)
+                    ? Results.Ok(user.ShowOwnerToBuilders(survey))
+                    : Results.NotFound();
+            })
             .WithTags("Surveys")
             .WithName("GetSurveyByShareCode")
             .Produces<SurveyDefinition>(StatusCodes.Status200OK)
@@ -183,13 +173,9 @@ namespace FormFlow.Backend.Endpoints
                 IResponseRepository responses) =>
             {
                 var existing = repo.FindById(id);
-                if (existing is null)
+                if (CurrentUser.From(principal).CannotManage(existing, "surveys", out var denied))
                 {
-                    return Results.NotFound();
-                }
-                if (!CurrentUser.From(principal).CanManage(existing))
-                {
-                    return CurrentUser.NotYours("surveys");
+                    return denied;
                 }
 
                 repo.Delete(id);

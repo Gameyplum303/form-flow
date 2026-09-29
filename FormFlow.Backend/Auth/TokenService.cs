@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace FormFlow.Backend.Auth
 {
+    /// <summary>Issues the signed JWT a successful sign-in returns.</summary>
     public class TokenService(JwtSettings settings, TimeProvider clock)
     {
         public LoginResponse CreateToken(AdminUser user)

@@ -6,7 +6,7 @@
 # sleeps and takes about a minute to wake. See docs/deployment.md.
 #
 # Each app reaches the others at https://<service name>.onrender.com. If Render gives a service
-# a different address (it adds a suffix when a name is taken), change the three URLs below.
+# a different address (it adds a suffix when a name is taken), change the four URLs below.
 services:
   - type: web
     name: gameyplum-formflow-api
@@ -47,6 +47,9 @@ services:
       # Emails stay on the administrator's Emails page; links in them open the Blazor app.
       - key: Email__LinkBaseUrl
         value: https://gameyplum-formflow.onrender.com/
+      # The React app calls the API from the browser, so the API allows its address.
+      - key: Cors__AllowedOrigins__0
+        value: https://gameyplum-formflow-react.onrender.com
 
   - type: web
     name: gameyplum-formflow

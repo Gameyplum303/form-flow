@@ -1,8 +1,10 @@
 using LiteDB;
 using System.Text.Json;
+using FormFlow.Backend.Repositories;
 using FormFlow.Backend.Services;
 using FormFlow.Data.Models;
 using FormFlow.Data.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace FormFlow.Backend
@@ -15,18 +17,23 @@ namespace FormFlow.Backend
         private readonly IConfiguration? _config;
         private readonly ResponseValidator? _validator;
         private readonly TimeProvider _clock;
+        private readonly ILogger<DatabaseSeeder> _logger;
+
+        // The seed file, read on first use and kept for the rest of seeding.
+        private List<QuestionDefinition>? _seedQuestions;
 
         public const string DemoSurveyTitle = "Student Experience Survey";
 
         public DatabaseSeeder(ILiteDatabase dbContext, IWebHostEnvironment env, IConfiguration? config = null,
-            ResponseValidator? validator = null, TimeProvider? clock = null)
+            ResponseValidator? validator = null, TimeProvider? clock = null, ILogger<DatabaseSeeder>? logger = null)
         {
-            Repositories.LiteDbMappings.EnsureBuilt();
+            LiteDbMappings.EnsureBuilt();
             _dbContext = dbContext;
             _env = env;
             _config = config;
             _validator = validator;
             _clock = clock ?? TimeProvider.System;
+            _logger = logger ?? NullLogger<DatabaseSeeder>.Instance;
         }
 
         /// <summary>
@@ -37,12 +44,12 @@ namespace FormFlow.Backend
         /// </summary>
         public void Seed()
         {
-            var questions = _dbContext.GetCollection<QuestionDefinition>("questions");
+            var questions = _dbContext.GetCollection<QuestionDefinition>(QuestionRepository.CollectionName);
             SeedFromJson(questions);
 
             if (_config?.GetValue("SeedData:DemoSurvey", true) ?? true)
             {
-                var surveys = _dbContext.GetCollection<SurveyDefinition>("surveys");
+                var surveys = _dbContext.GetCollection<SurveyDefinition>(SurveyRepository.CollectionName);
                 SeedDemoSurvey(questions, surveys);
                 SeedSampleResponses(questions, surveys, _config?.GetValue("SeedData:SampleResponses", 0) ?? 0);
             }
@@ -55,7 +62,7 @@ namespace FormFlow.Backend
             {
                 return;
             }
-            var responses = _dbContext.GetCollection<SurveyResponse>(Repositories.ResponseRepository.CollectionName);
+            var responses = _dbContext.GetCollection<SurveyResponse>(ResponseRepository.CollectionName);
             var survey = surveys.FindOne(s => s.Title == DemoSurveyTitle);
             if (survey is null || responses.Exists(r => r.SurveyId == survey.Id))
             {
@@ -66,7 +73,7 @@ namespace FormFlow.Backend
             var ordered = survey.QuestionIds.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
             var sample = SampleResponseGenerator.Generate(survey, ordered, _validator, count, _clock.GetUtcNow().UtcDateTime);
             responses.InsertBulk(sample);
-            Console.WriteLine($"Seeded {sample.Count} sample responses to \"{survey.Title}\".");
+            _logger.LogInformation("Seeded {Count} sample responses to \"{Title}\".", sample.Count, survey.Title);
         }
 
         public void SeedDemoSurvey(ILiteCollection<QuestionDefinition> questions, ILiteCollection<SurveyDefinition> surveys)
@@ -77,7 +84,7 @@ namespace FormFlow.Backend
             }
 
             // Keep the order of the seed file so the conditional question follows the one it depends on.
-            var seedOrder = ReadSeedKeys();
+            var seedOrder = ReadSeedFile()?.Select(q => q.Key).ToList() ?? [];
             var questionIds = questions.FindAll()
                 .OrderBy(q => seedOrder.IndexOf(q.Key) is var i && i >= 0 ? i : int.MaxValue)
                 .Select(q => q.Id)
@@ -93,44 +100,20 @@ namespace FormFlow.Backend
                 Title = DemoSurveyTitle,
                 Description = "A demo survey built from the sample questions. Answer yes to \"Are you currently a student?\" to see the campus question appear.",
                 QuestionIds = questionIds,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = _clock.GetUtcNow().UtcDateTime
             });
         }
-        private List<string> ReadSeedKeys()
-        {
-            var path = Path.Combine(_env.ContentRootPath, "SeedData", "questions.json");
-            if (!File.Exists(path))
-            {
-                return [];
-            }
-
-            var seeded = JsonSerializer.Deserialize<List<QuestionDefinition>>(File.ReadAllText(path),
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            return seeded?.Select(q => q.Key).ToList() ?? [];
-        }
-
         public void SeedFromJson(ILiteCollection<QuestionDefinition> collection)
         {
 
             if (collection.Count() == 0)
             {
-                var seedDataPath = Path.Combine(_env.ContentRootPath, "SeedData", "questions.json");
+                var questionDefinitions = ReadSeedFile()
+                    ?? throw new FileNotFoundException($"Seed data file not found: {SeedFilePath}");
 
-
-                if (!File.Exists(seedDataPath))
+                if (questionDefinitions.Count == 0)
                 {
-                    throw new FileNotFoundException($"Seed data file not found: {seedDataPath}");
-                }
-
-                var json = File.ReadAllText(seedDataPath);
-                var questionDefinitions = JsonSerializer.Deserialize<List<QuestionDefinition>>(json, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-
-                if (questionDefinitions == null || questionDefinitions.Count == 0)
-                {
-                    throw new InvalidDataException($"Seed data file is empty or could not be deserialized: {seedDataPath}");
+                    throw new InvalidDataException($"Seed data file is empty or could not be deserialized: {SeedFilePath}");
                 }
 
                 foreach (var question in questionDefinitions)
@@ -143,9 +126,22 @@ namespace FormFlow.Backend
 
                 collection.InsertBulk(questionDefinitions);
 
-                Console.WriteLine($"Seeded {questionDefinitions.Count} sample questions.");
+                _logger.LogInformation("Seeded {Count} sample questions.", questionDefinitions.Count);
 
             }
+        }
+
+        private string SeedFilePath => Path.Combine(_env.ContentRootPath, "SeedData", "questions.json");
+
+        /// <summary>The sample questions in SeedData/questions.json, or null when the file is missing.</summary>
+        private List<QuestionDefinition>? ReadSeedFile()
+        {
+            if (_seedQuestions is null && File.Exists(SeedFilePath))
+            {
+                _seedQuestions = JsonSerializer.Deserialize<List<QuestionDefinition>>(File.ReadAllText(SeedFilePath),
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+            }
+            return _seedQuestions;
         }
     }
 }

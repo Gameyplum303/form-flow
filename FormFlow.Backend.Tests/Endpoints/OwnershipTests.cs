@@ -67,6 +67,45 @@ namespace FormFlow.Backend.Tests.Endpoints
         }
 
         [Fact]
+        public async Task WhoCreatedItems_IsHiddenFromPeopleWhoDontBuildSurveys()
+        {
+            var professor = Professor();
+            var question = await CreateQuestionAsync(professor, "lab_group");
+            var survey = await CreateSurveyAsync(professor, "Lab feedback", question.Id);
+            (await professor.PutAsJsonAsync($"/api/surveys/{survey.Id}/sharing",
+                new SurveySharing { Status = SurveyStatuses.Published, Listed = true })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+            // A professor's username is their email address, so anonymous visitors don't see it.
+            var visitor = _factory.CreateClient();
+            foreach (var owned in await OwnedItemsAsync(visitor, survey, question))
+            {
+                owned.OwnerId.Should().BeNull();
+                owned.OwnerName.Should().BeNull();
+            }
+
+            // The admin pages show who created each item.
+            foreach (var builder in new[] { Admin(), Scientist(), professor })
+            {
+                foreach (var owned in await OwnedItemsAsync(builder, survey, question))
+                {
+                    owned.OwnerId.Should().Be(question.OwnerId);
+                    owned.OwnerName.Should().Be("professor");
+                }
+            }
+        }
+
+        /// <summary>The survey and question as each public endpoint returns them.</summary>
+        private static async Task<List<IOwned>> OwnedItemsAsync(HttpClient client, SurveyDefinition survey, QuestionDefinition question) =>
+        [
+            (await client.GetFromJsonAsync<List<SurveyDefinition>>("/api/surveys"))!.Single(s => s.Id == survey.Id),
+            (await client.GetFromJsonAsync<SurveyDefinition>($"/api/surveys/{survey.Id}"))!,
+            (await client.GetFromJsonAsync<SurveyDefinition>($"/api/share/{survey.ShareCode}"))!,
+            (await client.GetFromJsonAsync<List<QuestionDefinition>>($"/api/surveys/{survey.Id}/questions"))!.Single(),
+            (await client.GetFromJsonAsync<List<QuestionDefinition>>("/api/questions"))!.Single(q => q.Id == question.Id),
+            (await client.GetFromJsonAsync<QuestionDefinition>($"/api/questions/{question.Id}"))!,
+        ];
+
+        [Fact]
         public async Task Professor_ManagesTheirOwnSurvey_FromEditToResultsToDelete()
         {
             var professor = Professor();

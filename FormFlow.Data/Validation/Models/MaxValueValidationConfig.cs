@@ -1,11 +1,9 @@
-using System;
-
 namespace FormFlow.Data.Validation.Models;
 
-public class MaxValueValidationConfig : IValidationConfig
+public class MaxValueValidationConfig
 {
     public string ValidationType { get; set; } = ValidationTypes.MaxValue;
-    public int MaxValue { get; set; }
+    public decimal MaxValue { get; set; }
 
     public string? Message { get; set; }
 }

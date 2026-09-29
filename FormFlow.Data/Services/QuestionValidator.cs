@@ -1,11 +1,12 @@
-using System.Text;
 using System.Text.Json;
 using FormFlow.Data.Models;
+using FormFlow.Data.Validation;
 
 namespace FormFlow.Data.Services
 {
     /// <summary>
-    /// Provides detailed error information for API responses
+    /// Checks a question before it is saved: its required fields, type, options, visibility rule and
+    /// validation rules. Each problem becomes a <see cref="ValidationError"/> the API can return.
     /// </summary>
     public class QuestionValidator
     {
@@ -140,8 +141,16 @@ namespace FormFlow.Data.Services
             }
         }
 
-        private static readonly HashSet<string> KnownRuleTypes =
-            ["MinLength", "MaxLength", "MinValue", "MaxValue", "Range"];
+        // The numbers each rule type needs. Lengths count characters, so they are whole numbers;
+        // values can have decimals.
+        private static readonly Dictionary<string, (string Field, bool WholeNumber)[]> RuleFields = new()
+        {
+            [ValidationTypes.MinLength] = [("minLength", true)],
+            [ValidationTypes.MaxLength] = [("maxLength", true)],
+            [ValidationTypes.MinValue] = [("minValue", false)],
+            [ValidationTypes.MaxValue] = [("maxValue", false)],
+            [ValidationTypes.Range] = [("minValue", false), ("maxValue", false)],
+        };
 
         private static void ValidateRules(string? validationConfigs, ValidationResult result)
         {
@@ -167,10 +176,30 @@ namespace FormFlow.Data.Services
                             ? typeElement.GetString()
                             : null;
 
-                    if (type is null || !KnownRuleTypes.Contains(type))
+                    if (type is null || !RuleFields.TryGetValue(type, out var fields))
                     {
                         AddError(result, "validationConfigs", "enum",
-                            $"Each validation rule needs a validationType of: {string.Join(", ", KnownRuleTypes)}");
+                            $"Each validation rule needs a validationType of: {string.Join(", ", RuleFields.Keys)}");
+                        return;
+                    }
+
+                    // Answers are checked against these numbers later, so a rule that can't be read
+                    // is turned away now rather than failing every submission.
+                    foreach (var (field, wholeNumber) in fields)
+                    {
+                        var values = Properties(rule, field).ToList();
+                        if (values.Count == 0 || !values.All(v => wholeNumber ? IsCount(v) : IsNumber(v)))
+                        {
+                            AddError(result, "validationConfigs", "number", wholeNumber
+                                ? $"A {type} rule needs {field} as a whole number, 0 or more"
+                                : $"A {type} rule needs {field} as a number");
+                            return;
+                        }
+                    }
+
+                    if (Properties(rule, "message").Any(m => m.ValueKind is not (JsonValueKind.String or JsonValueKind.Null)))
+                    {
+                        AddError(result, "validationConfigs", "format", "A validation rule's message must be text");
                         return;
                     }
                 }
@@ -180,6 +209,18 @@ namespace FormFlow.Data.Services
                 AddError(result, "validationConfigs", "format", "Validation rules must be valid JSON");
             }
         }
+
+        // Rules are read ignoring the case of property names, as QuestionValidationEngine reads them.
+        private static IEnumerable<JsonElement> Properties(JsonElement rule, string name) =>
+            rule.EnumerateObject()
+                .Where(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
+                .Select(p => p.Value);
+
+        private static bool IsNumber(JsonElement value) =>
+            value.ValueKind == JsonValueKind.Number && value.TryGetDecimal(out _);
+
+        private static bool IsCount(JsonElement value) =>
+            value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var count) && count >= 0;
 
         private static void AddError(ValidationResult result, string field, string property, string message)
         {
@@ -243,22 +284,6 @@ namespace FormFlow.Data.Services
                 });
                 return result;
             }
-        }
-        /// <summary>
-        /// Gets a human-readable error summary
-        /// </summary>
-        public string GetErrorSummary(ValidationResult result)
-        {
-            if (result.Valid)
-                return "Question is valid";
-
-            var sb = new StringBuilder("Validation failed:\n");
-            foreach (var error in result.Errors)
-            {
-                sb.AppendLine($"  • {error.Field}: {error.Message}");
-            }
-
-            return sb.ToString();
         }
     }
 }

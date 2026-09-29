@@ -141,6 +141,20 @@ namespace FormFlow.Backend.Tests.Endpoints
         }
 
         [Fact]
+        public async Task SignUp_WithTheEmailOfAConfiguredAccount_Returns409()
+        {
+            // Rogers signs in by username, but the email is still his.
+            using var factory = new InMemoryApiFactory();
+            var client = factory.WithWebHostBuilder(b => b.UseSetting("Accounts:0:Email", "rogers@lab.example")).CreateClient();
+
+            var response = await client.PostAsJsonAsync("/api/auth/signup", ValidSignUp("Rogers@Lab.Example"));
+
+            response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            body.GetProperty("errors").GetProperty("email")[0].GetString().Should().Contain("already exists");
+        }
+
+        [Fact]
         public async Task SignUp_ReportsEveryProblemByField()
         {
             var response = await SignUpAsync(new SignUpRequest { Email = "not-an-email", Password = "short", DateOfBirth = "2020-01-01" });

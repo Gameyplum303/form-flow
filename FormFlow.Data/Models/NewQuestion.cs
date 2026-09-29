@@ -1,5 +1,6 @@
 namespace FormFlow.Data.Models
 {
+    /// <summary>Body of POST and PUT /api/questions: a question without its id or owner.</summary>
     public class NewQuestion
     {
         public string Label { get; set; } = string.Empty;

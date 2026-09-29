@@ -1,10 +1,8 @@
 using LiteDB;
-using System.Collections.Generic;
-using System.Text.Json.Serialization;
-using FormFlow.Data.Validation;
 
 namespace FormFlow.Data.Models
 {
+    /// <summary>A question in the question bank, which surveys list by id and answers refer to by key.</summary>
     public class QuestionDefinition : IOwned
     {
         [BsonId]
