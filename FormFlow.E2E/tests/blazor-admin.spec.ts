@@ -393,7 +393,7 @@ test.describe.serial("Blazor: admin", () => {
         await openBlazor(page, "/admin/surveys");
         await page.getByRole("link", { name: "Create Survey" }).click();
         await expect(page.locator("[data-template-gallery]")).toBeVisible();
-        await expect(page.locator("[data-template='Course evaluation']")).toContainText("9 questions on 3 pages");
+        await expect(page.locator("[data-template='Course evaluation']")).toContainText("10 questions on 3 pages");
 
         await page.getByRole("button", { name: "Use the Course evaluation template" }).click();
         await expect(page).toHaveURL(/\/admin\/surveys\/[0-9a-f-]{36}\/edit$/);

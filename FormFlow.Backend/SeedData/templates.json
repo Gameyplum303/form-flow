@@ -53,6 +53,31 @@
         "required": true
       },
       {
+        "id": "78b2a297-9c29-53a0-9811-da3ad9ae27f8",
+        "key": "course_eval_statements",
+        "label": "How much do you agree with these statements about the course?",
+        "type": "likert",
+        "required": false,
+        "rows": [
+          {
+            "label": "The course was well organized.",
+            "value": "organized"
+          },
+          {
+            "label": "Feedback on my work was helpful.",
+            "value": "feedback"
+          },
+          {
+            "label": "The materials helped me learn.",
+            "value": "materials"
+          },
+          {
+            "label": "I felt comfortable asking questions.",
+            "value": "questions"
+          }
+        ]
+      },
+      {
         "id": "eeb7dc22-47b9-52ae-9d23-9e900170232d",
         "key": "course_eval_workload",
         "label": "How was the workload?",
@@ -351,10 +376,8 @@
         "id": "d4755466-0f65-53db-b3e5-81f261fa4870",
         "key": "customer_sat_recommend",
         "label": "How likely are you to recommend us to a friend?",
-        "type": "rating",
-        "required": true,
-        "helpText": "1 is not at all likely, 10 is extremely likely.",
-        "validationConfigs": "[{\"validationType\":\"MaxValue\",\"maxValue\":10}]"
+        "type": "nps",
+        "required": true
       },
       {
         "id": "6e2cb2b8-636e-5d9e-982f-481780edd870",
