@@ -133,6 +133,17 @@ public class SurveyServiceTests
     }
 
     [Fact]
+    public async Task Changes_refused_for_a_view_only_account_say_so()
+    {
+        _http.When(HttpMethod.Delete, $"http://api.test/api/surveys/{_id}").Respond(HttpStatusCode.Forbidden);
+
+        var (success, error) = await _service.DeleteSurveyAsync(_id);
+
+        success.Should().BeFalse();
+        error.Should().Be("Only admins can make changes. You're signed in with a view-only account.");
+    }
+
+    [Fact]
     public async Task Requests_carry_the_signed_in_admins_token()
     {
         var session = new Auth.FakeSessionStorage().CreateSession();

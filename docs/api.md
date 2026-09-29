@@ -18,17 +18,24 @@ All bodies are JSON with camelCase property names. Ids are GUIDs.
 
 ## Authentication
 
-Reading questions and surveys and submitting answers are public. Everything that changes the question bank or surveys, and everything that reads responses, needs an admin token. Those endpoints are marked **Admin** below and return `401` without a valid token.
+Reading questions and surveys and submitting answers are public. Everything else needs a token from signing in, and every account has a role:
+
+| Role | Can |
+|---|---|
+| `admin` | Everything: change questions and surveys, and read responses and results |
+| `viewer` | Read responses and results and download CSVs, but not change anything |
+
+Endpoints marked **Admin** need the `admin` role and return `403` for a viewer. Endpoints marked **Signed in** accept either role. Both return `401` without a valid token.
 
 ### `POST /api/auth/login`
 
 ```json
-{ "username": "student", "password": "password" }
+{ "username": "Rogers", "password": "password" }
 ```
 
 | Status | When |
 |---|---|
-| 200 | `{ "token": "eyJ…", "username": "student", "expiresAt": "2026-09-29T20:00:00Z" }` |
+| 200 | `{ "token": "eyJ…", "username": "Rogers", "role": "admin", "expiresAt": "2026-09-29T20:00:00Z" }` |
 | 401 | Problem details titled "Invalid username or password." The same answer is given for an unknown user and a wrong password, and both take the same time. |
 | 429 | More than `RateLimits:LoginPerMinute` attempts from one IP address in a minute |
 
@@ -38,15 +45,15 @@ Send the token on admin requests:
 Authorization: Bearer eyJ…
 ```
 
-Tokens are signed JWTs with the `admin` role and last `Jwt:LifetimeMinutes` (8 hours by default). In Swagger UI, sign in with the login endpoint, then paste the token into **Authorize**.
+Tokens are signed JWTs carrying the account's role and last `Jwt:LifetimeMinutes` (8 hours by default). In Swagger UI, sign in with the login endpoint, then paste the token into **Authorize**.
 
-### `GET /api/auth/me` (Admin)
+### `GET /api/auth/me` (Signed in)
 
-Returns `{ "username": "student" }` for the token's user, so a client can check that its token is still valid.
+Returns `{ "username": "Rogers", "role": "admin" }` for the token's user, so a client can check that its token is still valid.
 
-### Admin accounts
+### Accounts
 
-Passwords are stored as salted PBKDF2 hashes (ASP.NET Core Identity's `PasswordHasher`) in the `users` collection. At startup the API creates each account listed under `AdminAccounts` that doesn't exist yet. Usernames are matched without regard to case and shown as they were written. See [backend.md](backend.md#configuration).
+Passwords are stored as salted PBKDF2 hashes (ASP.NET Core Identity's `PasswordHasher`) in the `users` collection. At startup the API creates each account listed under `Accounts` that doesn't exist yet, and sets each listed account's role to match configuration. Usernames are matched without regard to case and shown as they were written. See [backend.md](backend.md#configuration).
 
 ---
 
@@ -192,11 +199,11 @@ Example 400 body:
 }
 ```
 
-### `GET /api/surveys/{id}/responses` (Admin)
+### `GET /api/surveys/{id}/responses` (Signed in)
 
 All stored responses for the survey, oldest first. 404 if the survey doesn't exist.
 
-### `GET /api/surveys/{id}/results` (Admin)
+### `GET /api/surveys/{id}/results` (Signed in)
 
 Aggregated results for the admin results page:
 
@@ -226,6 +233,6 @@ Aggregated results for the admin results page:
 
 Choice and yes/no questions get a count per option, number questions get min, max and average, and text questions get the five most recent answers.
 
-### `GET /api/surveys/{id}/responses/export` (Admin)
+### `GET /api/surveys/{id}/responses/export` (Signed in)
 
 Downloads every response as `<survey-title>-responses.csv`. Columns are `response_id`, `submitted_at`, then one column per question key in survey order. Multiple values are joined with `; `. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return (and aren't numbers) are prefixed with `'` so spreadsheets don't run them as formulas.

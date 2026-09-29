@@ -77,6 +77,21 @@ namespace FormFlow.Blazor.Tests.Admin
         }
 
         [Fact]
+        public async Task SurveyList_ViewOnlyAccount_HasNoCreateEditOrDelete()
+        {
+            await using var ctx = CreateContext();
+            _service.Surveys.Add(Survey("Survey A"));
+
+            var cut = ctx.Render<AdminSurveysList>(p => p.AddCascadingValue(new AdminAccess(false)));
+            cut.WaitForAssertion(() => Assert.Contains("Survey A", cut.Markup));
+
+            cut.Markup.Should().NotContain("Create Survey");
+            cut.FindAll("button").Should().NotContain(b => b.TextContent.Trim() == "Edit");
+            cut.FindAll("button[aria-label='Delete Survey A']").Should().BeEmpty();
+            cut.FindAll("button").Should().Contain(b => b.TextContent.Trim() == "Results");
+        }
+
+        [Fact]
         public async Task SurveyList_ConfirmedDelete_RemovesTheSurvey()
         {
             await using var ctx = CreateContext();

@@ -15,11 +15,14 @@
 
         <MudText Typo="Typo.h5" Class="mb-2">Question Management</MudText>
 
-        <MudButton Variant="Variant.Filled"
-                    Color="Color.Primary"
-                    Href="/admin/questions/create">
-            Create New Question            
-        </MudButton>
+        @if (CanEdit)
+        {
+            <MudButton Variant="Variant.Filled"
+                        Color="Color.Primary"
+                        Href="/admin/questions/create">
+                Create New Question            
+            </MudButton>
+        }
         
     </MudStack>
 
@@ -66,17 +69,23 @@
 
                 <MudTd>
                     <MudStack Row="true" Spacing="2">
-                        <MudButton Variant="Variant.Filled"
-                                Color="Color.Primary"
-                                Size="Size.Small"
-                                OnClick="@(_ => EditQuestion(context.Id))">
-                            Edit        
-                        </MudButton>
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                Color="Color.Error"
-                                Size="Size.Small"
-                                aria-label="@($"Delete {context.Label}")"
-                                OnClick="@(_ => DeleteQuestion(context))" />
+                        @if (CanEdit)
+                        {
+                            <MudButton Variant="Variant.Filled"
+                                    Color="Color.Primary"
+                                    Size="Size.Small"
+                                    OnClick="@(_ => EditQuestion(context.Id))">
+                                Edit        
+                            </MudButton>
+                        }
+                        @if (CanEdit)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                    Color="Color.Error"
+                                    Size="Size.Small"
+                                    aria-label="@($"Delete {context.Label}")"
+                                    OnClick="@(_ => DeleteQuestion(context))" />
+                        }
                     </MudStack>
                 </MudTd>
             </RowTemplate>
@@ -89,6 +98,11 @@
 </MudPaper>
 
 @code {
+    [CascadingParameter] public AdminAccess? Access { get; set; }
+
+    /// <summary>View-only accounts don't get create, edit or delete buttons. Without a guard (in tests) everything shows.</summary>
+    private bool CanEdit => Access?.CanEdit ?? true;
+
     private List<QuestionDefinition>? questions;
 
     protected override async Task OnInitializedAsync()

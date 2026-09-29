@@ -4,14 +4,14 @@ using Microsoft.AspNetCore.Identity;
 namespace FormFlow.Backend.Auth
 {
     /// <summary>
-    /// Creates the accounts listed under AdminAccounts (each with a Username and Password) that don't
-    /// exist yet. Existing accounts are left alone, so changing a password in configuration later has
-    /// no effect. Passwords are only ever stored hashed.
+    /// Creates the accounts listed under Accounts (each with a Username, Password and Role) that don't
+    /// exist yet, and keeps each listed account's role in step with configuration. Passwords of existing
+    /// accounts are never changed. Passwords are only ever stored hashed.
     /// </summary>
     public class AdminAccountSeeder(IUserRepository users, IPasswordHasher<AdminUser> hasher, IConfiguration config,
         ILogger<AdminAccountSeeder> logger)
     {
-        public const string Section = "AdminAccounts";
+        public const string Section = "Accounts";
 
         public void Seed()
         {
@@ -19,26 +19,40 @@ namespace FormFlow.Backend.Auth
             {
                 var username = account["Username"]?.Trim();
                 var password = account["Password"];
+                var role = account["Role"]?.Trim().ToLowerInvariant() ?? JwtSettings.ViewerRole;
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
                 {
                     logger.LogWarning("Skipping {Section}:{Index}, which needs both a Username and a Password.", Section, account.Key);
                     continue;
                 }
-
-                if (users.FindByUsername(username) is not null)
+                if (!JwtSettings.IsKnownRole(role))
                 {
+                    logger.LogWarning("Skipping account '{Username}': Role must be '{Admin}' or '{Viewer}'.",
+                        username, JwtSettings.AdminRole, JwtSettings.ViewerRole);
                     continue;
                 }
 
-                var user = new AdminUser { Id = Guid.NewGuid(), Username = username, CreatedAt = DateTime.UtcNow };
+                var existing = users.FindByUsername(username);
+                if (existing is not null)
+                {
+                    if (existing.Role != role)
+                    {
+                        existing.Role = role;
+                        users.Update(existing);
+                        logger.LogInformation("Account '{Username}' is now a {Role}.", existing.Username, role);
+                    }
+                    continue;
+                }
+
+                var user = new AdminUser { Id = Guid.NewGuid(), Username = username, Role = role, CreatedAt = DateTime.UtcNow };
                 user.PasswordHash = hasher.HashPassword(user, password);
                 users.Insert(user);
-                logger.LogInformation("Created admin account '{Username}'.", user.Username);
+                logger.LogInformation("Created {Role} account '{Username}'.", role, user.Username);
             }
 
             if (users.Count() == 0)
             {
-                logger.LogWarning("No admin account exists. Add one under {Section} to sign in.", Section);
+                logger.LogWarning("No accounts exist. Add one under {Section} to sign in.", Section);
             }
         }
     }

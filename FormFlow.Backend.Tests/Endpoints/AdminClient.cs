@@ -5,13 +5,15 @@ using FormFlow.Data.Models;
 namespace FormFlow.Backend.Tests.Endpoints
 {
     /// <summary>
-    /// Signs a test client in as the test account that appsettings.Development.json creates,
-    /// so tests can call the admin endpoints.
+    /// Signs a test client in with the accounts appsettings.Development.json creates: Rogers is an
+    /// admin, and student is a view-only account.
     /// </summary>
     public static class AdminClient
     {
-        public const string Username = "student";
+        public const string Username = "Rogers";
         public const string Password = "password";
+        public const string ViewerUsername = "student";
+        public const string ViewerPassword = "password";
 
         public static async Task<LoginResponse> LoginAsync(HttpClient client, string username = Username, string password = Password)
         {
@@ -20,9 +22,13 @@ namespace FormFlow.Backend.Tests.Endpoints
             return (await response.Content.ReadFromJsonAsync<LoginResponse>())!;
         }
 
-        public static HttpClient AsAdmin(this HttpClient client)
+        public static HttpClient AsAdmin(this HttpClient client) => client.SignedInAs(Username, Password);
+
+        public static HttpClient AsViewer(this HttpClient client) => client.SignedInAs(ViewerUsername, ViewerPassword);
+
+        private static HttpClient SignedInAs(this HttpClient client, string username, string password)
         {
-            var login = LoginAsync(client).GetAwaiter().GetResult();
+            var login = LoginAsync(client, username, password).GetAwaiter().GetResult();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.Token);
             return client;
         }

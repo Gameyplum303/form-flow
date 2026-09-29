@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { admin, adminHeaders, demoSurveyTitle, runId, surveyByTitle, urls } from "./helpers";
+import { admin, adminHeaders, demoSurveyTitle, runId, surveyByTitle, urls, viewer } from "./helpers";
 
 test.describe("API", () => {
     test("serves Swagger UI and the OpenAPI document", async ({ request }) => {
@@ -25,7 +25,22 @@ test.describe("API", () => {
 
         const me = await request.get(`${urls.api}/api/auth/me`, { headers: await adminHeaders(request) });
         expect(me.status()).toBe(200);
-        expect((await me.json()).username).toBe(admin.username);
+        expect(await me.json()).toEqual({ username: admin.username, role: "admin" });
+    });
+
+    test("lets the view-only account read results but not change anything", async ({ request }) => {
+        const survey = await surveyByTitle(request, demoSurveyTitle);
+        const login = await request.post(`${urls.api}/api/auth/login`, { data: viewer });
+        expect(login.status()).toBe(200);
+        const { token, role } = await login.json();
+        expect(role).toBe("viewer");
+        const headers = { Authorization: `Bearer ${token}` };
+
+        expect((await request.get(`${urls.api}/api/surveys/${survey.id}/results`, { headers })).status()).toBe(200);
+        expect((await request.post(`${urls.api}/api/questions`, {
+            headers, data: { key: `viewer_${runId}`, label: "Viewer", type: "text" },
+        })).status()).toBe(403);
+        expect((await request.delete(`${urls.api}/api/surveys/${survey.id}`, { headers })).status()).toBe(403);
     });
 
     test("rejects invalid questions and protects questions in use", async ({ request }) => {

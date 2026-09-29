@@ -38,9 +38,9 @@ namespace FormFlow.Backend.Endpoints
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
             group.MapGet("/me", (ClaimsPrincipal user) =>
-                Results.Ok(new { username = user.FindFirstValue(JwtRegisteredClaimNames.UniqueName) }))
+                Results.Ok(new { username = user.FindFirstValue(JwtRegisteredClaimNames.UniqueName), role = user.FindFirstValue("role") }))
             .WithName("CurrentAdmin")
-            .RequireAuthorization(JwtSettings.AdminPolicy)
+            .RequireAuthorization(JwtSettings.ViewerPolicy)
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
         }

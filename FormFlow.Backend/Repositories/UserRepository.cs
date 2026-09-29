@@ -27,6 +27,8 @@ namespace FormFlow.Backend.Repositories
         public AdminUser? FindByUsername(string username) =>
             _users.FindOne(u => u.NormalizedUsername == Normalize(username));
 
+        public bool Update(AdminUser user) => _users.Update(user);
+
         public int Count() => _users.Count();
 
         private static string Normalize(string username) => username.Trim().ToLowerInvariant();
