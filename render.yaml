@@ -1,0 +1,85 @@
+# Render Blueprint for the public demo: the API, the Blazor app and the React app on Render's
+# free plan. Create it from the Render dashboard with New > Blueprint and this repository.
+#
+# The free plan has no disk, so the demo starts fresh (demo survey, sample responses, the two
+# demo accounts) whenever a service restarts or redeploys, and after 15 idle minutes a service
+# sleeps and takes about a minute to wake. See docs/deployment.md.
+#
+# Each app reaches the others at https://<service name>.onrender.com. If Render gives a service
+# a different address (it adds a suffix when a name is taken), change the three URLs below.
+services:
+  - type: web
+    name: gameyplum-formflow-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./FormFlow.Backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/surveys
+    branch: main
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - FormFlow.Backend/**
+        - FormFlow.Data/**
+    envVars:
+      - key: PORT
+        value: "8080"
+      # Render's proxy passes on the visitor's address, which the rate limits count by.
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      - key: Jwt__Key
+        generateValue: true
+      - key: SeedData__SampleResponses
+        value: "80"
+      # Public demo accounts: the sign-in page shows them, and the data resets anyway.
+      - key: Accounts__0__Username
+        value: admin
+      - key: Accounts__0__Password
+        value: password
+      - key: Accounts__0__Role
+        value: admin
+      - key: Accounts__1__Username
+        value: professor
+      - key: Accounts__1__Password
+        value: password
+      - key: Accounts__1__Role
+        value: professor
+      # Emails stay on the administrator's Emails page; links in them open the Blazor app.
+      - key: Email__LinkBaseUrl
+        value: https://gameyplum-formflow.onrender.com/
+
+  - type: web
+    name: gameyplum-formflow
+    runtime: docker
+    plan: free
+    dockerfilePath: ./FormFlow.Blazor/Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    branch: main
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - FormFlow.Blazor/**
+        - FormFlow.Data/**
+    envVars:
+      - key: PORT
+        value: "8080"
+      # So share links and QR codes use https, as visitors see the site.
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      - key: BackendApi__BaseUrl
+        value: https://gameyplum-formflow-api.onrender.com/
+      - key: LoginHint
+        value: "Demo accounts: admin / password (administrator) and professor / password. Students take surveys without signing in. The demo resets itself now and then."
+
+  - type: web
+    name: gameyplum-formflow-react
+    runtime: static
+    # The API address is compiled into the bundle, so it is set in the build command.
+    buildCommand: cd FormFlow.React && npm ci && REACT_APP_API_URL=https://gameyplum-formflow-api.onrender.com npm run build
+    staticPublishPath: ./FormFlow.React/build
+    branch: main
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - FormFlow.React/**
