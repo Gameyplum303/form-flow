@@ -10,10 +10,13 @@
             }
         </label>
         <MudTextField T="string"
-                      @bind-Value="_value"
+                      Value="_value"
+                      ValueChanged="OnChanged"
                       Required="@Question.Required"
                       Placeholder="@Question.Placeholder"
                       HelperText="@Question.HelpText"
+                      Error="HasError"
+                      ErrorText="@Error"
                       Class="my-input" />
     </div>
 </MudPaper>
@@ -22,9 +25,19 @@
   
     protected override void OnParametersSet()
     {
-        if (_value is null && Question.DefaultValue is not null)
+        if (Value is not null)
+        {
+            _value = BoundValue;
+        }
+        else if (_value is null && Question.DefaultValue is not null)
         {
             _value = Question.DefaultValue;
         }
+    }
+
+    private Task OnChanged(string? value)
+    {
+        _value = value;
+        return ReportAsync(value);
     }
 }
