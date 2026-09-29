@@ -1,0 +1,108 @@
+@page "/account"
+@using FormFlow.Blazor.Services
+@using FormFlow.Data.Models
+@using FormFlow.Data.Services
+@inject IAuthService AuthService
+@inject AdminSession Session
+
+<PageTitle>Your account</PageTitle>
+
+<MudPaper Class="pa-6 mx-auto mt-10" MaxWidth="480px" Elevation="3">
+    <MudText Typo="Typo.h5" Class="mb-2">Your account</MudText>
+
+    @if (!Session.IsRestored)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (!Session.IsSignedIn)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">Sign in to change your password.</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/login?returnUrl=%2Faccount">Sign in</MudButton>
+    }
+    else
+    {
+        <MudText Class="mb-4">Signed in as @Session.Username (@Roles.DisplayName(Session.Role)).</MudText>
+        <MudText Typo="Typo.h6" Class="mb-2">Change password</MudText>
+
+        @if (_changed)
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-4" data-password-changed>
+                Your password was changed. Anywhere else you were signed in, you'll need to sign in again.
+            </MudAlert>
+        }
+
+        <EditForm Model="_form" OnSubmit="ChangeAsync">
+            <MudStack Spacing="3">
+                <div>
+                    <MudTextField @bind-Value="_form.CurrentPassword" Label="Current password" InputType="InputType.Password"
+                                  Variant="Variant.Outlined" autocomplete="current-password" />
+                    <FieldError Errors="_errors" Field="currentPassword" />
+                </div>
+                <div>
+                    <MudTextField @bind-Value="_form.Password" Label="New password" InputType="InputType.Password"
+                                  Variant="Variant.Outlined" autocomplete="new-password"
+                                  HelperText="@($"At least {SignUpValidator.MinimumPasswordLength} characters.")" />
+                    <FieldError Errors="_errors" Field="newPassword" />
+                </div>
+                <div>
+                    <MudTextField @bind-Value="_form.ConfirmPassword" Label="Confirm new password" InputType="InputType.Password"
+                                  Variant="Variant.Outlined" autocomplete="new-password" />
+                    <FieldError Errors="_errors" Field="confirmPassword" />
+                </div>
+                @if (_error is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+                }
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy">
+                    Change password
+                </MudButton>
+            </MudStack>
+        </EditForm>
+    }
+</MudPaper>
+
+@code {
+    private NewPasswordForm _form = new();
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private string? _error;
+    private bool _busy;
+    private bool _changed;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // The sign-in lives in browser storage, which is only readable once the page is interactive.
+        if (firstRender)
+        {
+            await Session.RestoreAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ChangeAsync()
+    {
+        var errors = NewPasswordForm.Check(_form.Password, _form.ConfirmPassword, "newPassword");
+        if (string.IsNullOrEmpty(_form.CurrentPassword))
+        {
+            errors["currentPassword"] = ["Enter your current password."];
+        }
+        _errors = errors;
+        _error = null;
+        _changed = false;
+        if (errors.Count > 0)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await AuthService.ChangePasswordAsync(_form.CurrentPassword, _form.Password);
+        _busy = false;
+        _errors = result.FieldErrors;
+        _error = result.Error;
+        if (result is { Succeeded: true, Login: { } login })
+        {
+            await Session.SignInAsync(login);
+            _form = new();
+            _changed = true;
+        }
+    }
+}

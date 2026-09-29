@@ -11,7 +11,21 @@
 
     @if (_result is { Succeeded: true } result)
     {
-        @if (result.Status == AccountStatuses.Pending)
+        @if (result.EmailVerificationRequired)
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-4" data-signup-done>
+                Thanks, @_form.Name.Trim(). We sent a link to @_form.Email.Trim(). Open it to verify your email address.
+                @if (result.Status == AccountStatuses.Pending)
+                {
+                    <text> After that, an administrator will review your sign-up, and you can sign in once it's approved.</text>
+                }
+                else
+                {
+                    <text> After that, you can sign in.</text>
+                }
+            </MudAlert>
+        }
+        else if (result.Status == AccountStatuses.Pending)
         {
             <MudAlert Severity="Severity.Success" Class="mb-4" data-signup-done>
                 Thanks, @_form.Name.Trim(). An administrator will review your sign-up. Once it's approved, you

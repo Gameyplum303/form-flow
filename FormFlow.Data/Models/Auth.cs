@@ -53,6 +53,60 @@ namespace FormFlow.Data.Models
     public class SignUpResponse
     {
         public string Status { get; set; } = string.Empty;
+
+        /// <summary>True when the account can't sign in until its email address is verified with the emailed link.</summary>
+        public bool EmailVerificationRequired { get; set; }
+    }
+
+    /// <summary>
+    /// Why a correct password still can't sign in, sent as the "reason" of the 403 problem so clients
+    /// can offer the right next step.
+    /// </summary>
+    public static class SignInBlocks
+    {
+        public const string EmailUnverified = "email_unverified";
+        public const string Pending = "pending";
+    }
+
+    /// <summary>Body of the requests that only need an email address: forgot password and resend verification.</summary>
+    public class EmailRequest
+    {
+        public string Email { get; set; } = string.Empty;
+    }
+
+    /// <summary>Body of POST /api/auth/verify-email: the token from the emailed link.</summary>
+    public class VerifyEmailRequest
+    {
+        public string Token { get; set; } = string.Empty;
+    }
+
+    /// <summary>The verified account's status, so the page can say whether it still waits for approval.</summary>
+    public class VerifyEmailResponse
+    {
+        public string Status { get; set; } = string.Empty;
+    }
+
+    /// <summary>Body of POST /api/auth/reset-password: the token from the emailed link and the new password.</summary>
+    public class ResetPasswordRequest
+    {
+        public string Token { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+
+    /// <summary>Body of POST /api/auth/change-password, for a signed-in account.</summary>
+    public class ChangePasswordRequest
+    {
+        public string CurrentPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+    }
+
+    /// <summary>An email the API sent, as the outbox lists it when no mail server is configured.</summary>
+    public class SentEmail
+    {
+        public string To { get; set; } = string.Empty;
+        public string Subject { get; set; } = string.Empty;
+        public string Body { get; set; } = string.Empty;
+        public DateTime SentAt { get; set; }
     }
 
     /// <summary>A professor/scientist sign-up waiting for an administrator, as the review page lists it.</summary>
@@ -65,5 +119,8 @@ namespace FormFlow.Data.Models
         public string IntendedUse { get; set; } = string.Empty;
         public string Organization { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
+
+        /// <summary>Whether they have opened the verification link sent to their email address.</summary>
+        public bool EmailVerified { get; set; }
     }
 }

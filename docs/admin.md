@@ -18,7 +18,15 @@ The API enforces the same rules (see [api.md](api.md#authentication)), so hiding
 
 ### Signing up and approval
 
-Professors and scientists sign up at `/signup` (linked from the home page, the menu and the sign-in page) with their name, email, password, date of birth, organization and how they'll use FormFlow. The page checks the same rules as the API before sending, and shows each problem under its field. A new account waits for approval: signing in with it says so. Administrators see a **Sign-ups** link in the admin menu, which opens `/admin/signups`, a table of waiting sign-ups with **Approve** and **Decline** (which asks first, then deletes the sign-up). Set `SignUp:RequireApproval` to `false` on the API to let new professors sign in straight away.
+Professors and scientists sign up at `/signup` (linked from the home page, the menu and the sign-in page) with their name, email, password, date of birth, organization and how they'll use FormFlow. The page checks the same rules as the API before sending, and shows each problem under its field. The API emails them a link to verify their address, and the account then waits for approval. Signing in before either step says which one is missing; before verifying, the sign-in page also offers **Email me a new link**. Administrators see a **Sign-ups** link in the admin menu, which opens `/admin/signups`, a table of waiting sign-ups showing whether each email is verified, with **Approve** and **Decline** (which asks first, then deletes the sign-up). Set `SignUp:RequireApproval` to `false` on the API to let new professors sign in without approval, and `SignUp:RequireEmailVerification` to `false` to skip the email step.
+
+### Passwords and email
+
+- **Forgot your password?** on the sign-in page opens `/forgot-password`, which emails a reset link. The link opens `/reset-password`, lasts one hour and works once. Resetting signs the account out everywhere.
+- **Change password** under the account's name in the menu opens `/account`. It asks for the current password, and signs the account out on every other browser.
+- Verification links open `/verify-email`, which says whether the account can sign in now or still waits for approval.
+
+Without an SMTP server (see [backend.md](backend.md#configuration)), emails aren't sent anywhere. Administrators read them on the **Emails** page (`/admin/outbox`), with the links clickable, which is how the demo and the browser tests follow them. With `Email:Smtp:Host` set, emails go out for real and the page says there is no outbox.
 
 ### Viewing the site as another role
 
@@ -31,6 +39,11 @@ The API issues the token (see [api.md](api.md#authentication)). `AdminSession` k
 | `/login` | `Login` | Sign in with a username or email |
 | `/signup` | `SignUp` | Professor/scientist sign-up |
 | `/admin/signups` | `AdminSignUps` | Approve or decline sign-ups (administrators only) |
+| `/forgot-password` | `ForgotPassword` | Ask for a password reset link |
+| `/reset-password?token=…` | `ResetPassword` | Choose a new password from an emailed link |
+| `/verify-email?token=…` | `VerifyEmail` | Verify an email address from an emailed link |
+| `/account` | `AccountSettings` | Change your password (signed in) |
+| `/admin/outbox` | `AdminOutbox` | Emails the API would have sent, when no SMTP server is set (administrators only) |
 | `/admin/surveys` | `AdminSurveysList` | The surveys you manage (every survey for an administrator), with Edit, Preview, Results and Delete |
 | `/admin/surveys/create` | `AdminCreateSurvey` | Build a new survey |
 | `/admin/surveys/{id}/edit` | `AdminCreateSurvey` | Edit an existing survey |

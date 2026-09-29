@@ -89,3 +89,9 @@ h1:focus {
     border-radius: 4px;
     font: inherit;
 }
+
+.outbox-body {
+    white-space: pre-wrap;
+    font-family: inherit;
+    overflow-wrap: anywhere;
+}
