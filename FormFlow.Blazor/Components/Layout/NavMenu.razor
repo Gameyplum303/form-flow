@@ -2,46 +2,76 @@
 @implements IDisposable
 @inject AdminSession Session
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">FormFlow</a>
-    </div>
+@* The sidebar menu. The admin area gets its own links; everywhere else gets the public ones. *@
+<div class="brand-row">
+    <a class="brand" href="@(AdminArea ? "/admin/surveys" : "")">@(AdminArea ? "Admin" : "FormFlow")</a>
 </div>
 
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/surveys">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Take a Survey
-            </NavLink>
-        </div>
-
-        @if (Session.Access.CanBuild)
+    <nav class="nav-list">
+        @if (AdminArea)
         {
-            <div class="nav-item px-3">
+            <div class="nav-item">
                 <NavLink class="nav-link" href="/admin/surveys">
-                    <span class="bi bi-question-mark-nav-menu" aria-hidden="true"></span> Survey Builder
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Surveys
+                </NavLink>
+            </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="/admin/questions">
+                    <span class="bi bi-question-mark-nav-menu" aria-hidden="true"></span> Questions
+                </NavLink>
+            </div>
+            @if (Session.Access.IsAdmin)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/admin/signups">
+                        <span class="bi bi-person-plus-nav-menu" aria-hidden="true"></span> Sign-ups
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/admin/outbox">
+                        <span class="bi bi-envelope-nav-menu" aria-hidden="true"></span> Emails
+                    </NavLink>
+                </div>
+            }
+            <div class="nav-item">
+                <NavLink class="nav-link" href="/surveys">
+                    <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Take a Survey
                 </NavLink>
             </div>
         }
+        else
+        {
+            <div class="nav-item">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                </NavLink>
+            </div>
+            <div class="nav-item">
+                <NavLink class="nav-link" href="/surveys">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Take a Survey
+                </NavLink>
+            </div>
+            @if (Session.Access.CanBuild)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/admin/surveys">
+                        <span class="bi bi-question-mark-nav-menu" aria-hidden="true"></span> Survey Builder
+                    </NavLink>
+                </div>
+            }
+        }
 
-        <AccountPanel ShowSignIn="true" />
-
-
-  
+        <AccountPanel ShowSignIn="!AdminArea" />
     </nav>
 </div>
 
-
 @code {
+    /// <summary>Whether the page is in the admin area (under /admin).</summary>
+    [Parameter] public bool AdminArea { get; set; }
+
     protected override void OnInitialized() => Session.Changed += OnSessionChanged;
 
     private void OnSessionChanged() => InvokeAsync(StateHasChanged);

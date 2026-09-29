@@ -1,24 +1,25 @@
 using FormFlow.Blazor.Components.QuestionTypes;
+using Types = FormFlow.Data.Models.QuestionTypes;
 
 namespace FormFlow.Blazor.Components;
 
+/// <summary>Picks the component that draws a question of the given type.</summary>
 public static class QuestionComponentMapper
 {
     public static Type? Resolve(string? type) =>
-        type?.ToLower() switch
-
+        type?.ToLowerInvariant() switch
         {
-            "dropdown" => typeof(DropdownQuestion),
-            "text" => typeof(TextQuestion),
-            "yes_no" => typeof(YesNoQuestion),
-            "number" => typeof(NumberQuestion),
-            "multiselect" => typeof(MultiselectQuestion),
-            "checkbox" => typeof(CheckboxQuestion),
-            "radio" => typeof(RadioQuestion),
-            "long_text" => typeof(LongTextQuestion),
-            "email" => typeof(EmailQuestion),
-            "date" => typeof(DateQuestion),
-            "rating" => typeof(RatingQuestion),
+            Types.Dropdown => typeof(DropdownQuestion),
+            Types.Text => typeof(TextQuestion),
+            Types.YesNo => typeof(YesNoQuestion),
+            Types.Number => typeof(NumberQuestion),
+            Types.Multiselect => typeof(MultiselectQuestion),
+            Types.Checkbox => typeof(CheckboxQuestion),
+            Types.Radio => typeof(RadioQuestion),
+            Types.LongText => typeof(LongTextQuestion),
+            Types.Email => typeof(EmailQuestion),
+            Types.Date => typeof(DateQuestion),
+            Types.Rating => typeof(RatingQuestion),
             _ => null
         };
 }

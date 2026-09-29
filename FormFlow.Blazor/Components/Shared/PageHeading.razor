@@ -1,0 +1,9 @@
+@* The title at the top of a page. Every page uses it, so titles share one size and are the page's h1. *@
+<MudText Typo="Typo.h5" HtmlTag="h1" Class="@CssClass">@ChildContent</MudText>
+
+@code {
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+
+    /// <summary>Space under the title. Pages with a subtitle right below pass a smaller margin.</summary>
+    [Parameter] public string CssClass { get; set; } = "mb-4";
+}

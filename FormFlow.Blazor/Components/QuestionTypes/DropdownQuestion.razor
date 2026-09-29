@@ -1,43 +1,21 @@
 @inherits QuestionComponentBase
 
-<MudPaper Elevation="1" Class="pa-4" Style="max-width:400px;">
-    <div style="margin-bottom: 1rem;">
-        <label style="font-weight:600; margin-bottom:4px; display:block;">
-            @Question.Label
-            @if (Question.Required)
-            {
-                <span style="color:red">*</span>
-            }
-        </label>
-
-        <MudSelect T="string"
-                   Value="_value"
-                   ValueChanged="OnChanged"
-                   Required="@Question.Required"
-                   Placeholder="@Question.Placeholder"
-                   Error="HasError"
-                   ErrorText="@Error"
-                   Class="my-input">
-
-            @if (Question.Options is not null)
-            {
-                @foreach (var opt in Question.Options)
-                {
-                    <MudSelectItem T="string" Value="@opt.Value">
-                        @opt.Label
-                    </MudSelectItem>
-                }
-            }
-        </MudSelect>
-
-        @if (!string.IsNullOrWhiteSpace(Question.HelpText))
+<QuestionField Question="Question" Error="@Error">
+    <MudSelect T="string"
+               Value="_value"
+               ValueChanged="OnChanged"
+               Variant="Variant.Outlined"
+               Margin="Margin.Dense"
+               Required="@Question.Required"
+               Placeholder="@Question.Placeholder"
+               Error="HasError"
+               aria-label="@Question.Label">
+        @foreach (var opt in Question.Options ?? [])
         {
-            <div style="font-size: 0.8rem; color: #666; margin-top: 4px;">
-                @Question.HelpText
-            </div>
+            <MudSelectItem T="string" Value="@opt.Value">@opt.Label</MudSelectItem>
         }
-    </div>
-</MudPaper>
+    </MudSelect>
+</QuestionField>
 
 @code {
     private string? _value;

@@ -4,7 +4,7 @@
 @inject IServiceProvider Services
 @inject NavigationManager Nav
 
-<MudPaper Class="pa-6" Elevation="2">
+<MudPaper Class="pa-6" Elevation="1" MaxWidth="720px">
 
     <PageTitle>Survey Preview</PageTitle>
 
@@ -18,7 +18,7 @@
     }
     else
     {
-        <MudText Typo="Typo.h4" Class="mb-1">@survey.Title</MudText>
+        <PageHeading CssClass="mb-1">@survey.Title</PageHeading>
         <MudText Typo="Typo.body1" Class="mb-3">@survey.Description</MudText>
         <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">
             Preview: conditional questions react to your answers, but nothing is saved.

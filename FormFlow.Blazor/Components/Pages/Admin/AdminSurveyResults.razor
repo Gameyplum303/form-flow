@@ -20,7 +20,7 @@ else
 {
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
         <div>
-            <MudText Typo="Typo.h4">@_results.Title</MudText>
+            <PageHeading CssClass="mb-0">@_results.Title</PageHeading>
             <MudText Typo="Typo.subtitle1">
                 @_results.TotalResponses @(_results.TotalResponses == 1 ? "response" : "responses")
                 @if (_results.LastSubmittedAt is { } last)
@@ -30,7 +30,7 @@ else
             </MudText>
         </div>
         <MudStack Row="true" Spacing="2">
-            <MudButton Variant="Variant.Outlined" Href="@($"/admin/surveys/{Id}/share")">Share</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@($"/admin/surveys/{Id}/share")">Share</MudButton>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Download"
@@ -139,7 +139,7 @@ else
                     <MudPaper Class="pa-4" Elevation="1" data-result-key="@question.Key">
                         <MudText Typo="Typo.h6">@question.Label</MudText>
                         <MudText Typo="Typo.caption" Class="mb-2 d-block">
-                            @question.Type · answered by @question.AnsweredCount of @_results.MatchingResponses
+                            @QuestionTypes.DisplayName(question.Type) · answered by @question.AnsweredCount of @_results.MatchingResponses
                         </MudText>
 
                         @if (question.Options.Count > 0)

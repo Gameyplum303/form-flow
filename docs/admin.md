@@ -1,6 +1,6 @@
 # Admin Pages
 
-The admin area is part of the Blazor app and uses its own layout and menu (`AdminNavMenu`). Open it from **Admin Dashboard** in the main menu.
+The admin area is part of the Blazor app. On any page under `/admin`, the sidebar (`NavMenu`) switches to the admin links. Open it from **Survey Builder** in the main menu, or sign in.
 
 ## Signing in
 

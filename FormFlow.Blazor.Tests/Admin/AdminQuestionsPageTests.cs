@@ -46,7 +46,7 @@ public class AdminQuestionsPageTests
         var cut = ctx.Render<AdminQuestions>(p => p.AddCascadingValue(new AdminAccess("professor", me)));
 
         cut.WaitForAssertion(() => cut.FindAll("tbody tr").Should().HaveCount(2));
-        cut.Markup.Should().Contain("Create New Question");
+        cut.Markup.Should().Contain("Create Question");
         var rows = cut.FindAll("tbody tr");
         rows[0].TextContent.Should().Contain("professor");
         rows[0].QuerySelectorAll("button").Should().Contain(b => b.TextContent.Trim() == "Edit");

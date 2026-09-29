@@ -9,8 +9,8 @@
 
 <PageTitle>@(IsEdit ? "Edit Question" : "Create Question")</PageTitle>
 
-<MudPaper Class="pa-6" MaxWidth="600px">
-    <MudText Typo="Typo.h5" Class="mb-4">@(IsEdit ? "Edit Question" : "Create Question")</MudText>
+<MudPaper Class="pa-6" Elevation="1" MaxWidth="600px">
+    <PageHeading>@(IsEdit ? "Edit Question" : "Create Question")</PageHeading>
     @if (_notFound)
     {
         <MudAlert Severity="Severity.Warning" Class="mb-4">Question not found.</MudAlert>
@@ -44,7 +44,7 @@
     @if (!_notYours)
     {
     <MudForm @ref="_form" Model="@newQuestion" @bind-IsValid="_isValid">
-        <MudTextField T="string"
+        <MudTextField T="string" Variant="Variant.Outlined"
                       Label="Label"
                       @bind-Value="newQuestion.Label"
                       Required="true"
@@ -52,7 +52,7 @@
                       Immediate="true"
                       Class="mb-3" />
 
-        <MudTextField T="string"
+        <MudTextField T="string" Variant="Variant.Outlined"
                       Label="Key"
                       @bind-Value="newQuestion.Key"
                       Required="true"
@@ -60,24 +60,17 @@
                       Immediate="true"
                       Class="mb-3" />
 
-        <MudSelect T="string"
+        <MudSelect T="string" Variant="Variant.Outlined"
                    Label="Type"
                    @bind-Value="newQuestion.Type"
                    Required="true"
                    RequiredError="Type is required."
                    Immediate="true"
                    Class="mb-3">
-            <MudSelectItem Value='@("dropdown")'>Dropdown</MudSelectItem>
-            <MudSelectItem Value='@("text")'>Text</MudSelectItem>
-            <MudSelectItem Value='@("yes_no")'>Yes/No</MudSelectItem>
-            <MudSelectItem Value='@("number")'>Number</MudSelectItem>
-            <MudSelectItem Value='@("multiselect")'>Multi-Select</MudSelectItem>
-            <MudSelectItem Value='@("checkbox")'>Checkbox</MudSelectItem>
-            <MudSelectItem Value='@("radio")'>Radio</MudSelectItem>
-            <MudSelectItem Value='@("long_text")'>Long Text</MudSelectItem>
-            <MudSelectItem Value='@("email")'>Email</MudSelectItem>
-            <MudSelectItem Value='@("date")'>Date</MudSelectItem>
-            <MudSelectItem Value='@("rating")'>Rating</MudSelectItem>
+            @foreach (var type in QuestionTypes.All)
+            {
+                <MudSelectItem Value="@type">@QuestionTypes.DisplayName(type)</MudSelectItem>
+            }
         </MudSelect>
 
         <MudSwitch T="bool"
@@ -86,19 +79,19 @@
                    Color="Color.Primary"
                    Class="mb-3" />
 
-        <MudTextField T="string"
+        <MudTextField T="string" Variant="Variant.Outlined"
                       Label="Placeholder"
                       @bind-Value="newQuestion.Placeholder"
                       Immediate="true"
                       Class="mb-3" />
 
-        <MudTextField T="string"
+        <MudTextField T="string" Variant="Variant.Outlined"
                       Label="Default Value"
                       @bind-Value="newQuestion.DefaultValue"
                       Immediate="true"
                       Class="mb-3" />
 
-        <MudTextField T="string"
+        <MudTextField T="string" Variant="Variant.Outlined"
                       Label="Help Text"
                       @bind-Value="newQuestion.HelpText"
                       Immediate="true"
@@ -120,13 +113,13 @@
                 var index = i;
                 <MudGrid Class="mb-2" data-option-row="@index">
                     <MudItem xs="5">
-                        <MudTextField T="string"
+                        <MudTextField T="string" Variant="Variant.Outlined"
                                       Label="Label"
                                       @bind-Value="newQuestion.Options[index].Label"
                                       Immediate="true" />
                     </MudItem>
                     <MudItem xs="5">
-                        <MudTextField T="string"
+                        <MudTextField T="string" Variant="Variant.Outlined"
                                       Label="Value"
                                       @bind-Value="newQuestion.Options[index].Value"
                                       Immediate="true" />
@@ -141,7 +134,7 @@
             }
 
             <MudButton Variant="Variant.Outlined"
-                       Color="Color.Secondary"
+                       Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Add"
                        OnClick="AddOption"
                        Class="mb-4">
@@ -152,7 +145,7 @@
         @if (IsRating)
         {
             <MudText Typo="Typo.subtitle1" Class="mb-2">Answer rules</MudText>
-            <MudNumericField T="int?" Label="Number of stars" @bind-Value="_maxValue"
+            <MudNumericField T="int?" Variant="Variant.Outlined" Label="Number of stars" @bind-Value="_maxValue"
                              Min="2" Max="@QuestionTypes.MaxRatingScale" Clearable="true"
                              HelperText="@($"From 2 to {QuestionTypes.MaxRatingScale}. Leave empty for {QuestionTypes.DefaultRatingScale}.")"
                              Class="mb-4" />
@@ -164,19 +157,19 @@
                 @if (HasLengthRules)
                 {
                     <MudItem xs="6">
-                        <MudNumericField T="int?" Label="Minimum length" @bind-Value="_minLength" Min="0" Clearable="true" />
+                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Minimum length" @bind-Value="_minLength" Min="0" Clearable="true" />
                     </MudItem>
                     <MudItem xs="6">
-                        <MudNumericField T="int?" Label="Maximum length" @bind-Value="_maxLength" Min="0" Clearable="true" />
+                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Maximum length" @bind-Value="_maxLength" Min="0" Clearable="true" />
                     </MudItem>
                 }
                 else
                 {
                     <MudItem xs="6">
-                        <MudNumericField T="int?" Label="Minimum value" @bind-Value="_minValue" Clearable="true" />
+                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Minimum value" @bind-Value="_minValue" Clearable="true" />
                     </MudItem>
                     <MudItem xs="6">
-                        <MudNumericField T="int?" Label="Maximum value" @bind-Value="_maxValue" Clearable="true" />
+                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Maximum value" @bind-Value="_maxValue" Clearable="true" />
                     </MudItem>
                 }
             </MudGrid>
@@ -193,7 +186,7 @@
         {
             <MudGrid Class="mb-4">
                 <MudItem xs="7">
-                    <MudSelect T="string" Label="Only show when" @bind-Value="_visibleIfKey" Clearable="true"
+                    <MudSelect T="string" Variant="Variant.Outlined" Label="Only show when" @bind-Value="_visibleIfKey" Clearable="true"
                                Placeholder="Always shown">
                         @foreach (var q in YesNoQuestions)
                         {
@@ -202,7 +195,7 @@
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="5">
-                    <MudSelect T="bool" Label="is answered" @bind-Value="_visibleIfEquals" Disabled="@(_visibleIfKey is null)">
+                    <MudSelect T="bool" Variant="Variant.Outlined" Label="is answered" @bind-Value="_visibleIfEquals" Disabled="@(_visibleIfKey is null)">
                         <MudSelectItem T="bool" Value="true">Yes</MudSelectItem>
                         <MudSelectItem T="bool" Value="false">No</MudSelectItem>
                     </MudSelect>
@@ -259,10 +252,7 @@
 
     private bool IsEdit => Id is not null;
 
-    private static readonly HashSet<string> OptionBasedTypes =
-        new(StringComparer.OrdinalIgnoreCase) { "dropdown", "radio", "checkbox", "multiselect" };
-
-    private bool IsOptionBasedType => OptionBasedTypes.Contains(newQuestion.Type);
+    private bool IsOptionBasedType => QuestionTypes.IsChoice(newQuestion.Type);
     private bool AreOptionsValid =>
         !IsOptionBasedType ||
         (newQuestion.Options.Count > 0 &&
@@ -276,7 +266,7 @@
 
     /// <summary>Yes/no questions this one could depend on (never itself).</summary>
     private List<QuestionDefinition> YesNoQuestions =>
-        _bank.Where(q => q.Type == "yes_no" && q.Id != Id).ToList();
+        _bank.Where(q => q.Type == QuestionTypes.YesNo && q.Id != Id).ToList();
 
     // MudForm only reports valid once every required field has been touched, which a
     // loaded question never is, so edit mode relies on the explicit checks below.

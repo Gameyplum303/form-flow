@@ -231,7 +231,7 @@ test.describe.serial("Blazor: admin", () => {
 
     test("creates a conditional question with an answer rule", async () => {
         await openBlazor(page, "/admin/questions");
-        await page.getByText("Create New Question").click();
+        await page.getByRole("link", { name: "Create Question" }).click();
         await expect(page).toHaveURL(/\/admin\/questions\/create$/);
         await expect(page.locator(".page[data-interactive=true]")).toBeVisible();
 
@@ -267,7 +267,7 @@ test.describe.serial("Blazor: admin", () => {
 
     test("builds a survey and warns about question order", async () => {
         await openBlazor(page, "/admin/surveys");
-        await page.getByText("+ Create Survey").click();
+        await page.getByRole("link", { name: "Create Survey" }).click();
         await expect(page.locator(".page[data-interactive=true]")).toBeVisible();
         await page.getByLabel("Survey Title").fill(surveyTitle);
         await page.getByLabel("Description").fill("Short survey about campus life.");
