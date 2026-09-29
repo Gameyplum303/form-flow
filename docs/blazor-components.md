@@ -70,7 +70,7 @@ The pages talk to the API through typed `HttpClient` services registered in `Pro
 | Service | Methods |
 |---|---|
 | `IQuestionService` | `GetAllQuestionsAsync`, `GetQuestionAsync`, `CreateQuestionAsync`, `UpdateQuestionAsync`, `DeleteQuestionAsync` |
-| `ISurveyService` | `GetSurveysAsync`, `GetSurveyAsync`, `GetSurveyByShareCodeAsync`, `GetManagedSurveysAsync`, `GetSurveyQuestionsAsync`, `CreateSurveyAsync`, `UpdateSurveyAsync`, `DeleteSurveyAsync`, `UpdateSharingAsync`, `SubmitResponseAsync`, `HasAnsweredAsync`, `GetResultsAsync`, `ExportResponsesAsync` |
+| `ISurveyService` | `GetSurveysAsync`, `GetSurveyAsync`, `GetSurveyByShareCodeAsync`, `GetManagedSurveysAsync`, `GetSurveyQuestionsAsync`, `CreateSurveyAsync`, `UpdateSurveyAsync`, `DeleteSurveyAsync`, `UpdateSharingAsync`, `SubmitResponseAsync`, `HasAnsweredAsync`, `GetResultsAsync` and `ExportResponsesAsync` (both take an optional `ResultsQuery` of filters, dates and comparison) |
 | `IAuthService` | `LoginAsync`, `SignUpAsync`, `RequestPasswordResetAsync`, `ResendVerificationAsync`, `VerifyEmailAsync`, `ResetPasswordAsync`, `ChangePasswordAsync` |
 | `IAccountService` | `GetPendingAsync`, `ApproveAsync`, `DeclineAsync`, `GetOutboxAsync` (administrators) |
 | `IRespondentIdentity` | `GetIdAsync`: the browser's random respondent id, kept in encrypted local storage |

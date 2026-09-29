@@ -31,6 +31,7 @@ public class AdminSurveyResultsTests
             SurveyId = id,
             Title = "Campus survey",
             TotalResponses = 4,
+            MatchingResponses = 4,
             Questions =
             [
                 new QuestionResult
@@ -63,6 +64,7 @@ public class AdminSurveyResultsTests
             SurveyId = id,
             Title = "Campus survey",
             TotalResponses = 2,
+            MatchingResponses = 2,
             Questions =
             [
                 new QuestionResult
@@ -85,7 +87,7 @@ public class AdminSurveyResultsTests
     {
         await using var ctx = CreateContext();
         var id = Guid.NewGuid();
-        _service.Results = new SurveyResults { SurveyId = id, Title = "Campus survey", TotalResponses = 1 };
+        _service.Results = new SurveyResults { SurveyId = id, Title = "Campus survey", TotalResponses = 1, MatchingResponses = 1 };
         _service.Export = new CsvExport("campus-survey-responses.csv", [1, 2, 3]);
         var download = ctx.JSInterop.SetupVoid("formFlow.downloadFile", _ => true);
 
@@ -105,7 +107,7 @@ public class AdminSurveyResultsTests
     {
         await using var ctx = CreateContext();
         var id = Guid.NewGuid();
-        _service.Results = new SurveyResults { SurveyId = id, Title = "Campus survey", TotalResponses = 1 };
+        _service.Results = new SurveyResults { SurveyId = id, Title = "Campus survey", TotalResponses = 1, MatchingResponses = 1 };
         var cut = ctx.Render<AdminSurveyResults>(p => p.Add(x => x.Id, id));
         ctx.Render<MudBlazor.MudSnackbarProvider>();
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("1 response"));

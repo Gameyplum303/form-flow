@@ -1,4 +1,5 @@
 @page "/admin/surveys/{Id:guid}/results"
+@using System.Globalization
 @using FormFlow.Blazor.Services
 @inject ISurveyService SurveyService
 @inject IJSRuntime JS
@@ -34,7 +35,7 @@ else
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Download"
                        OnClick="DownloadCsvAsync"
-                       Disabled="_results.TotalResponses == 0 || _downloading">
+                       Disabled="_results.MatchingResponses == 0 || _downloading">
                 Download CSV
             </MudButton>
         </MudStack>
@@ -46,59 +47,196 @@ else
     }
     else
     {
-        <MudStack Spacing="3">
-            @foreach (var question in _results.Questions)
-            {
-                <MudPaper Class="pa-4" Elevation="1" data-result-key="@question.Key">
-                    <MudText Typo="Typo.h6">@question.Label</MudText>
-                    <MudText Typo="Typo.caption" Class="mb-2 d-block">
-                        @question.Type · answered by @question.AnsweredCount of @_results.TotalResponses
-                    </MudText>
+        <MudPaper Class="pa-4 mb-4" Elevation="1" data-analysis>
+            <MudText Typo="Typo.h6" Class="mb-2">Explore the responses</MudText>
+            <div class="analysis-controls">
+                <label>
+                    <span>Only responses that answered</span>
+                    <select class="analysis-input" data-add-filter value="" @onchange="AddFilterAsync" disabled="@_refreshing">
+                        <option value="">Add a filter…</option>
+                        @foreach (var question in Groupable)
+                        {
+                            <optgroup label="@question.Label">
+                                @foreach (var option in question.Options.Where(o => !IsFiltered(question.Key, o.Value)))
+                                {
+                                    <option value="@FilterValue(question.Key, option.Value)">@option.Label</option>
+                                }
+                            </optgroup>
+                        }
+                    </select>
+                </label>
+                <label>
+                    <span>Sent from</span>
+                    <input type="date" class="analysis-input" data-from value="@_from" max="@_to" @onchange="@(e => SetDateAsync(e, isFrom: true))" />
+                </label>
+                <label>
+                    <span>to</span>
+                    <input type="date" class="analysis-input" data-to value="@_to" min="@_from" @onchange="@(e => SetDateAsync(e, isFrom: false))" />
+                </label>
+                <label>
+                    <span>Compare groups by</span>
+                    <select class="analysis-input" data-compare-by value="@(_compareBy ?? "")" @onchange="SetCompareByAsync" disabled="@_refreshing">
+                        <option value="">No comparison</option>
+                        @foreach (var question in Groupable)
+                        {
+                            <option value="@question.Key">@question.Label</option>
+                        }
+                    </select>
+                </label>
+            </div>
 
-                    @if (question.Options.Count > 0)
+            @if (HasSettings)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="1" Class="mt-3">
+                    @foreach (var filter in _filters)
                     {
-                        @if (question.Numbers is { } rating)
-                        {
-                            <MudText Typo="Typo.body1" Class="mb-2" data-average-rating>
-                                Average rating: <strong>@rating.Average</strong> of @question.Options.Count
-                            </MudText>
-                        }
-                        var total = Math.Max(1, question.Options.Sum(o => o.Count));
-                        @foreach (var option in question.Options)
-                        {
-                            var percent = option.Count * 100.0 / total;
-                            <div class="result-row">
-                                <span class="result-label">@option.Label</span>
-                                <MudProgressLinear Value="percent" Color="Color.Primary" Size="Size.Large" Class="result-bar" />
-                                <span class="result-count">@option.Count (@percent.ToString("0")%)</span>
-                            </div>
-                        }
+                        <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" data-filter-chip
+                                 OnClose="@(_ => RemoveFilterAsync(filter))">
+                            @FilterLabel(filter)
+                        </MudChip>
                     }
-                    else if (question.Numbers is { } numbers)
-                    {
-                        <MudStack Row="true" Spacing="6">
-                            <div><MudText Typo="Typo.caption">Average</MudText><MudText Typo="Typo.h6">@numbers.Average</MudText></div>
-                            <div><MudText Typo="Typo.caption">Min</MudText><MudText Typo="Typo.h6">@numbers.Min</MudText></div>
-                            <div><MudText Typo="Typo.caption">Max</MudText><MudText Typo="Typo.h6">@numbers.Max</MudText></div>
-                        </MudStack>
-                    }
-                    else if (question.RecentAnswers.Count > 0)
-                    {
-                        <MudText Typo="Typo.caption">Most recent answers</MudText>
-                        <ul class="mb-0">
-                            @foreach (var answer in question.RecentAnswers)
-                            {
-                                <li>@answer</li>
-                            }
-                        </ul>
-                    }
-                    else
-                    {
-                        <MudText Typo="Typo.body2">No answers.</MudText>
-                    }
-                </MudPaper>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearAsync" data-clear-analysis>Clear all</MudButton>
+                </MudStack>
+                <MudText Typo="Typo.body2" Class="mt-2" data-matching>
+                    @_results.MatchingResponses of @_results.TotalResponses @(_results.TotalResponses == 1 ? "response matches" : "responses match")
+                </MudText>
             }
-        </MudStack>
+        </MudPaper>
+
+        @if (_results.MatchingResponses == 0)
+        {
+            <MudAlert Severity="Severity.Info" data-no-matches>No responses match these filters and dates.</MudAlert>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                @if (_results.Timeline.Count > 0)
+                {
+                    var peak = Math.Max(1, _results.Timeline.Max(p => p.Count));
+                    <MudPaper Class="pa-4" Elevation="1" data-timeline>
+                        <MudText Typo="Typo.h6">Responses per @_results.TimelineInterval</MudText>
+                        <MudText Typo="Typo.caption" Class="mb-2 d-block">Most in one @_results.TimelineInterval: @peak</MudText>
+                        <div class="timeline" role="img" aria-label="@TimelineDescription">
+                            @foreach (var point in _results.Timeline)
+                            {
+                                <div class="timeline-slot" title="@($"{PeriodLabel(point.Start)}: {point.Count} {(point.Count == 1 ? "response" : "responses")}")"
+                                     data-timeline-point="@point.Start" data-count="@point.Count">
+                                    <div class="timeline-bar" style="@($"height: {(point.Count * 100.0 / peak).ToString("0.#", CultureInfo.InvariantCulture)}%")"></div>
+                                </div>
+                            }
+                        </div>
+                        <div class="timeline-axis">
+                            <span>@PeriodLabel(_results.Timeline[0].Start)</span>
+                            <span>@PeriodLabel(_results.Timeline[^1].Start)</span>
+                        </div>
+                    </MudPaper>
+                }
+
+                @for (var index = 0; index < _results.Questions.Count; index++)
+                {
+                    var question = _results.Questions[index];
+                    var questionIndex = index;
+                    <MudPaper Class="pa-4" Elevation="1" data-result-key="@question.Key">
+                        <MudText Typo="Typo.h6">@question.Label</MudText>
+                        <MudText Typo="Typo.caption" Class="mb-2 d-block">
+                            @question.Type · answered by @question.AnsweredCount of @_results.MatchingResponses
+                        </MudText>
+
+                        @if (question.Options.Count > 0)
+                        {
+                            @if (question.Numbers is { } rating)
+                            {
+                                <MudText Typo="Typo.body1" Class="mb-2" data-average-rating>
+                                    Average rating: <strong>@rating.Average</strong> of @question.Options.Count
+                                </MudText>
+                            }
+                            var total = Math.Max(1, question.Options.Sum(o => o.Count));
+                            @foreach (var option in question.Options)
+                            {
+                                var percent = option.Count * 100.0 / total;
+                                <div class="result-row">
+                                    <span class="result-label">@option.Label</span>
+                                    <MudProgressLinear Value="percent" Color="Color.Primary" Size="Size.Large" Class="result-bar" />
+                                    <span class="result-count">@option.Count (@percent.ToString("0")%)</span>
+                                </div>
+                            }
+                        }
+                        else if (question.Numbers is { } numbers)
+                        {
+                            <MudStack Row="true" Spacing="6">
+                                <div><MudText Typo="Typo.caption">Average</MudText><MudText Typo="Typo.h6">@numbers.Average</MudText></div>
+                                <div><MudText Typo="Typo.caption">Min</MudText><MudText Typo="Typo.h6">@numbers.Min</MudText></div>
+                                <div><MudText Typo="Typo.caption">Max</MudText><MudText Typo="Typo.h6">@numbers.Max</MudText></div>
+                            </MudStack>
+                        }
+                        else if (question.RecentAnswers.Count > 0)
+                        {
+                            <MudText Typo="Typo.caption">Most recent answers</MudText>
+                            <ul class="mb-0">
+                                @foreach (var answer in question.RecentAnswers)
+                                {
+                                    <li>@answer</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2">No answers.</MudText>
+                        }
+
+                        @if (_results.Comparison is { } comparison && question.Key != comparison.Key &&
+                             (question.Options.Count > 0 || question.Numbers is not null))
+                        {
+                            <MudSimpleTable Dense="true" Bordered="true" Class="mt-3 comparison" data-comparison>
+                                <thead>
+                                    <tr>
+                                        <th>By @comparison.Label</th>
+                                        @foreach (var group in comparison.Groups)
+                                        {
+                                            <th>@group.Label <span class="comparison-n">(@group.Responses)</span></th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (question.Options.Count > 0)
+                                    {
+                                        @for (var o = 0; o < question.Options.Count; o++)
+                                        {
+                                            var optionIndex = o;
+                                            <tr>
+                                                <th scope="row">@question.Options[optionIndex].Label</th>
+                                                @foreach (var group in comparison.Groups)
+                                                {
+                                                    var inGroup = group.Questions[questionIndex];
+                                                    <td>@Share(inGroup.Options[optionIndex].Count, inGroup.AnsweredCount)</td>
+                                                }
+                                            </tr>
+                                        }
+                                    }
+                                    @if (question.Numbers is not null)
+                                    {
+                                        <tr>
+                                            <th scope="row">Average</th>
+                                            @foreach (var group in comparison.Groups)
+                                            {
+                                                <td>@(group.Questions[questionIndex].Numbers?.Average.ToString() ?? "–")</td>
+                                            }
+                                        </tr>
+                                    }
+                                    <tr>
+                                        <th scope="row">Answered</th>
+                                        @foreach (var group in comparison.Groups)
+                                        {
+                                            <td>@group.Questions[questionIndex].AnsweredCount of @group.Responses</td>
+                                        }
+                                    </tr>
+                                </tbody>
+                            </MudSimpleTable>
+                        }
+                    </MudPaper>
+                }
+            </MudStack>
+        }
     }
 }
 
@@ -107,18 +245,160 @@ else
 
     private SurveyResults? _results;
     private bool _loading = true;
+    private bool _refreshing;
     private bool _downloading;
+
+    private readonly List<AnswerFilter> _filters = new();
+    private string? _from;
+    private string? _to;
+    private string? _compareBy;
+
+    /// <summary>Minutes from the browser's local time to UTC, as JavaScript's getTimezoneOffset reports them.</summary>
+    private int _timezoneOffset;
+
+    private const string DateFormat = "yyyy-MM-dd";
+
+    /// <summary>Questions with a fixed set of answers, which can filter and split the results.</summary>
+    private IEnumerable<QuestionResult> Groupable =>
+        _results?.Questions.Where(q => q.Options.Count > 0) ?? [];
+
+    private bool HasSettings => _filters.Count > 0 || _from is not null || _to is not null || _compareBy is not null;
+
+    private string TimelineDescription => _results is null ? string.Empty
+        : $"Responses per {_results.TimelineInterval} from {PeriodLabel(_results.Timeline[0].Start)} to {PeriodLabel(_results.Timeline[^1].Start)}, " +
+          $"at most {_results.Timeline.Max(p => p.Count)} in one {_results.TimelineInterval}.";
 
     protected override async Task OnInitializedAsync()
     {
-        _results = await SurveyService.GetResultsAsync(Id);
+        _results = await SurveyService.GetResultsAsync(Id, Query());
         _loading = false;
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // The timeline counts days in the browser's time zone, which is only known once the page is interactive.
+            _timezoneOffset = await JS.InvokeAsync<int>("formFlow.timezoneOffset");
+            if (_timezoneOffset != 0 && _results is not null)
+            {
+                await RefreshAsync();
+            }
+        }
+    }
+
+    private ResultsQuery Query() => new()
+    {
+        Filters = _filters.ToList(),
+        From = ToUtc(_from),
+        To = ToUtc(_to)?.AddDays(1),
+        CompareBy = _compareBy,
+        UtcOffsetMinutes = -_timezoneOffset
+    };
+
+    /// <summary>Local midnight at the start of the date, in UTC.</summary>
+    private DateTime? ToUtc(string? date) =>
+        DateTime.TryParseExact(date, DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var local)
+            ? DateTime.SpecifyKind(local.AddMinutes(_timezoneOffset), DateTimeKind.Utc)
+            : null;
+
+    private async Task RefreshAsync()
+    {
+        _refreshing = true;
+        var results = await SurveyService.GetResultsAsync(Id, Query());
+        _refreshing = false;
+        if (results is null)
+        {
+            Snackbar.Add("The results could not be updated. Try again.", Severity.Error);
+            return;
+        }
+        _results = results;
+        StateHasChanged();
+    }
+
+    private static string FilterValue(string key, string value) => $"{key}:{value}";
+
+    private bool IsFiltered(string key, string value) => _filters.Contains(new AnswerFilter(key, value));
+
+    private string FilterLabel(AnswerFilter filter)
+    {
+        var question = _results?.Questions.FirstOrDefault(q => q.Key == filter.Key);
+        var answer = question?.Options.FirstOrDefault(o => o.Value == filter.Value)?.Label ?? filter.Value;
+        return $"{question?.Label ?? filter.Key}: {answer}";
+    }
+
+    private async Task AddFilterAsync(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? string.Empty;
+        var colon = value.IndexOf(':');
+        if (colon <= 0)
+        {
+            return;
+        }
+        var filter = new AnswerFilter(value[..colon], value[(colon + 1)..]);
+        if (!_filters.Contains(filter))
+        {
+            _filters.Add(filter);
+            await RefreshAsync();
+        }
+    }
+
+    private async Task RemoveFilterAsync(AnswerFilter filter)
+    {
+        _filters.Remove(filter);
+        await RefreshAsync();
+    }
+
+    private async Task SetDateAsync(ChangeEventArgs e, bool isFrom)
+    {
+        var value = e.Value?.ToString();
+        var date = ToUtc(value) is null ? null : value;
+        if (isFrom)
+        {
+            _from = date;
+        }
+        else
+        {
+            _to = date;
+        }
+        await RefreshAsync();
+    }
+
+    private async Task SetCompareByAsync(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        _compareBy = string.IsNullOrEmpty(value) ? null : value;
+        await RefreshAsync();
+    }
+
+    private async Task ClearAsync()
+    {
+        _filters.Clear();
+        _from = _to = _compareBy = null;
+        await RefreshAsync();
+    }
+
+    private string PeriodLabel(string start)
+    {
+        if (!DateOnly.TryParseExact(start, DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
+        {
+            return start;
+        }
+        return _results?.TimelineInterval switch
+        {
+            TimelineIntervals.Month => day.ToString("MMM yyyy", CultureInfo.InvariantCulture),
+            TimelineIntervals.Week => "Week of " + day.ToString("MMM d, yyyy", CultureInfo.InvariantCulture),
+            _ => day.ToString("MMM d, yyyy", CultureInfo.InvariantCulture),
+        };
+    }
+
+    private static string Share(int count, int answered) =>
+        answered == 0 ? "–" : $"{count} ({(count * 100.0 / answered).ToString("0", CultureInfo.InvariantCulture)}%)";
 
     private async Task DownloadCsvAsync()
     {
         _downloading = true;
-        var export = await SurveyService.ExportResponsesAsync(Id);
+        var export = await SurveyService.ExportResponsesAsync(Id, Query());
         _downloading = false;
 
         if (export is null)

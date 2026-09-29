@@ -106,4 +106,13 @@ Shows the number of responses and when the latest arrived, then a card per quest
 - number questions: average, minimum and maximum,
 - text questions: the five most recent answers.
 
-**Download CSV** calls the API's export endpoint. **Share** goes to the survey's Share page.
+**Explore the responses** narrows and splits them:
+
+- **Add a filter** lists every yes/no, choice and rating question with its answers. Picking one keeps only the responses that gave that answer; each filter shows as a chip with a remove button, and several filters must all match. The page then says how many of the responses match.
+- **Sent from** and **to** keep responses sent between those days, in the browser's time zone, including the whole of the last day.
+- **Compare groups by** picks a question to split by. Each choice, rating and number question then gets a table with a column per answer (and "No answer" when some skipped it), giving counts with the percentage of that group who answered, averages, and how many answered.
+- **Clear all** removes filters, dates and the comparison.
+
+Above the question cards, a bar chart shows how many matching responses arrived each day (each week or month for longer ranges), in local time. Hover a bar for its date and count.
+
+**Download CSV** calls the API's export endpoint with the same filters and dates, so the file has exactly the matching responses. **Share** goes to the survey's Share page.
