@@ -10,7 +10,7 @@
 |---|---|---|
 | `ConnectionStrings:LiteDb` | `Filename=formflow.db;Connection=shared` | Where LiteDB stores data |
 | `SeedData:DemoSurvey` | `true` | Create the demo survey on first start |
-| `Admin:Username`, `Admin:Password` | `admin` / `formflow-admin` in Development, otherwise not set | The admin account created on first start when there are no accounts yet. Changing them later has no effect on an existing database. |
+| `AdminAccounts` | `Rogers` / `password` and `student` / `password` in Development, otherwise empty | A list of `{ "Username", "Password" }` accounts to create at startup if they don't exist yet. Changing a password here later has no effect on an existing account. As environment variables: `AdminAccounts__0__Username`, `AdminAccounts__0__Password`, and so on. |
 | `Jwt:Key` | A development key in Development, otherwise not set | Secret for signing tokens, at least 32 characters. When it is missing the API makes a random key at startup and logs a warning, so tokens stop working when the API restarts. |
 | `Jwt:Issuer`, `Jwt:Audience` | `FormFlow` | Written into and checked on every token |
 | `Jwt:LifetimeMinutes` | `480` | How long a sign-in lasts |

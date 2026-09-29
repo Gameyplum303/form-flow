@@ -23,12 +23,12 @@ Reading questions and surveys and submitting answers are public. Everything that
 ### `POST /api/auth/login`
 
 ```json
-{ "username": "admin", "password": "formflow-admin" }
+{ "username": "student", "password": "password" }
 ```
 
 | Status | When |
 |---|---|
-| 200 | `{ "token": "eyJ…", "username": "admin", "expiresAt": "2026-09-29T20:00:00Z" }` |
+| 200 | `{ "token": "eyJ…", "username": "student", "expiresAt": "2026-09-29T20:00:00Z" }` |
 | 401 | Problem details titled "Invalid username or password." The same answer is given for an unknown user and a wrong password, and both take the same time. |
 | 429 | More than `RateLimits:LoginPerMinute` attempts from one IP address in a minute |
 
@@ -42,11 +42,11 @@ Tokens are signed JWTs with the `admin` role and last `Jwt:LifetimeMinutes` (8 h
 
 ### `GET /api/auth/me` (Admin)
 
-Returns `{ "username": "admin" }` for the token's user, so a client can check that its token is still valid.
+Returns `{ "username": "student" }` for the token's user, so a client can check that its token is still valid.
 
 ### Admin accounts
 
-Passwords are stored as salted PBKDF2 hashes (ASP.NET Core Identity's `PasswordHasher`) in the `users` collection. On first start the API creates one admin from `Admin:Username` and `Admin:Password` if the collection is empty. See [backend.md](backend.md#configuration).
+Passwords are stored as salted PBKDF2 hashes (ASP.NET Core Identity's `PasswordHasher`) in the `users` collection. At startup the API creates each account listed under `AdminAccounts` that doesn't exist yet. Usernames are matched without regard to case and shown as they were written. See [backend.md](backend.md#configuration).
 
 ---
 

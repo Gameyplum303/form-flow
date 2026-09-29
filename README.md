@@ -98,7 +98,7 @@ docker compose up --build
 | React app (respondent) | http://localhost:3000 |
 | API and Swagger UI | http://localhost:5164/swagger |
 
-Sign in to the admin pages as `admin` / `formflow-admin`. Data is kept in a Docker volume; `docker compose down --volumes` resets it. To use your own admin password and a fixed token key, set `FORMFLOW_ADMIN_PASSWORD` and `FORMFLOW_JWT_KEY` (32+ characters) before the first start.
+Sign in to the admin pages with the test account `student` / `password`. Data is kept in a Docker volume; `docker compose down --volumes` resets it. Before exposing the app anywhere public, set `FORMFLOW_ADMIN_PASSWORD` and `FORMFLOW_STUDENT_PASSWORD` to real passwords and `FORMFLOW_JWT_KEY` to a fixed key (32+ characters), before the first start.
 
 ## Run it locally
 
@@ -126,7 +126,7 @@ cd FormFlow.Blazor
 dotnet run
 ```
 
-Go to **Take a Survey** to answer the demo survey, or **Admin Dashboard** to manage questions and surveys and see results. In Development the admin sign-in is `admin` / `formflow-admin`.
+Go to **Take a Survey** to answer the demo survey, or **Admin Dashboard** to manage questions and surveys and see results. In Development you can sign in as `student` / `password` (a test account) or `Rogers` / `password`.
 
 **3. React app** (http://localhost:3000), in a third terminal
 
@@ -184,7 +184,7 @@ npx playwright test
 | Suite | Tests | Covers |
 |---|---|---|
 | `FormFlow.Data.Tests` | 39 | Question rules, response validation, visibility chains and cycles |
-| `FormFlow.Backend.Tests` | 102 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in and access rules, rate limits, repositories, seeding, CSV escaping |
+| `FormFlow.Backend.Tests` | 104 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in and access rules, rate limits, repositories, seeding, CSV escaping |
 | `FormFlow.Blazor.Tests` | 132 | Each question component, two-way binding, sign-in and the admin guard, admin pages, taking a survey, results page |
 | `FormFlow.React.Tests` | 20 | Visibility logic, the form component, and the app against a mocked API |
 | `FormFlow.E2E` | 20 | Playwright in Chromium: signing in, the full admin flow, taking surveys in both apps, CSV download, API security |

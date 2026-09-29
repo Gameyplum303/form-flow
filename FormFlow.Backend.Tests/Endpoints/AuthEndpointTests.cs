@@ -9,7 +9,9 @@ using FormFlow.Backend.Auth;
 using FormFlow.Backend.Repositories;
 using FormFlow.Data.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
 
 namespace FormFlow.Backend.Tests.Endpoints
@@ -31,22 +33,54 @@ namespace FormFlow.Backend.Tests.Endpoints
         {
             var login = await AdminClient.LoginAsync(_client);
 
-            login.Username.Should().Be("admin");
+            login.Username.Should().Be("student");
             login.Token.Should().NotBeNullOrWhiteSpace();
             login.ExpiresAt.Should().BeAfter(DateTime.UtcNow.AddHours(7));
         }
 
         [Fact]
-        public async Task Login_UsernameIsCaseInsensitive()
+        public async Task Login_UsernameIsCaseInsensitive_AndKeepsItsOriginalCase()
         {
-            var login = await AdminClient.LoginAsync(_client, "ADMIN");
+            var login = await AdminClient.LoginAsync(_client, "rogers", "password");
 
-            login.Username.Should().Be("admin");
+            login.Username.Should().Be("Rogers");
+        }
+
+        [Fact]
+        public async Task EveryConfiguredAccount_CanSignIn()
+        {
+            (await AdminClient.LoginAsync(_client, "Rogers", "password")).Token.Should().NotBeNullOrWhiteSpace();
+            (await AdminClient.LoginAsync(_client, "STUDENT", "password")).Username.Should().Be("student");
+        }
+
+        [Fact]
+        public void Seeder_AddsNewAccounts_AndLeavesExistingPasswordsAlone()
+        {
+            var users = _factory.Services.GetRequiredService<IUserRepository>();
+            var hasher = _factory.Services.GetRequiredService<IPasswordHasher<AdminUser>>();
+            var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AdminAccounts:0:Username"] = "student",
+                ["AdminAccounts:0:Password"] = "changed",
+                ["AdminAccounts:1:Username"] = " Grace ",
+                ["AdminAccounts:1:Password"] = "hopper",
+                ["AdminAccounts:2:Username"] = "no-password",
+            }).Build();
+
+            new AdminAccountSeeder(users, hasher, config, NullLogger<AdminAccountSeeder>.Instance).Seed();
+
+            var student = users.FindByUsername("student")!;
+            hasher.VerifyHashedPassword(student, student.PasswordHash, "password").Should().Be(PasswordVerificationResult.Success);
+            var grace = users.FindByUsername("grace")!;
+            grace.Username.Should().Be("Grace");
+            hasher.VerifyHashedPassword(grace, grace.PasswordHash, "hopper").Should().Be(PasswordVerificationResult.Success);
+            users.FindByUsername("no-password").Should().BeNull();
+            users.Count().Should().Be(3);
         }
 
         [Theory]
-        [InlineData("admin", "wrong-password")]
-        [InlineData("nobody", "formflow-admin")]
+        [InlineData("student", "wrong-password")]
+        [InlineData("nobody", "password")]
         [InlineData("", "")]
         public async Task Login_WithBadCredentials_Returns401WithoutSayingWhichPartWasWrong(string username, string password)
         {
@@ -60,11 +94,11 @@ namespace FormFlow.Backend.Tests.Endpoints
         public void Password_IsStoredHashed()
         {
             var users = _factory.Services.GetRequiredService<IUserRepository>();
-            var admin = users.FindByUsername("admin")!;
+            var admin = users.FindByUsername("student")!;
 
-            admin.PasswordHash.Should().NotContain("formflow-admin");
+            admin.PasswordHash.Should().NotContain("password");
             _factory.Services.GetRequiredService<IPasswordHasher<AdminUser>>()
-                .VerifyHashedPassword(admin, admin.PasswordHash, "formflow-admin")
+                .VerifyHashedPassword(admin, admin.PasswordHash, "password")
                 .Should().Be(PasswordVerificationResult.Success);
         }
 
@@ -75,7 +109,7 @@ namespace FormFlow.Backend.Tests.Endpoints
 
             _client.AsAdmin();
             var me = await _client.GetFromJsonAsync<JsonElement>("/api/auth/me");
-            me.GetProperty("username").GetString().Should().Be("admin");
+            me.GetProperty("username").GetString().Should().Be("student");
         }
 
         [Theory]
@@ -139,7 +173,7 @@ namespace FormFlow.Backend.Tests.Endpoints
             var statuses = new List<HttpStatusCode>();
             for (var i = 0; i < 4; i++)
             {
-                var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest { Username = "admin", Password = "wrong" });
+                var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest { Username = "student", Password = "wrong" });
                 statuses.Add(response.StatusCode);
             }
 
