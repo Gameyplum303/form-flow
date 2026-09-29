@@ -51,7 +51,7 @@ namespace FormFlow.Backend.Tests.Endpoints
             templates.Select(t => t.Title).Should().Equal(TemplateTitles);
             templates.Should().OnlyContain(t => t.QuestionCount > 0 && !string.IsNullOrWhiteSpace(t.Description));
             var course = templates.Single(t => t.Title == "Course evaluation");
-            course.QuestionCount.Should().Be(9);
+            course.QuestionCount.Should().Be(10);
             course.PageCount.Should().Be(3);
             (await TemplatesAsync(_admin)).Should().HaveCount(4);
         }
@@ -113,7 +113,7 @@ namespace FormFlow.Backend.Tests.Endpoints
             survey.IsTemplate.Should().BeFalse();
             survey.ShareCode.Should().MatchRegex("^[a-z0-9]{8}$");
             survey.OwnerName.Should().Be("professor");
-            survey.QuestionIds.Should().HaveCount(9);
+            survey.QuestionIds.Should().HaveCount(10);
             survey.PageBreaks.Should().HaveCount(2);
 
             var questions = await _professor.GetFromJsonAsync<List<QuestionDefinition>>($"/api/surveys/{survey.Id}/questions");
@@ -146,7 +146,7 @@ namespace FormFlow.Backend.Tests.Endpoints
 
             var templateQuestions = questions.Where(q => prefixes.Any(q.Key.StartsWith)).ToList();
 
-            templateQuestions.Should().HaveCount(9 + 5 + 8 + 7);
+            templateQuestions.Should().HaveCount(10 + 5 + 8 + 7);
             questions.Select(q => q.Key).Should().OnlyHaveUniqueItems();
             templateQuestions.Should().OnlyContain(q => q.OwnerId == null, "templates belong to the administrators");
             templateQuestions.Should().OnlyContain(q => QuestionTypes.IsKnown(q.Type));
