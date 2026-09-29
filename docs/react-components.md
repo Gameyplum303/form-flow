@@ -47,6 +47,9 @@ The app calls `http://localhost:5164` unless `REACT_APP_API_URL` is set.
 | `email` | `<input type="email">` |
 | `date` | `<input type="date">` |
 | `rating` | A radio button per star, drawn as stars |
+| `likert` | A grid with a row per statement; each row is a `radiogroup` labelled by its statement, with a radio button per point of the scale. Scrolls sideways on narrow screens. |
+| `nps` | Eleven buttons from 0 to 10 with labelled ends; the chosen one has `aria-pressed` |
+| `slider` | `<input type="range">` from the question's minimum to maximum value, with the value beside it; unanswered until moved |
 
 Groups of radio buttons and checkboxes are wrapped in `<fieldset>` with a `<legend>`, labels are tied to inputs with ids from `useId`, and errors are linked with `aria-describedby` and `aria-invalid`, so the form works with screen readers.
 

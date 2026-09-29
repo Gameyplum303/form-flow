@@ -46,8 +46,8 @@ namespace FormFlow.Backend.Services
 
         /// <summary>
         /// The answers a question can have, with the labels results show for them, or null for
-        /// questions answered in free text, numbers or dates. Only these questions can filter or
-        /// split results.
+        /// questions answered in free text, numbers, dates, on a slider or in a likert grid. Only these
+        /// questions can filter or split results.
         /// </summary>
         public static IReadOnlyList<(string Value, string Label)>? FixedAnswers(QuestionDefinition question)
         {
@@ -66,6 +66,13 @@ namespace FormFlow.Backend.Services
             {
                 return Enumerable.Range(1, QuestionTypes.RatingScale(question))
                     .Select(n => (n.ToString(CultureInfo.InvariantCulture), n == 1 ? "1 star" : $"{n} stars"))
+                    .ToList();
+            }
+            if (type == QuestionTypes.Nps)
+            {
+                return Enumerable.Range(0, QuestionTypes.NpsMax + 1)
+                    .Select(n => n.ToString(CultureInfo.InvariantCulture))
+                    .Select(n => (n, n))
                     .ToList();
             }
             return null;
@@ -113,10 +120,18 @@ namespace FormFlow.Backend.Services
                 {
                     result.Numbers = Summarize(allValues);
                 }
+                if (type == QuestionTypes.Nps)
+                {
+                    result.Nps = NetPromoterScore(allValues);
+                }
             }
-            else if (type == QuestionTypes.Number)
+            else if (type == QuestionTypes.Number || type == QuestionTypes.Slider)
             {
                 result.Numbers = Summarize(allValues);
+            }
+            else if (type == QuestionTypes.Likert)
+            {
+                result.Rows = SummarizeRows(question, allValues);
             }
             else
             {
@@ -141,6 +156,51 @@ namespace FormFlow.Backend.Services
                 Min = numbers.Min(),
                 Max = numbers.Max(),
                 Average = Math.Round(numbers.Average(), 2)
+            };
+        }
+
+        /// <summary>Counts each row's answers ("row=option") per point of the scale, with an average when the scale is numeric.</summary>
+        private static List<RowResult> SummarizeRows(QuestionDefinition question, List<string> values)
+        {
+            var scale = QuestionTypes.LikertScale(question);
+            var numeric = scale.All(o => decimal.TryParse(o.Value, NumberStyles.Number, CultureInfo.InvariantCulture, out _));
+            var byRow = values
+                .Select(v => QuestionTypes.TryParseLikertAnswer(v, out var row, out var option) ? (Row: row, Option: option) : default)
+                .Where(a => a.Row is not null)
+                .ToLookup(a => a.Row, a => a.Option, StringComparer.Ordinal);
+
+            return question.Rows.Select(row =>
+            {
+                var picked = byRow[row.Value].ToList();
+                return new RowResult
+                {
+                    Value = row.Value,
+                    Label = row.Label,
+                    AnsweredCount = picked.Count,
+                    Options = scale.Select(o => Count(o.Value, o.Label, picked)).ToList(),
+                    Average = numeric ? Summarize(picked)?.Average : null
+                };
+            }).ToList();
+        }
+
+        private static NpsSummary? NetPromoterScore(List<string> values)
+        {
+            var scores = values
+                .Select(v => int.TryParse(v, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : (int?)null)
+                .OfType<int>()
+                .ToList();
+            if (scores.Count == 0)
+            {
+                return null;
+            }
+            var promoters = scores.Count(n => n >= QuestionTypes.NpsPromoterMin);
+            var detractors = scores.Count(n => n <= QuestionTypes.NpsDetractorMax);
+            return new NpsSummary
+            {
+                Score = (int)Math.Round((promoters - detractors) * 100m / scores.Count, MidpointRounding.AwayFromZero),
+                Promoters = promoters,
+                Passives = scores.Count - promoters - detractors,
+                Detractors = detractors
             };
         }
 

@@ -19,6 +19,9 @@ namespace FormFlow.Blazor.Tests.Components
         [InlineData("email", typeof(EmailQuestion))]
         [InlineData("date", typeof(DateQuestion))]
         [InlineData("rating", typeof(RatingQuestion))]
+        [InlineData("likert", typeof(LikertQuestion))]
+        [InlineData("nps", typeof(NpsQuestion))]
+        [InlineData("slider", typeof(SliderQuestion))]
         public void Resolve_Returns_Correct_Component_Type(string type, Type expected)
         {
             // Act

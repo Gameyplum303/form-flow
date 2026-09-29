@@ -17,15 +17,15 @@ It started as the capstone team project for the Software Engineering BS at East 
 
 ## Highlights
 
-- **Questions are data, not code.** Eleven question types (text, long text, number, email, date, star rating, yes/no, dropdown, radio, checkbox, multiselect) with labels, help text, options, required flags and validation rules, all stored in LiteDB and editable at runtime.
+- **Questions are data, not code.** Fourteen question types (text, long text, number, email, date, star rating, yes/no, dropdown, radio, checkbox, multiselect, likert grid, NPS and slider) with labels, help text, options, required flags and validation rules, all stored in LiteDB and editable at runtime.
 - **Conditional questions.** A question can be shown only when a yes/no question has a given answer ("Preferred campus" appears only for students). The same rule runs in C# on the server and in TypeScript in the browser, and hidden answers are dropped before they are saved.
 - **One validator, three clients.** Every submission goes through a single server-side `ResponseValidator` that returns RFC 7807 problem details keyed by question, so the Blazor and React apps show the same errors next to the same fields.
 - **Survey sharing.** Surveys start as private drafts. The owner publishes one from its Share page, which shows a short link (`/s/k7m2p9qa`) with a copy button and a QR code, chooses whether it also appears on the public list, and can set a close date. Respondents have no account, so each browser gets a temporary respondent id and the API accepts one answer per browser.
-- **Full admin loop.** Create, edit, reorder and delete questions and surveys, preview a survey, see per-question results (option counts, number stats, recent text answers) and download responses as CSV.
+- **Full admin loop.** Create, edit, reorder and delete questions and surveys, preview a survey, see per-question results (option counts, number stats, Net Promoter Score, likert grids statement by statement, recent text answers) and download responses as CSV.
 - **Survey analytics.** Filter results to respondents who gave certain answers, narrow them to a date range, compare groups side by side (students against non-students, say), and see a chart of responses per day that counts days in the viewer's time zone. The CSV download follows the same filters. All of it is computed on the server from one query, so the page and the file always agree.
 - **Secure admin area.** Accounts sign in with a JWT issued by the API. Administrators manage everything and can preview the site as a professor or student. Professors and scientists sign up (name, email, date of birth, organization and intended use), verify their email, wait for an administrator to approve them, then build surveys and see results only for the surveys they created. Students take surveys without an account. Passwords are hashed with PBKDF2 and can be reset through a one-hour, single-use emailed link (only its hash is stored), changing a password signs the account out everywhere, sign-in and submissions are rate limited, and every role and ownership rule is enforced on the server, while respondents never need an account.
 - **Safe by design.** Question keys that are in use can't be renamed, questions used by a survey or a visibility rule can't be deleted, and CSV cells are escaped against spreadsheet formula injection.
-- **Documented, tested, automated.** OpenAPI with Swagger UI, 500+ unit and integration tests with coverage reporting, and Playwright browser tests that run against the Docker images in GitHub Actions on every push.
+- **Documented, tested, automated.** OpenAPI with Swagger UI, 650+ unit and integration tests with coverage reporting, and Playwright browser tests that run against the Docker images in GitHub Actions on every push.
 - **One command to run.** `docker compose up` starts the API, the Blazor app and the React app.
 
 ## Screenshots
@@ -137,7 +137,7 @@ cd FormFlow.Backend
 dotnet run
 ```
 
-On first start it creates `formflow.db`, loads 13 sample questions and builds a demo "Student Experience Survey" from them. Open http://localhost:5164/swagger to try the endpoints.
+On first start it creates `formflow.db`, loads 16 sample questions and builds a demo "Student Experience Survey" from them. Open http://localhost:5164/swagger to try the endpoints.
 
 **2. Blazor app** (https://localhost:7230), in a second terminal
 
@@ -214,10 +214,10 @@ npx playwright test
 
 | Suite | Tests | Covers |
 |---|---|---|
-| `FormFlow.Data.Tests` | 98 | Question rules and their numeric values, response validation for every question type, sign-up rules, rating scales, visibility chains and cycles |
-| `FormFlow.Backend.Tests` | 201 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in, sign-up, email verification and approval, password reset and change, link expiry, each role, survey and question ownership, owner details hidden from the public, CORS, error handling, drafts, share links, close dates and one answer per browser, rate limits, results filters, date ranges, timelines and group comparisons, repositories, seeding including sample responses, CSV escaping |
-| `FormFlow.Blazor.Tests` | 282 | Each question component, two-way binding, sign-in, sign-up, the password and email pages, the sign-ups review page, the admin guard, each role's view and the administrator's View as switch, admin pages, the Share page, taking a survey by link, the results page with its filters, dates, timeline and comparisons, and friendly errors when the API is down |
-| `FormFlow.React.Tests` | 30 | Visibility logic, the form component, and the app against a mocked API, including share links and closed or already answered surveys |
+| `FormFlow.Data.Tests` | 135 | Question rules and their numeric values, response validation for every question type, likert rows, NPS and slider ranges, sign-up rules, rating scales, visibility chains and cycles |
+| `FormFlow.Backend.Tests` | 215 | Every endpoint through `WebApplicationFactory` with an in-memory LiteDB, sign-in, sign-up, email verification and approval, password reset and change, link expiry, each role, survey and question ownership, owner details hidden from the public, CORS, error handling, drafts, share links, close dates and one answer per browser, rate limits, results filters, date ranges, timelines and group comparisons, likert, NPS and slider results and CSV columns, repositories, seeding including sample responses, CSV escaping |
+| `FormFlow.Blazor.Tests` | 306 | Each question component, two-way binding, the likert rows editor, sign-in, sign-up, the password and email pages, the sign-ups review page, the admin guard, each role's view and the administrator's View as switch, admin pages, the Share page, taking a survey by link, the results page with its filters, dates, timeline and comparisons, and friendly errors when the API is down |
+| `FormFlow.React.Tests` | 38 | Visibility logic, the form component, likert, NPS and slider inputs, and the app against a mocked API, including share links and closed or already answered surveys |
 | `FormFlow.E2E` | 32 | Playwright in Chromium: signing in as each role, professor sign-up, email verification and approval, resetting and changing a password, viewing the site as a professor or student, the full admin flow including publishing, copying the share link, answering it as a student and closing it, taking surveys in both apps, filtering and comparing results, CSV download, API security |
 
 CI runs all of these, measures .NET code coverage (85% of lines), and checks ESLint, TypeScript types and `dotnet format --verify-no-changes` on every push and pull request. The browser tests run against the Docker images started with docker compose. See [docs/testing.md](docs/testing.md).
