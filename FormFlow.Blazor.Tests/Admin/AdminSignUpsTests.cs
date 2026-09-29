@@ -138,6 +138,18 @@ public class AdminSignUpsTests
         _accounts.Loads.Should().Be(0);
     }
 
+    [Fact]
+    public async Task Says_so_when_the_sign_ups_cannot_be_loaded()
+    {
+        await using var ctx = CreateContext();
+        _accounts.FailLoading = true;
+
+        var cut = ctx.Render<AdminSignUps>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Could not load the sign-ups."));
+        cut.Markup.Should().NotContain("No one is waiting for approval.");
+    }
+
     private sealed class FakeAccountService : IAccountService
     {
         public List<PendingAccount> Pending { get; } = [];
@@ -146,10 +158,13 @@ public class AdminSignUpsTests
         public string? NextError { get; set; }
         public int Loads { get; private set; }
 
-        public Task<List<PendingAccount>> GetPendingAsync()
+        /// <summary>Makes loading the sign-ups fail, as when the server can't be reached.</summary>
+        public bool FailLoading { get; set; }
+
+        public Task<List<PendingAccount>?> GetPendingAsync()
         {
             Loads++;
-            return Task.FromResult(Pending.ToList());
+            return Task.FromResult<List<PendingAccount>?>(FailLoading ? null : Pending.ToList());
         }
 
         public Task<List<SentEmail>?> GetOutboxAsync() => Task.FromResult<List<SentEmail>?>(null);

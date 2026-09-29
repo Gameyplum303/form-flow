@@ -17,11 +17,20 @@ namespace FormFlow.Blazor.Components.Shared
             {
                 errors[passwordField] = [error];
             }
-            else if (password != confirmation)
+            else
+            {
+                CheckConfirmation(errors, password, confirmation);
+            }
+            return errors;
+        }
+
+        /// <summary>Adds a problem for the confirmation field when it doesn't repeat the password.</summary>
+        public static void CheckConfirmation(IDictionary<string, string[]> errors, string password, string confirmation)
+        {
+            if (password != confirmation)
             {
                 errors["confirmPassword"] = ["The passwords don't match."];
             }
-            return errors;
         }
     }
 }

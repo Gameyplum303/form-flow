@@ -20,7 +20,7 @@ else
 {
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
         <div>
-            <MudText Typo="Typo.h4">@_results.Title</MudText>
+            <PageHeading CssClass="mb-0">@_results.Title</PageHeading>
             <MudText Typo="Typo.subtitle1">
                 @_results.TotalResponses @(_results.TotalResponses == 1 ? "response" : "responses")
                 @if (_results.LastSubmittedAt is { } last)
@@ -30,7 +30,7 @@ else
             </MudText>
         </div>
         <MudStack Row="true" Spacing="2">
-            <MudButton Variant="Variant.Outlined" Href="@($"/admin/surveys/{Id}/share")">Share</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@($"/admin/surveys/{Id}/share")">Share</MudButton>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Download"
@@ -48,7 +48,7 @@ else
     else
     {
         <MudPaper Class="pa-4 mb-4" Elevation="1" data-analysis>
-            <MudText Typo="Typo.h6" Class="mb-2">Explore the responses</MudText>
+            <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-2">Explore the responses</MudText>
             <div class="analysis-controls">
                 <label>
                     <span>Only responses that answered</span>
@@ -114,7 +114,7 @@ else
                 {
                     var peak = Math.Max(1, _results.Timeline.Max(p => p.Count));
                     <MudPaper Class="pa-4" Elevation="1" data-timeline>
-                        <MudText Typo="Typo.h6">Responses per @_results.TimelineInterval</MudText>
+                        <MudText Typo="Typo.h6" HtmlTag="h2">Responses per @_results.TimelineInterval</MudText>
                         <MudText Typo="Typo.caption" Class="mb-2 d-block">Most in one @_results.TimelineInterval: @peak</MudText>
                         <div class="timeline" role="img" aria-label="@TimelineDescription">
                             @foreach (var point in _results.Timeline)
@@ -137,9 +137,9 @@ else
                     var question = _results.Questions[index];
                     var questionIndex = index;
                     <MudPaper Class="pa-4" Elevation="1" data-result-key="@question.Key">
-                        <MudText Typo="Typo.h6">@question.Label</MudText>
+                        <MudText Typo="Typo.h6" HtmlTag="h2">@question.Label</MudText>
                         <MudText Typo="Typo.caption" Class="mb-2 d-block">
-                            @question.Type · answered by @question.AnsweredCount of @_results.MatchingResponses
+                            @QuestionTypes.DisplayName(question.Type) · answered by @question.AnsweredCount of @_results.MatchingResponses
                         </MudText>
 
                         @if (question.Options.Count > 0)
@@ -164,9 +164,9 @@ else
                         else if (question.Numbers is { } numbers)
                         {
                             <MudStack Row="true" Spacing="6">
-                                <div><MudText Typo="Typo.caption">Average</MudText><MudText Typo="Typo.h6">@numbers.Average</MudText></div>
-                                <div><MudText Typo="Typo.caption">Min</MudText><MudText Typo="Typo.h6">@numbers.Min</MudText></div>
-                                <div><MudText Typo="Typo.caption">Max</MudText><MudText Typo="Typo.h6">@numbers.Max</MudText></div>
+                                <div><MudText Typo="Typo.caption">Average</MudText><MudText Typo="Typo.h6" HtmlTag="div">@numbers.Average</MudText></div>
+                                <div><MudText Typo="Typo.caption">Min</MudText><MudText Typo="Typo.h6" HtmlTag="div">@numbers.Min</MudText></div>
+                                <div><MudText Typo="Typo.caption">Max</MudText><MudText Typo="Typo.h6" HtmlTag="div">@numbers.Max</MudText></div>
                             </MudStack>
                         }
                         else if (question.RecentAnswers.Count > 0)
@@ -253,7 +253,7 @@ else
     private string? _to;
     private string? _compareBy;
 
-    /// <summary>Minutes from the browser's local time to UTC, as JavaScript's getTimezoneOffset reports them.</summary>
+    /// <summary>Minutes from the browser's local time to UTC (see <see cref="BrowserTime"/>).</summary>
     private int _timezoneOffset;
 
     private const string DateFormat = "yyyy-MM-dd";
@@ -279,7 +279,7 @@ else
         if (firstRender)
         {
             // The timeline counts days in the browser's time zone, which is only known once the page is interactive.
-            _timezoneOffset = await JS.InvokeAsync<int>("formFlow.timezoneOffset");
+            _timezoneOffset = await JS.GetTimezoneOffsetAsync();
             if (_timezoneOffset != 0 && _results is not null)
             {
                 await RefreshAsync();
@@ -299,7 +299,7 @@ else
     /// <summary>Local midnight at the start of the date, in UTC.</summary>
     private DateTime? ToUtc(string? date) =>
         DateTime.TryParseExact(date, DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var local)
-            ? DateTime.SpecifyKind(local.AddMinutes(_timezoneOffset), DateTimeKind.Utc)
+            ? BrowserTime.ToUtc(local, _timezoneOffset)
             : null;
 
     private async Task RefreshAsync()

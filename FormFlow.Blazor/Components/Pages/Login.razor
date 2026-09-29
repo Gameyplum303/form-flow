@@ -7,8 +7,8 @@
 
 <PageTitle>Sign in</PageTitle>
 
-<MudPaper Class="pa-6 mx-auto mt-10" MaxWidth="420px" Elevation="3">
-    <MudText Typo="Typo.h5" Class="mb-4">Sign in</MudText>
+<MudPaper Class="pa-6 mx-auto mt-10" MaxWidth="420px" Elevation="2">
+    <PageHeading>Sign in</PageHeading>
 
     @if (!string.IsNullOrWhiteSpace(Configuration["LoginHint"]))
     {
@@ -115,7 +115,7 @@
     public static string Destination(string? returnUrl, bool canBuild)
     {
         var url = SafeReturnUrl(returnUrl);
-        return canBuild || !(url == "/admin" || url.StartsWith("/admin/") || url.StartsWith("/admin?")) ? url : "/surveys";
+        return canBuild || !NavigationExtensions.IsAdminPath(url) ? url : "/surveys";
     }
 
     /// <summary>Only local paths are allowed, so the sign-in page can't be used to send people to another site.</summary>

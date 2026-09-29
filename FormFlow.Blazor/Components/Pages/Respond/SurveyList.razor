@@ -4,15 +4,15 @@
 
 <PageTitle>Surveys</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Available surveys</MudText>
+<PageHeading>Available surveys</PageHeading>
 
-@if (_surveys is null)
+@if (!_loaded)
 {
     <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
 }
-else if (_loadError is not null)
+else if (_surveys is null)
 {
-    <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+    <MudAlert Severity="Severity.Error">Could not load the surveys. Please try again.</MudAlert>
 }
 else if (_surveys.Count == 0)
 {
@@ -26,7 +26,7 @@ else
             <MudItem xs="12" md="6">
                 <MudCard Elevation="2">
                     <MudCardContent>
-                        <MudText Typo="Typo.h6">@survey.Title</MudText>
+                        <MudText Typo="Typo.h6" HtmlTag="h2">@survey.Title</MudText>
                         <MudText Typo="Typo.body2" Class="mb-2">@survey.Description</MudText>
                         <MudText Typo="Typo.caption">@survey.QuestionIds.Count questions</MudText>
                     </MudCardContent>
@@ -43,18 +43,11 @@ else
 
 @code {
     private List<SurveyDefinition>? _surveys;
-    private string? _loadError;
+    private bool _loaded;
 
     protected override async Task OnInitializedAsync()
     {
-        try
-        {
-            _surveys = await SurveyService.GetSurveysAsync();
-        }
-        catch (HttpRequestException)
-        {
-            _surveys = [];
-            _loadError = "Could not reach the server. Is the backend running?";
-        }
+        _surveys = await SurveyService.GetSurveysAsync();
+        _loaded = true;
     }
 }

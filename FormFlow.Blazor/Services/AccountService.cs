@@ -14,8 +14,14 @@ namespace FormFlow.Blazor.Services
             }
         }
 
-        public async Task<List<PendingAccount>> GetPendingAsync() =>
-            await Client.GetFromJsonAsync<List<PendingAccount>>("api/accounts/pending") ?? [];
+        public Task<List<PendingAccount>?> GetPendingAsync() =>
+            ApiErrors.TryAsync(async () =>
+            {
+                var response = await Client.GetAsync("api/accounts/pending");
+                return response.StatusCode == HttpStatusCode.OK
+                    ? await response.Content.ReadFromJsonAsync<List<PendingAccount>>() ?? []
+                    : null;
+            }, (List<PendingAccount>?)null);
 
         public async Task<List<SentEmail>?> GetOutboxAsync()
         {
@@ -29,16 +35,17 @@ namespace FormFlow.Blazor.Services
 
         public Task<string?> DeclineAsync(Guid id) => PostAsync($"api/accounts/{id}/decline");
 
-        private async Task<string?> PostAsync(string url)
-        {
-            var response = await Client.PostAsync(url, null);
-            return response.StatusCode switch
+        private Task<string?> PostAsync(string url) =>
+            ApiErrors.TryAsync(async () =>
             {
-                HttpStatusCode.NoContent => null,
-                HttpStatusCode.NotFound => "That sign-up is no longer waiting. Another administrator may have handled it.",
-                HttpStatusCode.Forbidden => "Only administrators can review sign-ups.",
-                _ => $"Request failed ({(int)response.StatusCode}). Please try again.",
-            };
-        }
+                var response = await Client.PostAsync(url, null);
+                return response.StatusCode switch
+                {
+                    HttpStatusCode.NoContent => null,
+                    HttpStatusCode.NotFound => "That sign-up is no longer waiting. Another administrator may have handled it.",
+                    HttpStatusCode.Forbidden => "Only administrators can review sign-ups.",
+                    _ => $"Request failed ({(int)response.StatusCode}). Please try again.",
+                };
+            }, ApiErrors.Unreachable);
     }
 }

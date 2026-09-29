@@ -51,4 +51,16 @@ public class SurveyListTests
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("There are no surveys to take yet."));
     }
+
+    [Fact]
+    public async Task Says_so_when_the_surveys_cannot_be_loaded()
+    {
+        _service.Unreachable = true;
+        await using var ctx = CreateContext();
+
+        var cut = ctx.Render<SurveyList>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Could not load the surveys."));
+        cut.Markup.Should().NotContain("There are no surveys to take yet.");
+    }
 }

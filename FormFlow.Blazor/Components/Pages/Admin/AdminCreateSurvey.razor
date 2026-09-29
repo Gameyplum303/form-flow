@@ -8,9 +8,9 @@
 
 <PageTitle>@(IsEdit ? "Edit Survey" : "Create Survey")</PageTitle>
 
-<MudPaper Class="pa-6" Elevation="2">
+<MudPaper Class="pa-6" Elevation="1">
 
-        <MudText Typo="Typo.h4" Class="mb-4">@(IsEdit ? "Edit Survey" : "Create Survey")</MudText>
+        <PageHeading>@(IsEdit ? "Edit Survey" : "Create Survey")</PageHeading>
 
         @if (_notFound)
         {
@@ -25,7 +25,7 @@
         {
         <MudForm @ref="_form" @bind-IsValid="_isValid">
 
-            <MudTextField @bind-Value="newSurvey.Title"
+            <MudTextField @bind-Value="_newSurvey.Title"
                         Label="Survey Title"
                         Variant="Variant.Outlined"
                         Class="mb-4"
@@ -33,7 +33,7 @@
                         Required="true"
                         RequiredError="Title is required" />
 
-            <MudTextField @bind-Value="newSurvey.Description"
+            <MudTextField @bind-Value="_newSurvey.Description"
                         Label="Description"
                         Variant="Variant.Outlined"
                         Lines="4"
@@ -44,33 +44,37 @@
 
             <MudDivider Class="my-4" />
 
-            <MudText Typo="Typo.h5" Class="mb-2">Select Questions</MudText>
+            <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-2">Select Questions</MudText>
 
-            @if (QuestionBank is null)
+            @if (_questionBankError)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">Could not load questions. Reload the page to try again.</MudAlert>
+            }
+            else if (_questionBank is null)
             {
                 <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-            }  
-            else if (!QuestionBank.Any())
+            }
+            else if (!_questionBank.Any())
             {
                 <MudText>No questions found.</MudText>
             }
             else
             {
-                <MudPaper Style="max-height: 300px; overflow-y: auto;">
+                <MudPaper Class="question-bank">
                     <MudList T="QuestionDefinition" Dense="true" Class="mb-6">
-                        @foreach (var q in QuestionBank)
+                        @foreach (var q in _questionBank)
                         {
                             <MudListItem>
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="w-100">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mud-width-full">
                                     <div>
                                         <MudText Typo="Typo.subtitle1">@q.Label</MudText>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@q.Type</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@QuestionTypes.DisplayName(q.Type)</MudText>
                                     </div>
 
                                     <MudButton Variant="Variant.Filled"
                                             Color="Color.Primary"
                                             Disabled="@IsSelected(q)"
-                                            OnClick="@(() => AddQuestion(q))">
+                                            OnClick="@(() => AddQuestionAsync(q))">
                                         @(IsSelected(q) ? "Added" : "Add")        
                                     </MudButton>
                                 </MudStack>
@@ -82,9 +86,9 @@
 
             <MudDivider Class="my-4" />
 
-            <MudText Typo="Typo.h5" Class="mb-2">Selected Questions</MudText>
+            <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-2">Selected Questions</MudText>
 
-            @if (!SelectedQuestions.Any())
+            @if (!_selectedQuestions.Any())
             {
                 <MudText>No questions selected yet.</MudText>
             }
@@ -101,13 +105,13 @@
                 }
 
                 <MudList T="QuestionDefinition" Dense="true" Class="mb-6">
-                    @for (var i = 0; i < SelectedQuestions.Count; i++)
+                    @for (var i = 0; i < _selectedQuestions.Count; i++)
                     {
                         var index = i;
-                        var q = SelectedQuestions[index];
+                        var q = _selectedQuestions[index];
                         <MudListItem>
 
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="w-100">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mud-width-full">
                                 <MudText>@(index + 1). @q.Label</MudText>
 
                                 <MudStack Row="true" Spacing="1">
@@ -117,11 +121,11 @@
                                             OnClick="@(() => Move(index, -1))" />
                                     <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward"
                                             aria-label="Move down"
-                                            Disabled="@(index == SelectedQuestions.Count - 1)"
+                                            Disabled="@(index == _selectedQuestions.Count - 1)"
                                             OnClick="@(() => Move(index, 1))" />
                                     <MudButton StartIcon="@Icons.Material.Filled.Delete"
                                             Color="Color.Error"
-                                            OnClick="@(() => RemoveQuestion(q))">
+                                            OnClick="@(() => RemoveQuestionAsync(q))">
                                         Remove
                                     </MudButton>
                                 </MudStack>
@@ -136,10 +140,10 @@
 
             <MudButton Variant="Variant.Filled"
                     Color="Color.Success"
-                    Disabled="@(!CanSave)"
-                    OnClick="SaveSurvey">
+                    Disabled="@(!CanSave || _saving)"
+                    OnClick="SaveSurveyAsync">
 
-                @(IsEdit ? "Save Changes" : "Save Survey")
+                @(_saving ? "Saving..." : IsEdit ? "Save Changes" : "Save Survey")
 
             </MudButton>
         </MudForm>
@@ -154,19 +158,22 @@
     private bool _isValid;
     private bool _notFound;
     private bool _notYours;
+    private bool _saving;
 
     [CascadingParameter] public AdminAccess? Access { get; set; }
 
-    private NewSurvey newSurvey = new();
+    private NewSurvey _newSurvey = new();
 
-    private List<QuestionDefinition>? QuestionBank;
-    private List<QuestionDefinition> SelectedQuestions = new();
+    private List<QuestionDefinition>? _questionBank;
+    private bool _questionBankError;
+    private List<QuestionDefinition> _selectedQuestions = new();
 
     private bool IsEdit => Id is not null;
 
     protected override async Task OnInitializedAsync()
     {
-        QuestionBank = await QuestionService.GetAllQuestionsAsync();
+        _questionBank = await QuestionService.GetAllQuestionsAsync();
+        _questionBankError = _questionBank is null;
 
         if (Id is { } id)
         {
@@ -182,21 +189,21 @@
                 return;
             }
 
-            newSurvey = new NewSurvey { Title = survey.Title, Description = survey.Description };
-            var byId = (QuestionBank ?? new()).ToDictionary(q => q.Id);
+            _newSurvey = new NewSurvey { Title = survey.Title, Description = survey.Description };
+            var byId = (_questionBank ?? new()).ToDictionary(q => q.Id);
             foreach (var qid in survey.QuestionIds)
             {
                 if (byId.TryGetValue(qid, out var q))
                 {
-                    newSurvey.QuestionIds.Add(q.Id);
-                    SelectedQuestions.Add(q);
+                    _newSurvey.QuestionIds.Add(q.Id);
+                    _selectedQuestions.Add(q);
                 }
             }
         }
     }
 
     private bool IsSelected(QuestionDefinition q)
-        => SelectedQuestions.Any(x => x.Id == q.Id);
+        => _selectedQuestions.Any(x => x.Id == q.Id);
 
     /// <summary>
     /// Conditional questions only make sense after the yes/no question they depend on.
@@ -205,87 +212,97 @@
     {
         get
         {
-            for (var i = 0; i < SelectedQuestions.Count; i++)
+            for (var i = 0; i < _selectedQuestions.Count; i++)
             {
-                var rule = SelectedQuestions[i].VisibleIf;
+                var rule = _selectedQuestions[i].VisibleIf;
                 if (rule is null)
                 {
                     continue;
                 }
 
-                var controllerIndex = SelectedQuestions.FindIndex(q => q.Key == rule.Key);
+                var controllerIndex = _selectedQuestions.FindIndex(q => q.Key == rule.Key);
                 if (controllerIndex < 0)
                 {
-                    yield return $"\"{SelectedQuestions[i].Label}\" depends on \"{rule.Key}\", which is not in this survey, so it will never show.";
+                    yield return $"\"{_selectedQuestions[i].Label}\" depends on \"{rule.Key}\", which is not in this survey, so it will never show.";
                 }
                 else if (controllerIndex > i)
                 {
-                    yield return $"\"{SelectedQuestions[i].Label}\" appears before the question it depends on.";
+                    yield return $"\"{_selectedQuestions[i].Label}\" appears before the question it depends on.";
                 }
             }
         }
     }
 
-    private void AddQuestion(QuestionDefinition q)
+    private async Task AddQuestionAsync(QuestionDefinition q)
     {
         if (!IsSelected(q))
         {
-            newSurvey.QuestionIds.Add(q.Id);
-            SelectedQuestions.Add(q);
-            _form?.ValidateAsync();
+            _newSurvey.QuestionIds.Add(q.Id);
+            _selectedQuestions.Add(q);
+            await ValidateAsync();
         }
     }
 
-    private void RemoveQuestion(QuestionDefinition q)
+    private async Task RemoveQuestionAsync(QuestionDefinition q)
     {
-       newSurvey.QuestionIds.Remove(q.Id);
-       SelectedQuestions.RemoveAll(x => x.Id == q.Id);
-       _form?.ValidateAsync();
+        _newSurvey.QuestionIds.Remove(q.Id);
+        _selectedQuestions.RemoveAll(x => x.Id == q.Id);
+        await ValidateAsync();
     }
+
+    private Task ValidateAsync() => _form?.ValidateAsync() ?? Task.CompletedTask;
 
     private void Move(int index, int offset)
     {
         var target = index + offset;
-        if (target < 0 || target >= SelectedQuestions.Count)
+        if (target < 0 || target >= _selectedQuestions.Count)
         {
             return;
         }
 
-        (SelectedQuestions[index], SelectedQuestions[target]) = (SelectedQuestions[target], SelectedQuestions[index]);
-        newSurvey.QuestionIds = SelectedQuestions.Select(q => q.Id).ToList();
+        (_selectedQuestions[index], _selectedQuestions[target]) = (_selectedQuestions[target], _selectedQuestions[index]);
+        _newSurvey.QuestionIds = _selectedQuestions.Select(q => q.Id).ToList();
     }
 
     // MudForm only reports valid once every required field has been touched, which a
     // loaded survey never is, so edit mode checks the required fields directly.
     private bool CanSave =>
-        (_isValid || (IsEdit && !string.IsNullOrWhiteSpace(newSurvey.Title) && !string.IsNullOrWhiteSpace(newSurvey.Description)))
-        && newSurvey.QuestionIds.Any();
+        (_isValid || (IsEdit && !string.IsNullOrWhiteSpace(_newSurvey.Title) && !string.IsNullOrWhiteSpace(_newSurvey.Description)))
+        && _newSurvey.QuestionIds.Any();
 
-    private async Task SaveSurvey()
+    private async Task SaveSurveyAsync()
     {
-        if (_form is null)
+        if (_form is null || _saving)
             return;
 
-        await _form.ValidateAsync();
-
-        if (!CanSave)
+        _saving = true;
+        try
         {
-            Snackbar.Add("Please complete all required fields before saving.", Severity.Warning);
-            return;
+            await _form.ValidateAsync();
+
+            if (!CanSave)
+            {
+                Snackbar.Add("Please complete all required fields before saving.", Severity.Warning);
+                return;
+            }
+
+            var (success, error) = Id is { } id
+                ? await SurveyService.UpdateSurveyAsync(id, _newSurvey)
+                : await SurveyService.CreateSurveyAsync(_newSurvey);
+
+            if (success)
+            {
+                Snackbar.Add(IsEdit ? "Survey saved." : "Survey created as a draft. Use Share to publish it.", Severity.Success);
+                Nav.NavigateTo("/admin/surveys");
+            }
+            else
+            {
+                Snackbar.Add(error ?? "Failed to save the survey. Please try again.", Severity.Error);
+            }
         }
-
-        var (success, error) = Id is { } id
-            ? await SurveyService.UpdateSurveyAsync(id, newSurvey)
-            : await SurveyService.CreateSurveyAsync(newSurvey);
-
-        if (success)
+        finally
         {
-            Snackbar.Add(IsEdit ? "Survey saved." : "Survey created as a draft. Use Share to publish it.", Severity.Success);
-            Nav.NavigateTo("/admin/surveys");
-        }
-        else
-        {
-            Snackbar.Add(error ?? "Failed to save the survey. Please try again.", Severity.Error);
+            _saving = false;
         }
     }
 }

@@ -6,4 +6,4 @@ This project follows the Contributor Covenant.
 We pledge to make participation in our project a harassment-free experience.
 
 ## Enforcement
-Report issues to <contact email>.
+Report issues privately to the maintainer, [@Gameyplum303](https://github.com/Gameyplum303) on GitHub.

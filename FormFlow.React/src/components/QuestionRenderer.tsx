@@ -28,7 +28,8 @@ export function ratingScale(question: QuestionDefinition): number {
     }
 }
 
-function initialValue(question: QuestionDefinition): string[] {
+/** The question's default answer, or no answer when it has none. */
+export function initialValue(question: QuestionDefinition): string[] {
     const raw = question.defaultValue;
     return raw === undefined || raw === null || raw === "" ? [] : [String(raw)];
 }

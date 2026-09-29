@@ -12,19 +12,28 @@ public sealed class FakeSurveyService : ISurveyService
     public Dictionary<string, List<string>>? LastSubmitted { get; private set; }
     public SurveyResults? Results { get; set; }
 
-    public Task<List<SurveyDefinition>> GetSurveysAsync() => Task.FromResult(Surveys.ToList());
+    /// <summary>Makes every read fail, as when the server can't be reached.</summary>
+    public bool Unreachable { get; set; }
+
+    public Task<List<SurveyDefinition>?> GetSurveysAsync() =>
+        Task.FromResult<List<SurveyDefinition>?>(Unreachable ? null : Surveys.ToList());
 
     /// <summary>Like the API for an administrator: every survey. Pages narrow it down for a professor.</summary>
-    public Task<List<SurveyDefinition>> GetManagedSurveysAsync() => Task.FromResult(Surveys.ToList());
+    public Task<List<SurveyDefinition>?> GetManagedSurveysAsync() =>
+        Task.FromResult<List<SurveyDefinition>?>(Unreachable ? null : Surveys.ToList());
 
     public Task<SurveyDefinition?> GetSurveyAsync(Guid id) =>
-        Task.FromResult(Surveys.FirstOrDefault(s => s.Id == id));
+        Task.FromResult(Unreachable ? null : Surveys.FirstOrDefault(s => s.Id == id));
 
     public Task<SurveyDefinition?> GetSurveyByShareCodeAsync(string code) =>
         Task.FromResult(Surveys.FirstOrDefault(s => string.Equals(s.ShareCode, code, StringComparison.OrdinalIgnoreCase)));
 
-    public Task<List<QuestionDefinition>> GetSurveyQuestionsAsync(Guid id) =>
-        Task.FromResult(Questions.TryGetValue(id, out var q) ? q : new List<QuestionDefinition>());
+    /// <summary>Makes loading a survey's questions fail, while the survey itself still loads.</summary>
+    public bool QuestionsUnreachable { get; set; }
+
+    public Task<List<QuestionDefinition>?> GetSurveyQuestionsAsync(Guid id) =>
+        Task.FromResult<List<QuestionDefinition>?>(Unreachable || QuestionsUnreachable ? null
+            : Questions.TryGetValue(id, out var q) ? q : new List<QuestionDefinition>());
 
     public (bool Success, string? Error) NextSaveResult { get; set; } = (true, null);
     public NewSurvey? LastCreated { get; private set; }

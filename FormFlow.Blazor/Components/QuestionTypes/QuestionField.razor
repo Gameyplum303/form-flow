@@ -1,0 +1,41 @@
+@* The card every question type is drawn in: the question's label and required marker, its input
+   (the child content), the help text and any validation message. The message is drawn here rather
+   than through MudBlazor's ErrorText: once someone edits a field, MudTextField keeps showing its own
+   (empty) validation result and hides a new server error. *@
+<MudPaper Outlined="true" Class="question-card">
+    @if (ShowLabel)
+    {
+        <label class="question-label" for="@For">
+            @Question.Label
+            @if (Question.Required)
+            {
+                <span class="question-required">*</span>
+            }
+        </label>
+    }
+
+    @ChildContent
+
+    @if (!string.IsNullOrWhiteSpace(Question.HelpText))
+    {
+        <div class="question-help">@Question.HelpText</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Error))
+    {
+        <div class="question-error" role="alert">@Error</div>
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public QuestionDefinition Question { get; set; } = default!;
+
+    [Parameter] public string? Error { get; set; }
+
+    /// <summary>The id of the input the label belongs to, when the question has a single input.</summary>
+    [Parameter] public string? For { get; set; }
+
+    /// <summary>False when the input shows the label itself, as a single tick box does.</summary>
+    [Parameter] public bool ShowLabel { get; set; } = true;
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -33,7 +33,7 @@ namespace FormFlow.Backend.Repositories
         public AdminUser? FindByEmail(string email)
         {
             var normalized = Normalize(email);
-            return normalized.Length == 0 ? null : _users.FindOne(u => u.Email != null && u.Email.ToLower() == normalized);
+            return normalized.Length == 0 ? null : _users.FindOne(u => u.Email != null && u.Email.ToLowerInvariant() == normalized);
         }
 
         public List<AdminUser> FindPending() =>

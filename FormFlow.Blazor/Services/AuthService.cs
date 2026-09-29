@@ -9,7 +9,6 @@ namespace FormFlow.Blazor.Services
         public const string PendingMessage = "Your account is waiting for an administrator's approval.";
         public const string VerifyEmailMessage = "Please verify your email address first. Open the link we emailed you.";
         public const string InvalidLinkMessage = "This link is invalid or has expired. Ask for a new one.";
-        private const string Unreachable = "Could not reach the server. Please try again.";
         private const string TooMany = "Too many attempts. Wait a minute and try again.";
 
         public async Task<(LoginResponse? Login, string? Error)> LoginAsync(string username, string password)
@@ -30,7 +29,7 @@ namespace FormFlow.Blazor.Services
             }
             catch (HttpRequestException)
             {
-                return (null, "Could not reach the server. Please try again.");
+                return (null, ApiErrors.Unreachable);
             }
         }
 
@@ -46,19 +45,19 @@ namespace FormFlow.Blazor.Services
                         return new SignUpResult(created?.Status ?? AccountStatuses.Pending, new Dictionary<string, string[]>(), null,
                             created?.EmailVerificationRequired ?? false);
                     case HttpStatusCode.BadRequest or HttpStatusCode.Conflict:
-                        var errors = await ReadFieldErrorsAsync(response);
+                        var errors = await ApiErrors.ReadFieldErrorsAsync(response);
                         return errors.Count > 0
                             ? new SignUpResult(null, errors, null)
                             : SignUpResult.Failed("Check the form and try again.");
                     case HttpStatusCode.TooManyRequests:
-                        return SignUpResult.Failed("Too many attempts. Wait a minute and try again.");
+                        return SignUpResult.Failed(TooMany);
                     default:
                         return SignUpResult.Failed($"Sign-up failed ({(int)response.StatusCode}). Please try again.");
                 }
             }
             catch (HttpRequestException)
             {
-                return SignUpResult.Failed("Could not reach the server. Please try again.");
+                return SignUpResult.Failed(ApiErrors.Unreachable);
             }
         }
 
@@ -80,7 +79,7 @@ namespace FormFlow.Blazor.Services
             }
             catch (HttpRequestException)
             {
-                return Unreachable;
+                return ApiErrors.Unreachable;
             }
         }
 
@@ -99,7 +98,7 @@ namespace FormFlow.Blazor.Services
             }
             catch (HttpRequestException)
             {
-                return (null, Unreachable);
+                return (null, ApiErrors.Unreachable);
             }
         }
 
@@ -113,7 +112,7 @@ namespace FormFlow.Blazor.Services
                     case HttpStatusCode.NoContent:
                         return FormResult.Success();
                     case HttpStatusCode.BadRequest:
-                        var errors = await ReadFieldErrorsAsync(response);
+                        var errors = await ApiErrors.ReadFieldErrorsAsync(response);
                         return errors.Count > 0 ? FormResult.Invalid(errors) : FormResult.Failed(InvalidLinkMessage);
                     case HttpStatusCode.TooManyRequests:
                         return FormResult.Failed(TooMany);
@@ -123,7 +122,7 @@ namespace FormFlow.Blazor.Services
             }
             catch (HttpRequestException)
             {
-                return FormResult.Failed(Unreachable);
+                return FormResult.Failed(ApiErrors.Unreachable);
             }
         }
 
@@ -146,7 +145,7 @@ namespace FormFlow.Blazor.Services
                     case HttpStatusCode.OK:
                         return FormResult.Success(await response.Content.ReadFromJsonAsync<LoginResponse>());
                     case HttpStatusCode.BadRequest:
-                        var errors = await ReadFieldErrorsAsync(response);
+                        var errors = await ApiErrors.ReadFieldErrorsAsync(response);
                         return errors.Count > 0 ? FormResult.Invalid(errors) : FormResult.Failed("Check the form and try again.");
                     case HttpStatusCode.Unauthorized:
                         return FormResult.Failed("Your sign-in has ended. Sign in again to change your password.");
@@ -158,7 +157,7 @@ namespace FormFlow.Blazor.Services
             }
             catch (HttpRequestException)
             {
-                return FormResult.Failed(Unreachable);
+                return FormResult.Failed(ApiErrors.Unreachable);
             }
         }
 
@@ -177,33 +176,6 @@ namespace FormFlow.Blazor.Services
             {
                 return null;
             }
-        }
-
-        /// <summary>Reads the "errors" object of a validation problem response.</summary>
-        private static async Task<Dictionary<string, string[]>> ReadFieldErrorsAsync(HttpResponseMessage response)
-        {
-            var errors = new Dictionary<string, string[]>();
-            try
-            {
-                using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-                if (doc.RootElement.ValueKind == JsonValueKind.Object
-                    && doc.RootElement.TryGetProperty("errors", out var fields)
-                    && fields.ValueKind == JsonValueKind.Object)
-                {
-                    foreach (var field in fields.EnumerateObject().Where(f => f.Value.ValueKind == JsonValueKind.Array))
-                    {
-                        errors[field.Name] = field.Value.EnumerateArray()
-                            .Where(e => e.ValueKind == JsonValueKind.String)
-                            .Select(e => e.GetString()!)
-                            .ToArray();
-                    }
-                }
-            }
-            catch (JsonException)
-            {
-                // Not a validation problem; the caller shows a general message.
-            }
-            return errors;
         }
     }
 }

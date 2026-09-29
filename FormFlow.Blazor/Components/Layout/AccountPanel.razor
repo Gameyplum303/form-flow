@@ -7,7 +7,7 @@
 @* Who is signed in, the administrator's "View as" switch, and sign in or out. Shown in both menus. *@
 @if (Session.IsSignedIn)
 {
-    <div class="nav-item px-3 signed-in">
+    <div class="nav-item signed-in">
         <span class="signed-in-as">Signed in as @Session.Username (@Roles.DisplayName(Session.Role))</span>
 
         @if (Session.IsAdmin)
@@ -36,13 +36,13 @@
 }
 else if (ShowSignIn)
 {
-    <div class="nav-item px-3">
+    <div class="nav-item">
         <NavLink class="nav-link" href="/login">
             <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span>
             Sign in
         </NavLink>
     </div>
-    <div class="nav-item px-3">
+    <div class="nav-item">
         <NavLink class="nav-link" href="/signup">
             <span class="bi bi-person-plus-nav-menu" aria-hidden="true"></span>
             Professor sign-up

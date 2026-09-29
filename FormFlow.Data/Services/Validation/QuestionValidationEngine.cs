@@ -1,10 +1,12 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using FormFlow.Data.Validation;
 using FormFlow.Data.Validation.Models;
 
 namespace FormFlow.Data.Services;
 
+/// <summary>Checks one answer against a question's validation rules (length, value and range limits).</summary>
 public class QuestionValidationEngine
 {
     public bool Validate(string? response, string? validationConfigs, out List<string> errorMessages)
@@ -31,19 +33,19 @@ public class QuestionValidationEngine
 
             switch (type)
             {
-                case "MinLength":
+                case ValidationTypes.MinLength:
                     var min = JsonSerializer.Deserialize<MinLengthValidationConfig>(json.ToJsonString(), options);
                     if (min != null && (response?.Length ?? 0) < min.MinLength)
                         errorMessages.Add(min.Message ?? $"Minimum length is {min.MinLength}.");
                     break;
 
-                case "MaxLength":
+                case ValidationTypes.MaxLength:
                     var max = JsonSerializer.Deserialize<MaxLengthValidationConfig>(json.ToJsonString(), options);
                     if (max != null && (response?.Length ?? 0) > max.MaxLength)
                         errorMessages.Add(max.Message ?? $"Maximum length is {max.MaxLength}.");
                     break;
 
-                case "MinValue":
+                case ValidationTypes.MinValue:
                     if (TryParseNumber(response, out decimal minVal))
                     {
                         var minValCfg = JsonSerializer.Deserialize<MinValueValidationConfig>(json.ToJsonString(), options);
@@ -53,7 +55,7 @@ public class QuestionValidationEngine
                     else errorMessages.Add("Response must be a number.");
                     break;
 
-                case "MaxValue":
+                case ValidationTypes.MaxValue:
                     if (TryParseNumber(response, out decimal maxVal))
                     {
                         var maxValCfg = JsonSerializer.Deserialize<MaxValueValidationConfig>(json.ToJsonString(), options);
@@ -63,7 +65,7 @@ public class QuestionValidationEngine
                     else errorMessages.Add("Response must be a number.");
                     break;
 
-                case "Range":
+                case ValidationTypes.Range:
                     if (TryParseNumber(response, out decimal rangeVal))
                     {
                         var rangeCfg = JsonSerializer.Deserialize<RangeValidationConfig>(json.ToJsonString(), options);

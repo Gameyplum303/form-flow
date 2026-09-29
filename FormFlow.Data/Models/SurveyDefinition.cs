@@ -37,6 +37,7 @@ namespace FormFlow.Data.Models
         public bool IsOnPublicList(DateTime utcNow) => IsPublished() && Listed && !IsClosed(utcNow);
     }
 
+    /// <summary>The values of <see cref="SurveyDefinition.Status"/>.</summary>
     public static class SurveyStatuses
     {
         /// <summary>Only the people who manage the survey can open it.</summary>

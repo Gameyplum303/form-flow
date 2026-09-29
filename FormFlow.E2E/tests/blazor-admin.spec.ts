@@ -181,7 +181,7 @@ test.describe("Blazor: roles", () => {
         await openQuestionBank(page);
         const firstName = page.locator("tr", { has: page.locator("td", { hasText: /^first_name$/ }) });
         await expect(firstName.getByText("Administrators")).toBeVisible();
-        await expect(firstName.getByRole("button", { name: "Edit" })).toHaveCount(0);
+        await expect(firstName.getByRole("link", { name: "Edit" })).toHaveCount(0);
 
         await openBlazor(page, "/admin/surveys");
         await confirmDelete(page, title);
@@ -231,7 +231,7 @@ test.describe.serial("Blazor: admin", () => {
 
     test("creates a conditional question with an answer rule", async () => {
         await openBlazor(page, "/admin/questions");
-        await page.getByText("Create New Question").click();
+        await page.getByRole("link", { name: "Create Question" }).click();
         await expect(page).toHaveURL(/\/admin\/questions\/create$/);
         await expect(page.locator(".page[data-interactive=true]")).toBeVisible();
 
@@ -252,7 +252,7 @@ test.describe.serial("Blazor: admin", () => {
 
     test("edits the question", async () => {
         await openQuestionBank(page);
-        await questionRow(page, key).getByRole("button", { name: "Edit" }).click();
+        await questionRow(page, key).getByRole("link", { name: "Edit" }).click();
         await expect(page).toHaveURL(/\/edit$/);
         await expect(page.getByLabel("Minimum length")).toHaveValue("3");
 
@@ -267,7 +267,7 @@ test.describe.serial("Blazor: admin", () => {
 
     test("builds a survey and warns about question order", async () => {
         await openBlazor(page, "/admin/surveys");
-        await page.getByText("+ Create Survey").click();
+        await page.getByRole("link", { name: "Create Survey" }).click();
         await expect(page.locator(".page[data-interactive=true]")).toBeVisible();
         await page.getByLabel("Survey Title").fill(surveyTitle);
         await page.getByLabel("Description").fill("Short survey about campus life.");
@@ -287,7 +287,7 @@ test.describe.serial("Blazor: admin", () => {
 
     test("previews the survey with the conditional question", async () => {
         await openBlazor(page, "/admin/surveys");
-        await questionRow(page, surveyTitle).getByRole("button", { name: "Preview" }).click();
+        await questionRow(page, surveyTitle).getByRole("link", { name: "Preview" }).click();
         await expect(page.locator(".page[data-interactive=true]")).toBeVisible();
         await expect(question(page, "is_student")).toBeVisible();
         await expect(question(page, key)).toHaveCount(0);
@@ -299,7 +299,7 @@ test.describe.serial("Blazor: admin", () => {
         await openBlazor(page, "/admin/surveys");
         const row = questionRow(page, surveyTitle);
         await expect(row.locator("[data-survey-status]")).toHaveText("Draft");
-        await row.getByRole("button", { name: "Share" }).click();
+        await row.getByRole("link", { name: "Share" }).click();
         await expect(page).toHaveURL(/\/share$/);
         await expect(page.getByRole("button", { name: "Save sharing settings" })).toBeVisible();
 
@@ -348,7 +348,7 @@ test.describe.serial("Blazor: admin", () => {
 
     test("closes the survey", async ({ browser }) => {
         await openBlazor(page, "/admin/surveys");
-        await questionRow(page, surveyTitle).getByRole("button", { name: "Share" }).click();
+        await questionRow(page, surveyTitle).getByRole("link", { name: "Share" }).click();
         // The survey list has status chips too, so wait until the Share page has replaced it.
         await expect(page).toHaveURL(/\/share$/);
         await expect(page.getByRole("button", { name: "Save sharing settings" })).toBeVisible();

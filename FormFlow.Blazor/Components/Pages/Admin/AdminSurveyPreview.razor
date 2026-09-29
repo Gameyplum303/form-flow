@@ -1,30 +1,35 @@
 @page "/admin/surveys/{Id:guid}/preview"
-@using Microsoft.Extensions.DependencyInjection
-@inject IHttpClientFactory HttpClientFactory
-@inject IServiceProvider Services
-@inject NavigationManager Nav
+@inject ISurveyService SurveyService
 
-<MudPaper Class="pa-6" Elevation="2">
+<PageTitle>Survey Preview</PageTitle>
 
-    <PageTitle>Survey Preview</PageTitle>
+<MudPaper Class="pa-6" Elevation="1" MaxWidth="720px">
 
-    @if (_notFound)
-    {
-        <MudAlert Severity="Severity.Warning">Survey not found.</MudAlert>
-    }
-    else if (survey is null || questions is null)
+    @if (_loading)
     {
         <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
     }
+    else if (_survey is null)
+    {
+        <MudAlert Severity="Severity.Warning">Survey not found.</MudAlert>
+    }
     else
     {
-        <MudText Typo="Typo.h4" Class="mb-1">@survey.Title</MudText>
-        <MudText Typo="Typo.body1" Class="mb-3">@survey.Description</MudText>
-        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">
-            Preview: conditional questions react to your answers, but nothing is saved.
-        </MudAlert>
+        <PageHeading CssClass="mb-1">@_survey.Title</PageHeading>
+        <MudText Typo="Typo.body1" Class="mb-3">@_survey.Description</MudText>
 
-        <SurveyForm Questions="questions" Answers="answers" />
+        @if (_questions is null)
+        {
+            <MudAlert Severity="Severity.Error">Could not load the survey's questions. Please try again.</MudAlert>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">
+                Preview: conditional questions react to your answers, but nothing is saved.
+            </MudAlert>
+
+            <SurveyForm Questions="_questions" Answers="_answers" />
+        }
     }
 
 </MudPaper>
@@ -32,40 +37,19 @@
 @code {
     [Parameter] public Guid Id { get; set; }
 
-    private SurveyDefinition? survey;
-    private List<QuestionDefinition>? questions;
-    private readonly Dictionary<string, List<string>> answers = new();
-    private bool _notFound;
+    private SurveyDefinition? _survey;
+    private List<QuestionDefinition>? _questions;
+    private readonly Dictionary<string, List<string>> _answers = new();
+    private bool _loading = true;
 
     protected override async Task OnInitializedAsync()
     {
-        var client = HttpClientFactory.CreateClient("AdminApi");
-        // Drafts are only served to the people who manage them, so send the sign-in along.
-        Services.GetService<AdminSession>()?.Authorize(client);
-
-        var response = await client.GetAsync($"api/surveys/{Id}");
-        if (!response.IsSuccessStatusCode)
+        // Drafts are only served to the people who manage them; the service sends the sign-in along.
+        _survey = await SurveyService.GetSurveyAsync(Id);
+        if (_survey is not null)
         {
-            _notFound = true;
-            return;
+            _questions = await SurveyService.GetSurveyQuestionsAsync(Id);
         }
-
-        survey = await response.Content.ReadFromJsonAsync<SurveyDefinition>();
-        if (survey is null)
-        {
-            _notFound = true;
-            return;
-        }
-
-        var loaded = new List<QuestionDefinition>();
-
-        foreach (var qid in survey.QuestionIds)
-        {
-            var q = await client.GetFromJsonAsync<QuestionDefinition>($"api/questions/{qid}");
-            if (q != null)
-                loaded.Add(q);
-        }
-
-        questions = loaded;
+        _loading = false;
     }
 }

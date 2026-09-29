@@ -3,17 +3,19 @@
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using FormFlow.Blazor.Services
+@using FormFlow.Data.Validation
 @inject IQuestionService QuestionService
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 
 <PageTitle>@(IsEdit ? "Edit Question" : "Create Question")</PageTitle>
 
-<MudPaper Class="pa-6" MaxWidth="600px">
-    <MudText Typo="Typo.h5" Class="mb-4">@(IsEdit ? "Edit Question" : "Create Question")</MudText>
+<MudPaper Class="pa-6" Elevation="1" MaxWidth="600px">
+    <PageHeading>@(IsEdit ? "Edit Question" : "Create Question")</PageHeading>
     @if (_notFound)
     {
         <MudAlert Severity="Severity.Warning" Class="mb-4">Question not found.</MudAlert>
+        <MudButton Variant="Variant.Outlined" Href="/admin/questions">Back to questions</MudButton>
     }
     else if (_notYours)
     {
@@ -41,66 +43,59 @@
         </MudAlert>
     }
 
-    @if (!_notYours)
+    @if (CanEdit)
     {
-    <MudForm @ref="_form" Model="@newQuestion" @bind-IsValid="_isValid">
-        <MudTextField T="string"
+    <MudForm @ref="_form" Model="@_newQuestion" @bind-IsValid="_isValid">
+        <MudTextField T="string" Variant="Variant.Outlined"
                       Label="Label"
-                      @bind-Value="newQuestion.Label"
+                      @bind-Value="_newQuestion.Label"
                       Required="true"
                       RequiredError="Label is required."
                       Immediate="true"
                       Class="mb-3" />
 
-        <MudTextField T="string"
+        <MudTextField T="string" Variant="Variant.Outlined"
                       Label="Key"
-                      @bind-Value="newQuestion.Key"
+                      @bind-Value="_newQuestion.Key"
                       Required="true"
                       RequiredError="Key is required."
                       Immediate="true"
                       Class="mb-3" />
 
-        <MudSelect T="string"
+        <MudSelect T="string" Variant="Variant.Outlined"
                    Label="Type"
-                   @bind-Value="newQuestion.Type"
+                   @bind-Value="_newQuestion.Type"
                    Required="true"
                    RequiredError="Type is required."
                    Immediate="true"
                    Class="mb-3">
-            <MudSelectItem Value='@("dropdown")'>Dropdown</MudSelectItem>
-            <MudSelectItem Value='@("text")'>Text</MudSelectItem>
-            <MudSelectItem Value='@("yes_no")'>Yes/No</MudSelectItem>
-            <MudSelectItem Value='@("number")'>Number</MudSelectItem>
-            <MudSelectItem Value='@("multiselect")'>Multi-Select</MudSelectItem>
-            <MudSelectItem Value='@("checkbox")'>Checkbox</MudSelectItem>
-            <MudSelectItem Value='@("radio")'>Radio</MudSelectItem>
-            <MudSelectItem Value='@("long_text")'>Long Text</MudSelectItem>
-            <MudSelectItem Value='@("email")'>Email</MudSelectItem>
-            <MudSelectItem Value='@("date")'>Date</MudSelectItem>
-            <MudSelectItem Value='@("rating")'>Rating</MudSelectItem>
+            @foreach (var type in QuestionTypes.All)
+            {
+                <MudSelectItem Value="@type">@QuestionTypes.DisplayName(type)</MudSelectItem>
+            }
         </MudSelect>
 
         <MudSwitch T="bool"
                    Label="Required"
-                   @bind-Value="newQuestion.Required"
+                   @bind-Value="_newQuestion.Required"
                    Color="Color.Primary"
                    Class="mb-3" />
 
-        <MudTextField T="string"
+        <MudTextField T="string" Variant="Variant.Outlined"
                       Label="Placeholder"
-                      @bind-Value="newQuestion.Placeholder"
+                      @bind-Value="_newQuestion.Placeholder"
                       Immediate="true"
                       Class="mb-3" />
 
-        <MudTextField T="string"
+        <MudTextField T="string" Variant="Variant.Outlined"
                       Label="Default Value"
-                      @bind-Value="newQuestion.DefaultValue"
+                      @bind-Value="_newQuestion.DefaultValue"
                       Immediate="true"
                       Class="mb-3" />
 
-        <MudTextField T="string"
+        <MudTextField T="string" Variant="Variant.Outlined"
                       Label="Help Text"
-                      @bind-Value="newQuestion.HelpText"
+                      @bind-Value="_newQuestion.HelpText"
                       Immediate="true"
                       Lines="3"
                       Class="mb-4" />
@@ -115,20 +110,20 @@
                 </MudAlert>
             }
 
-            @for (int i = 0; i < newQuestion.Options.Count; i++)
+            @for (int i = 0; i < _newQuestion.Options.Count; i++)
             {
                 var index = i;
                 <MudGrid Class="mb-2" data-option-row="@index">
                     <MudItem xs="5">
-                        <MudTextField T="string"
+                        <MudTextField T="string" Variant="Variant.Outlined"
                                       Label="Label"
-                                      @bind-Value="newQuestion.Options[index].Label"
+                                      @bind-Value="_newQuestion.Options[index].Label"
                                       Immediate="true" />
                     </MudItem>
                     <MudItem xs="5">
-                        <MudTextField T="string"
+                        <MudTextField T="string" Variant="Variant.Outlined"
                                       Label="Value"
-                                      @bind-Value="newQuestion.Options[index].Value"
+                                      @bind-Value="_newQuestion.Options[index].Value"
                                       Immediate="true" />
                     </MudItem>
                     <MudItem xs="2" Class="d-flex align-center">
@@ -141,7 +136,7 @@
             }
 
             <MudButton Variant="Variant.Outlined"
-                       Color="Color.Secondary"
+                       Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Add"
                        OnClick="AddOption"
                        Class="mb-4">
@@ -152,7 +147,7 @@
         @if (IsRating)
         {
             <MudText Typo="Typo.subtitle1" Class="mb-2">Answer rules</MudText>
-            <MudNumericField T="int?" Label="Number of stars" @bind-Value="_maxValue"
+            <MudNumericField T="int?" Variant="Variant.Outlined" Label="Number of stars" @bind-Value="_maxValue"
                              Min="2" Max="@QuestionTypes.MaxRatingScale" Clearable="true"
                              HelperText="@($"From 2 to {QuestionTypes.MaxRatingScale}. Leave empty for {QuestionTypes.DefaultRatingScale}.")"
                              Class="mb-4" />
@@ -164,26 +159,32 @@
                 @if (HasLengthRules)
                 {
                     <MudItem xs="6">
-                        <MudNumericField T="int?" Label="Minimum length" @bind-Value="_minLength" Min="0" Clearable="true" />
+                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Minimum length" @bind-Value="_minLength" Min="0" Clearable="true" />
                     </MudItem>
                     <MudItem xs="6">
-                        <MudNumericField T="int?" Label="Maximum length" @bind-Value="_maxLength" Min="0" Clearable="true" />
+                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Maximum length" @bind-Value="_maxLength" Min="0" Clearable="true" />
                     </MudItem>
                 }
                 else
                 {
                     <MudItem xs="6">
-                        <MudNumericField T="int?" Label="Minimum value" @bind-Value="_minValue" Clearable="true" />
+                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Minimum value" @bind-Value="_minValue" Clearable="true" />
                     </MudItem>
                     <MudItem xs="6">
-                        <MudNumericField T="int?" Label="Maximum value" @bind-Value="_maxValue" Clearable="true" />
+                        <MudNumericField T="int?" Variant="Variant.Outlined" Label="Maximum value" @bind-Value="_maxValue" Clearable="true" />
                     </MudItem>
                 }
             </MudGrid>
         }
 
         <MudText Typo="Typo.subtitle1" Class="mb-2">Visibility</MudText>
-        @if (YesNoQuestions.Count == 0)
+        @if (_bankError)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4">
+                Could not load questions, so this question can't be made conditional right now.
+            </MudAlert>
+        }
+        else if (YesNoQuestions.Count == 0)
         {
             <MudText Typo="Typo.body2" Class="mb-4">
                 Always shown. Add a yes/no question to make other questions conditional.
@@ -193,7 +194,7 @@
         {
             <MudGrid Class="mb-4">
                 <MudItem xs="7">
-                    <MudSelect T="string" Label="Only show when" @bind-Value="_visibleIfKey" Clearable="true"
+                    <MudSelect T="string" Variant="Variant.Outlined" Label="Only show when" @bind-Value="_visibleIfKey" Clearable="true"
                                Placeholder="Always shown">
                         @foreach (var q in YesNoQuestions)
                         {
@@ -202,7 +203,7 @@
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="5">
-                    <MudSelect T="bool" Label="is answered" @bind-Value="_visibleIfEquals" Disabled="@(_visibleIfKey is null)">
+                    <MudSelect T="bool" Variant="Variant.Outlined" Label="is answered" @bind-Value="_visibleIfEquals" Disabled="@(_visibleIfKey is null)">
                         <MudSelectItem T="bool" Value="true">Yes</MudSelectItem>
                         <MudSelectItem T="bool" Value="false">No</MudSelectItem>
                     </MudSelect>
@@ -212,8 +213,8 @@
 
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
-                   Disabled="@(!CanCreate)"
-                   OnClick="CreateQuestion">
+                   Disabled="@(!CanCreate || _isSubmitting)"
+                   OnClick="SaveQuestionAsync">
             
             @if (_isSubmitting)
             {
@@ -238,17 +239,21 @@
     private MudForm? _form;
     private bool _isValid;
 
-    bool _isSubmitting;
+    private bool _isSubmitting;
 
     private string? _errorMessage;
     private string? _successMessage;
     private bool _notFound;
     private bool _notYours;
 
+    /// <summary>Whether to show the form: always when creating, and when editing a question this account may change.</summary>
+    private bool CanEdit => !_notFound && !_notYours;
+
     [CascadingParameter] public AdminAccess? Access { get; set; }
 
-    private NewQuestion newQuestion = new();
+    private NewQuestion _newQuestion = new();
     private List<QuestionDefinition> _bank = new();
+    private bool _bankError;
 
     private int? _minLength;
     private int? _maxLength;
@@ -259,37 +264,36 @@
 
     private bool IsEdit => Id is not null;
 
-    private static readonly HashSet<string> OptionBasedTypes =
-        new(StringComparer.OrdinalIgnoreCase) { "dropdown", "radio", "checkbox", "multiselect" };
-
-    private bool IsOptionBasedType => OptionBasedTypes.Contains(newQuestion.Type);
+    private bool IsOptionBasedType => QuestionTypes.IsChoice(_newQuestion.Type);
     private bool AreOptionsValid =>
         !IsOptionBasedType ||
-        (newQuestion.Options.Count > 0 &&
-         newQuestion.Options.All(o => 
+        (_newQuestion.Options.Count > 0 &&
+         _newQuestion.Options.All(o => 
             !string.IsNullOrWhiteSpace(o.Label) && 
             !string.IsNullOrWhiteSpace(o.Value)));
 
-    private bool HasLengthRules => QuestionTypes.HasLengthRules(newQuestion.Type);
-    private bool HasValueRules => string.Equals(newQuestion.Type, QuestionTypes.Number, StringComparison.OrdinalIgnoreCase);
-    private bool IsRating => string.Equals(newQuestion.Type, QuestionTypes.Rating, StringComparison.OrdinalIgnoreCase);
+    private bool HasLengthRules => QuestionTypes.HasLengthRules(_newQuestion.Type);
+    private bool HasValueRules => string.Equals(_newQuestion.Type, QuestionTypes.Number, StringComparison.OrdinalIgnoreCase);
+    private bool IsRating => string.Equals(_newQuestion.Type, QuestionTypes.Rating, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Yes/no questions this one could depend on (never itself).</summary>
     private List<QuestionDefinition> YesNoQuestions =>
-        _bank.Where(q => q.Type == "yes_no" && q.Id != Id).ToList();
+        _bank.Where(q => string.Equals(q.Type, QuestionTypes.YesNo, StringComparison.OrdinalIgnoreCase) && q.Id != Id).ToList();
 
     // MudForm only reports valid once every required field has been touched, which a
     // loaded question never is, so edit mode relies on the explicit checks below.
     private bool CanCreate =>
         (_isValid || IsEdit) &&
         AreOptionsValid &&
-        !string.IsNullOrWhiteSpace(newQuestion.Label) &&
-        !string.IsNullOrWhiteSpace(newQuestion.Key) &&
-        !string.IsNullOrWhiteSpace(newQuestion.Type);
+        !string.IsNullOrWhiteSpace(_newQuestion.Label) &&
+        !string.IsNullOrWhiteSpace(_newQuestion.Key) &&
+        !string.IsNullOrWhiteSpace(_newQuestion.Type);
 
     protected override async Task OnInitializedAsync()
     {
-        _bank = await QuestionService.GetAllQuestionsAsync() ?? new();
+        var bank = await QuestionService.GetAllQuestionsAsync();
+        _bank = bank ?? new();
+        _bankError = bank is null;
 
         if (Id is { } id)
         {
@@ -310,7 +314,7 @@
 
     private void Load(QuestionDefinition q)
     {
-        newQuestion = new NewQuestion
+        _newQuestion = new NewQuestion
         {
             Label = q.Label,
             Key = q.Key,
@@ -339,11 +343,11 @@
                 int? Get(string name) => rule?[name]?.GetValue<int>();
                 switch (rule?["validationType"]?.GetValue<string>())
                 {
-                    case "MinLength": _minLength = Get("minLength"); break;
-                    case "MaxLength": _maxLength = Get("maxLength"); break;
-                    case "MinValue": _minValue = Get("minValue"); break;
-                    case "MaxValue": _maxValue = Get("maxValue"); break;
-                    case "Range": _minValue = Get("minValue"); _maxValue = Get("maxValue"); break;
+                    case ValidationTypes.MinLength: _minLength = Get("minLength"); break;
+                    case ValidationTypes.MaxLength: _maxLength = Get("maxLength"); break;
+                    case ValidationTypes.MinValue: _minValue = Get("minValue"); break;
+                    case ValidationTypes.MaxValue: _maxValue = Get("maxValue"); break;
+                    case ValidationTypes.Range: _minValue = Get("minValue"); _maxValue = Get("maxValue"); break;
                 }
             }
         }
@@ -359,78 +363,83 @@
         var rules = new List<object>();
         if (HasLengthRules)
         {
-            if (_minLength is { } min) rules.Add(new { validationType = "MinLength", minLength = min });
-            if (_maxLength is { } max) rules.Add(new { validationType = "MaxLength", maxLength = max });
+            if (_minLength is { } min) rules.Add(new { validationType = ValidationTypes.MinLength, minLength = min });
+            if (_maxLength is { } max) rules.Add(new { validationType = ValidationTypes.MaxLength, maxLength = max });
         }
         else if (HasValueRules)
         {
-            if (_minValue is { } min) rules.Add(new { validationType = "MinValue", minValue = min });
-            if (_maxValue is { } max) rules.Add(new { validationType = "MaxValue", maxValue = max });
+            if (_minValue is { } min) rules.Add(new { validationType = ValidationTypes.MinValue, minValue = min });
+            if (_maxValue is { } max) rules.Add(new { validationType = ValidationTypes.MaxValue, maxValue = max });
         }
         else if (IsRating && _maxValue is { } stars)
         {
-            rules.Add(new { validationType = "MaxValue", maxValue = stars });
+            rules.Add(new { validationType = ValidationTypes.MaxValue, maxValue = stars });
         }
         return rules.Count == 0 ? null : JsonSerializer.Serialize(rules);
     }
 
     private void AddOption()
     {
-        newQuestion.Options.Add(new Option { Label = string.Empty, Value = string.Empty });
+        _newQuestion.Options.Add(new Option { Label = string.Empty, Value = string.Empty });
     }
 
     private void RemoveOption(int index)
     {
-        newQuestion.Options.RemoveAt(index);
+        _newQuestion.Options.RemoveAt(index);
     }
 
-    private async Task CreateQuestion()
+    private async Task SaveQuestionAsync()
     {
-        if (_form is null || !CanCreate)
+        if (_form is null || !CanCreate || _isSubmitting)
             return;
 
-        await _form.ValidateAsync();
-
-        if (!_isValid && !IsEdit)
-            return;
         _isSubmitting = true;
-        _successMessage = null;
-        _errorMessage = null;
+        try
+        {
+            await _form.ValidateAsync();
+            if (!_isValid && !IsEdit)
+                return;
 
-        if (!IsOptionBasedType)
-        {
-            newQuestion.Options = new();
-        }
-        newQuestion.ValidationConfigs = BuildRules();
-        newQuestion.VisibleIf = _visibleIfKey is null
-            ? null
-            : new VisibleIf { Key = _visibleIfKey, ShouldEqual = _visibleIfEquals };
+            _successMessage = null;
+            _errorMessage = null;
 
-        var (success, error) = Id is { } id
-            ? await QuestionService.UpdateQuestionAsync(id, newQuestion)
-            : await QuestionService.CreateQuestionAsync(newQuestion);
-        
-        if(success && IsEdit)
-        {
-            Snackbar.Add($"Question '{newQuestion.Label}' saved.", Severity.Success);
-            Nav.NavigateTo("/admin/questions");
-        }
-        else if(success)
-        {
-            _successMessage = $"Question '{newQuestion.Label}' created successfully.";
-            newQuestion = new();
-            _minLength = _maxLength = _minValue = _maxValue = null;
-            _visibleIfKey = null;
-            _visibleIfEquals = true;
-            _isValid = false;
-            _form = null;
-            _bank = await QuestionService.GetAllQuestionsAsync() ?? _bank;
-        }
-        else
-        {
-            _errorMessage = error ?? "An error occurred while saving the question.";
-        }
-        _isSubmitting = false;
+            if (!IsOptionBasedType)
+            {
+                _newQuestion.Options = new();
+            }
+            _newQuestion.ValidationConfigs = BuildRules();
+            _newQuestion.VisibleIf = _visibleIfKey is null
+                ? null
+                : new VisibleIf { Key = _visibleIfKey, ShouldEqual = _visibleIfEquals };
 
+            var (success, error) = Id is { } id
+                ? await QuestionService.UpdateQuestionAsync(id, _newQuestion)
+                : await QuestionService.CreateQuestionAsync(_newQuestion);
+
+            if (success && IsEdit)
+            {
+                Snackbar.Add($"Question '{_newQuestion.Label}' saved.", Severity.Success);
+                Nav.NavigateTo("/admin/questions");
+            }
+            else if (success)
+            {
+                _successMessage = $"Question '{_newQuestion.Label}' created successfully.";
+                _newQuestion = new();
+                _minLength = _maxLength = _minValue = _maxValue = null;
+                _visibleIfKey = null;
+                _visibleIfEquals = true;
+                _isValid = false;
+                _form = null;
+                _bank = await QuestionService.GetAllQuestionsAsync() ?? _bank;
+            }
+            else
+            {
+                _errorMessage = error ?? "An error occurred while saving the question.";
+            }
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
     }
 }

@@ -6,39 +6,32 @@ using FormFlow.Data.Services;
 
 namespace FormFlow.Backend.Endpoints
 {
+    /// <summary>Question bank endpoints: anyone can read questions; builders create, edit and delete them.</summary>
     public static class QuestionEndpoints
     {
         public static void MapQuestionEndpoints(this IEndpointRouteBuilder app)
         {
             var group = app.MapGroup("/api/questions").WithTags("Questions");
 
-            group.MapGet("/{id}", (string id, IQuestionRepository repository) =>
+            group.MapGet("/{id:guid}", (Guid id, ClaimsPrincipal principal, IQuestionRepository repository) =>
             {
-                if (string.IsNullOrWhiteSpace(id) || !Guid.TryParse(id, out var parsedId))
-                {
-                    return Results.BadRequest(new
-                    {
-                        error = "Invalid question id. Provide a non-empty GUID value."
-                    });
-                }
-
-                var question = repository.FindById(parsedId);
+                var question = repository.FindById(id);
 
                 if (question is null)
                 {
                     return Results.NotFound();
                 }
 
-                return Results.Json(question);
+                return Results.Json(CurrentUser.From(principal).ShowOwnerToBuilders(question));
             })
             .WithName("GetQuestionById")
             .Produces<QuestionDefinition>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound);
 
-            group.MapGet("", (IQuestionRepository repository) =>
+            group.MapGet("", (ClaimsPrincipal principal, IQuestionRepository repository) =>
             {
-                return Results.Json(repository.FindAll().ToList());
+                var user = CurrentUser.From(principal);
+                return Results.Json(repository.FindAll().Select(user.ShowOwnerToBuilders).ToList());
             })
             .WithName("GetAllQuestions")
             .Produces<List<QuestionDefinition>>(StatusCodes.Status200OK);
@@ -62,20 +55,8 @@ namespace FormFlow.Backend.Endpoints
                     return Results.Conflict($"A question with key '{question.Key}' already exists");
                 }
 
-                // Insert using repository
-                try
-                {
-                    repository.Insert(question);
-                    return Results.Created($"/api/questions/{question.Id}", question);
-                }
-                catch (ArgumentNullException)
-                {
-                    return Results.BadRequest(new { errors = new[] { "Invalid question data provided" } });
-                }
-                catch (Exception)
-                {
-                    return Results.StatusCode(StatusCodes.Status500InternalServerError);
-                }
+                repository.Insert(question);
+                return Results.Created($"/api/questions/{question.Id}", question);
             })
             .WithName("CreateQuestion")
             .RequireAuthorization(JwtSettings.BuilderPolicy)
@@ -89,13 +70,9 @@ namespace FormFlow.Backend.Endpoints
                 ISurveyRepository surveys, QuestionValidator validator) =>
             {
                 var existing = repository.FindById(id);
-                if (existing is null)
+                if (CurrentUser.From(principal).CannotManage(existing, "questions", out var denied))
                 {
-                    return Results.NotFound();
-                }
-                if (!CurrentUser.From(principal).CanManage(existing))
-                {
-                    return CurrentUser.NotYours("questions");
+                    return denied;
                 }
 
                 var question = ToDefinition(id, update);
@@ -140,13 +117,9 @@ namespace FormFlow.Backend.Endpoints
                 ISurveyRepository surveys) =>
             {
                 var existing = repository.FindById(id);
-                if (existing is null)
+                if (CurrentUser.From(principal).CannotManage(existing, "questions", out var denied))
                 {
-                    return Results.NotFound();
-                }
-                if (!CurrentUser.From(principal).CanManage(existing))
-                {
-                    return CurrentUser.NotYours("questions");
+                    return denied;
                 }
 
                 var usedBy = surveys.FindByQuestionId(id).Select(s => s.Title).ToList();

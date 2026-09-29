@@ -11,7 +11,7 @@ namespace FormFlow.Backend.Auth
     /// professor. Students take surveys without an account, so they can't be listed here.
     /// </summary>
     public class AdminAccountSeeder(IUserRepository users, IPasswordHasher<AdminUser> hasher, IConfiguration config,
-        ILogger<AdminAccountSeeder> logger)
+        ILogger<AdminAccountSeeder> logger, TimeProvider clock)
     {
         public const string Section = "Accounts";
 
@@ -52,7 +52,7 @@ namespace FormFlow.Backend.Auth
                     continue;
                 }
 
-                var user = new AdminUser { Id = Guid.NewGuid(), Username = username, Email = email, Role = role, CreatedAt = DateTime.UtcNow };
+                var user = new AdminUser { Id = Guid.NewGuid(), Username = username, Email = email, Role = role, CreatedAt = clock.GetUtcNow().UtcDateTime };
                 user.PasswordHash = hasher.HashPassword(user, password);
                 users.Insert(user);
                 logger.LogInformation("Created {Role} account '{Username}'.", role, user.Username);

@@ -36,7 +36,39 @@ public class SurveyServiceTests
 
         var questions = await _service.GetSurveyQuestionsAsync(_id);
 
-        questions.Select(q => q.Key).Should().Equal("b", "a");
+        questions!.Select(q => q.Key).Should().Equal("b", "a");
+    }
+
+    [Fact]
+    public async Task Reads_return_null_when_the_server_cannot_be_reached()
+    {
+        _http.When("*").Throw(new HttpRequestException("refused"));
+
+        (await _service.GetSurveysAsync()).Should().BeNull();
+        (await _service.GetManagedSurveysAsync()).Should().BeNull();
+        (await _service.GetSurveyAsync(_id)).Should().BeNull();
+        (await _service.GetSurveyQuestionsAsync(_id)).Should().BeNull();
+        (await _service.GetResultsAsync(_id)).Should().BeNull();
+        (await _service.ExportResponsesAsync(_id)).Should().BeNull();
+        (await _service.HasAnsweredAsync(_id, "browser-1")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Changes_say_when_the_server_cannot_be_reached()
+    {
+        _http.When("*").Throw(new HttpRequestException("refused"));
+
+        (await _service.CreateSurveyAsync(new NewSurvey())).Error.Should().Be("Could not reach the server. Please try again.");
+        (await _service.DeleteSurveyAsync(_id)).Error.Should().Be("Could not reach the server. Please try again.");
+        (await _service.UpdateSharingAsync(_id, new SurveySharing())).Error.Should().Be("Could not reach the server. Please try again.");
+    }
+
+    [Fact]
+    public async Task GetSurveyQuestionsAsync_returns_null_when_refused()
+    {
+        _http.When($"http://api.test/api/surveys/{_id}/questions").Respond(HttpStatusCode.NotFound);
+
+        (await _service.GetSurveyQuestionsAsync(_id)).Should().BeNull();
     }
 
     [Fact]

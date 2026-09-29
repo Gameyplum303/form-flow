@@ -11,19 +11,29 @@ namespace FormFlow.Blazor.Services
     /// <summary>A downloaded CSV file.</summary>
     public record CsvExport(string FileName, byte[] Content);
 
+    /// <summary>
+    /// The survey API. Nothing here throws when the server can't be reached: reads return null and
+    /// changes return an error message, so pages can show a friendly message instead.
+    /// </summary>
     public interface ISurveyService
     {
-        Task<List<SurveyDefinition>> GetSurveysAsync();
+        /// <summary>The published, listed surveys, or null when they could not be loaded.</summary>
+        Task<List<SurveyDefinition>?> GetSurveysAsync();
+
+        /// <summary>The survey, or null when it doesn't exist, isn't available to this account, or the server can't be reached.</summary>
         Task<SurveyDefinition?> GetSurveyAsync(Guid id);
 
         /// <summary>Opens a survey from the code in its share link, or null when it isn't available.</summary>
         Task<SurveyDefinition?> GetSurveyByShareCodeAsync(string code);
 
-        /// <summary>The surveys the signed-in account manages: every survey for an administrator, their own for a professor.</summary>
-        Task<List<SurveyDefinition>> GetManagedSurveysAsync();
+        /// <summary>
+        /// The surveys the signed-in account manages: every survey for an administrator, their own for a professor.
+        /// Null when they could not be loaded.
+        /// </summary>
+        Task<List<SurveyDefinition>?> GetManagedSurveysAsync();
 
-        /// <summary>The survey's questions, in survey order.</summary>
-        Task<List<QuestionDefinition>> GetSurveyQuestionsAsync(Guid id);
+        /// <summary>The survey's questions, in survey order, or null when they could not be loaded.</summary>
+        Task<List<QuestionDefinition>?> GetSurveyQuestionsAsync(Guid id);
 
         Task<(bool Success, string? Error)> CreateSurveyAsync(NewSurvey survey);
         Task<(bool Success, string? Error)> UpdateSurveyAsync(Guid id, NewSurvey survey);
@@ -35,7 +45,7 @@ namespace FormFlow.Blazor.Services
         /// <summary>Sends answers. The respondent id lets the server refuse a second answer from the same browser.</summary>
         Task<SubmitResult> SubmitResponseAsync(Guid surveyId, Dictionary<string, List<string>> answers, string? respondentId = null);
 
-        /// <summary>Whether the browser with this respondent id already answered the survey.</summary>
+        /// <summary>Whether the browser with this respondent id already answered the survey (false when unknown).</summary>
         Task<bool> HasAnsweredAsync(Guid surveyId, string respondentId);
 
         /// <summary>Summaries of the survey's responses, narrowed or split by the query; null if refused or invalid.</summary>

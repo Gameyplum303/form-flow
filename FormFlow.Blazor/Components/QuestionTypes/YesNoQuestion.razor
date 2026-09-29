@@ -1,36 +1,11 @@
 @inherits QuestionComponentBase
 
-<MudPaper Elevation="1" Class="pa-4" Style="max-width:400px;">
-    <div style="margin-bottom: 1rem;">
-        <label style="font-weight:600; margin-bottom:8px; display:block;">
-            @Question.Label
-            @if (Question.Required)
-            {
-                <span style="color:red">*</span>
-            }
-        </label>
-
-        <MudRadioGroup T="bool?"
-                       Value="_value"
-                       ValueChanged="OnValueChanged"
-                       Class="d-flex flex-column"
-                       Style="gap: 0.5rem;">
-            <MudRadio T="bool?" Value="@((bool?)true)" Color="Color.Primary">Yes</MudRadio>
-            <MudRadio T="bool?" Value="@((bool?)false)" Color="Color.Primary">No</MudRadio>
-        </MudRadioGroup>
-
-        @if (!string.IsNullOrWhiteSpace(Question.HelpText))
-        {
-            <div style="font-size: 0.8rem; color: #666; margin-top: 4px;">
-                @Question.HelpText
-            </div>
-        }
-        @if (HasError)
-        {
-            <div class="question-error">@Error</div>
-        }
-    </div>
-</MudPaper>
+<QuestionField Question="Question" Error="@Error">
+    <MudRadioGroup T="bool?" Value="_value" ValueChanged="OnValueChangedAsync" Class="question-options">
+        <MudRadio T="bool?" Value="@((bool?)true)" Color="Color.Primary" Dense="true">Yes</MudRadio>
+        <MudRadio T="bool?" Value="@((bool?)false)" Color="Color.Primary" Dense="true">No</MudRadio>
+    </MudRadioGroup>
+</QuestionField>
 
 @code {
     private bool? _value;
@@ -41,15 +16,13 @@
         {
             _value = VisibilityEvaluator.TryParseBool(BoundValue, out var bound) ? bound : null;
         }
-        else if (_value is null &&
-            !string.IsNullOrWhiteSpace(Question.DefaultValue) &&
-            bool.TryParse(Question.DefaultValue, out var parsedValue))
+        else if (_value is null && VisibilityEvaluator.TryParseBool(Question.DefaultValue, out var byDefault))
         {
-            _value = parsedValue;
+            _value = byDefault;
         }
     }
 
-    private Task OnValueChanged(bool? value)
+    private Task OnValueChangedAsync(bool? value)
     {
         _value = value;
         return ReportAsync(value switch { true => "true", false => "false", null => null });
