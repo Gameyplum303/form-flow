@@ -69,9 +69,9 @@ namespace FormFlow.Backend.Services
             return new QuizSummary
             {
                 GradedResponses = graded.Count,
-                AverageScore = graded.Count == 0 ? 0 : Math.Round(graded.Average(r => r.Score!.Value), 2),
-                AverageMaxScore = graded.Count == 0 ? 0 : Math.Round(graded.Average(r => r.MaxScore!.Value), 2),
-                AveragePercent = graded.Count == 0 ? 0 : Math.Round(graded.Average(r => r.Score!.Value * 100 / r.MaxScore!.Value), 1),
+                AverageScore = graded.Count == 0 ? 0 : Math.Round(graded.Average(r => r.Score!.Value), 2, MidpointRounding.AwayFromZero),
+                AverageMaxScore = graded.Count == 0 ? 0 : Math.Round(graded.Average(r => r.MaxScore!.Value), 2, MidpointRounding.AwayFromZero),
+                AveragePercent = graded.Count == 0 ? 0 : Math.Round(graded.Average(r => r.Score!.Value * 100 / r.MaxScore!.Value), 1, MidpointRounding.AwayFromZero),
                 Distribution = Enumerable.Range(0, ScoreBands).Select(band =>
                 {
                     var min = band * 100 / ScoreBands;
@@ -91,7 +91,7 @@ namespace FormFlow.Backend.Services
                         Graded = forQuestion.Count,
                         Correct = correct,
                         PercentCorrect = QuizScorer.Percent(correct, forQuestion.Count),
-                        AveragePoints = forQuestion.Count == 0 ? 0 : Math.Round(forQuestion.Average(g => g.Points), 2),
+                        AveragePoints = forQuestion.Count == 0 ? 0 : Math.Round(forQuestion.Average(g => g.Points), 2, MidpointRounding.AwayFromZero),
                     };
                 }).ToList()
             };

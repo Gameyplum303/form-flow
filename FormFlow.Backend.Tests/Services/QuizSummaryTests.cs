@@ -57,6 +57,17 @@ namespace FormFlow.Backend.Tests.Services
         }
 
         [Fact]
+        public void Averages_RoundHalvesUp()
+        {
+            // (5.33 + 7) / 2 = 6.165, which banker's rounding would make 6.16.
+            var summary = SurveyResultsBuilder.SummarizeQuiz(Questions, [Response(5.33m, 7), Response(7, 7)]);
+
+            summary.AverageScore.Should().Be(6.17m);
+            summary.AverageMaxScore.Should().Be(7);
+            summary.AveragePercent.Should().Be(88.1m);
+        }
+
+        [Fact]
         public void NoGradedResponses_GiveAnEmptySummary()
         {
             var summary = SurveyResultsBuilder.SummarizeQuiz(Questions, []);
