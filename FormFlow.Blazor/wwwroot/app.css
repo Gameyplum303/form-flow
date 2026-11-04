@@ -415,15 +415,32 @@ h1:focus {
     }
 
 /* Bars of answer counts (OptionBars). The large ones are for the presenter view. */
+/* On a projector each answer gets its own line, with a full-width bar under it. */
 .option-bars-large .result-row {
-    grid-template-columns: minmax(160px, 1fr) 3fr minmax(110px, auto);
-    gap: 16px;
-    margin-bottom: 14px;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+        "label count"
+        "bar bar";
+    gap: 6px 16px;
+    margin-bottom: 18px;
     font-size: clamp(1.1rem, 1.5vw, 1.5rem);
 }
 
-.option-bars-large .mud-progress-linear {
-    height: 26px;
+.option-bars-large .result-label {
+    grid-area: label;
+}
+
+.option-bars-large .result-count {
+    grid-area: count;
+    font-weight: 600;
+}
+
+.option-bars-large .result-bar {
+    grid-area: bar;
+}
+
+.option-bars-large .mud-progress-linear.horizontal.mud-progress-linear-large {
+    height: 22px;
     border-radius: 6px;
 }
 
@@ -467,6 +484,8 @@ h1:focus {
 }
 
 .presenter-join {
+    /* The code's size follows the card's width, so it always fits on one line. */
+    container-type: inline-size;
     position: sticky;
     top: 20px;
     padding: clamp(20px, 2.5vw, 40px);
@@ -492,10 +511,10 @@ h1:focus {
 .presenter-code {
     margin: 4px 0 20px;
     font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: clamp(3rem, 6vw, 6.5rem);
+    font-size: clamp(2rem, 14cqi, 7rem);
     font-weight: 700;
     line-height: 1.1;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     white-space: nowrap;
     color: var(--mud-palette-text-primary);
 }
@@ -581,7 +600,7 @@ h1:focus {
 }
 
 /* The code box on the Join page: big, spaced capitals that are easy to check on a phone. */
-.join-code input {
+.join-code input.mud-input-root {
     font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 1.6rem;
     letter-spacing: 0.12em;

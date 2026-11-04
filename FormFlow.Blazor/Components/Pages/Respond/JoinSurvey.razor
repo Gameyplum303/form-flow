@@ -13,7 +13,7 @@
 
     <EditForm Model="_form" OnSubmit="JoinAsync">
         <MudStack Spacing="3">
-            <MudTextField T="string" @bind-Value="_form.Code"
+            <MudTextField T="string" Value="_form.Code" ValueChanged="CodeChanged"
                           Label="Survey code"
                           Variant="Variant.Outlined"
                           Class="join-code"
@@ -26,11 +26,14 @@
                           autocorrect="off"
                           spellcheck="false"
                           enterkeyhint="go"
-                          aria-describedby="join-hint"
+                          aria-describedby="@(_error is null ? "join-hint" : null)"
                           data-join-code />
-            <MudText Typo="Typo.caption" id="join-hint" Class="mud-text-secondary">
-                Codes have 8 letters and numbers. Capitals and spaces don't matter.
-            </MudText>
+            @if (_error is null)
+            {
+                <MudText Typo="Typo.caption" id="join-hint" Class="mud-text-secondary">
+                    Codes have @ShareCodes.Length letters and numbers. Capitals and spaces don't matter.
+                </MudText>
+            }
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
                        FullWidth="true" Disabled="_busy">
                 Join
@@ -47,6 +50,13 @@
     private readonly JoinForm _form = new();
     private string? _error;
     private bool _busy;
+
+    /// <summary>A new code clears the message about the last one.</summary>
+    private void CodeChanged(string? code)
+    {
+        _form.Code = code;
+        _error = null;
+    }
 
     private async Task JoinAsync()
     {
