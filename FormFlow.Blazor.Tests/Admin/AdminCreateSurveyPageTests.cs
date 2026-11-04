@@ -321,7 +321,11 @@ public class AdminCreateSurveyPageTests
     }
 
     private static IRenderedComponent<MudSwitch<bool>> PageSwitch(IRenderedComponent<AdminCreateSurvey> cut, string key) =>
-        cut.FindComponents<MudSwitch<bool>>().Single(s => s.Find("[data-page-break]").GetAttribute("data-page-break") == key);
+        PageSwitches(cut).Single(s => s.Find("[data-page-break]").GetAttribute("data-page-break") == key);
+
+    /// <summary>The "New page starts here" switches, leaving out the quiz switch.</summary>
+    private static List<IRenderedComponent<MudSwitch<bool>>> PageSwitches(IRenderedComponent<AdminCreateSurvey> cut) =>
+        cut.FindComponents<MudSwitch<bool>>().Where(s => s.Instance.Label == "New page starts here").ToList();
 
     [Fact]
     public async Task Page_toggles_split_the_selected_questions_into_pages_and_are_saved()
@@ -338,7 +342,7 @@ public class AdminCreateSurveyPageTests
         ClickButton(cut, "Add", 0);
 
         // Every question but the first can start a page; none do yet, so there are no separators.
-        cut.WaitForAssertion(() => cut.FindComponents<MudSwitch<bool>>().Should().HaveCount(2));
+        cut.WaitForAssertion(() => PageSwitches(cut).Should().HaveCount(2));
         cut.FindAll("[data-page-separator]").Should().BeEmpty();
 
         await cut.InvokeAsync(() => PageSwitch(cut, "comments").Instance.ValueChanged.InvokeAsync(true));
@@ -411,5 +415,116 @@ public class AdminCreateSurveyPageTests
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("You can only edit surveys you created."));
         cut.FindAll("button").Should().NotContain(b => b.TextContent.Trim() == "Save Survey");
+    }
+
+    private readonly QuestionDefinition _capital = new()
+    {
+        Id = Guid.NewGuid(),
+        Key = "capital",
+        Label = "Capital of France?",
+        Type = "radio",
+        Options = [new() { Value = "paris", Label = "Paris" }, new() { Value = "lyon", Label = "Lyon" }],
+        AnswerKey = new AnswerKey { CorrectAnswers = ["paris"], Points = 2 },
+    };
+
+    /// <summary>The line saying how many selected questions are graded, with its whitespace collapsed.</summary>
+    private static string Graded(IRenderedComponent<AdminCreateSurvey> cut) =>
+        string.Join(" ", cut.Find("[data-quiz-graded]").TextContent.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static Task TurnOnQuizAsync(IRenderedComponent<AdminCreateSurvey> cut) =>
+        cut.InvokeAsync(() => cut.FindComponents<MudSwitch<bool>>()
+            .Single(s => s.Instance.Label == "Grade answers as a quiz").Instance.ValueChanged.InvokeAsync(true));
+
+    [Fact]
+    public async Task Quiz_settings_are_hidden_until_the_survey_is_a_quiz_and_are_saved()
+    {
+        _questions.Questions.Add(_capital);
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Capital of France?"));
+        cut.FindAll("[data-quiz-settings]").Should().BeEmpty();
+
+        Type(cut, "input", "Geography quiz");
+        Type(cut, "textarea", "No notes");
+        ClickButton(cut, "Add", 2);
+        await TurnOnQuizAsync(cut);
+        cut.WaitForAssertion(() => cut.FindAll("[data-quiz-settings]").Should().ContainSingle());
+        Graded(cut).Should().Contain("1 of 1 question is graded, worth 2 points in all.");
+        cut.Find("[data-graded-chip]").TextContent.Trim().Should().Be("2 points");
+
+        var feedback = cut.FindComponent<MudRadioGroup<string>>();
+        feedback.Instance.Value.Should().Be(QuizFeedbackModes.Score, "students only see their score unless the builder says otherwise");
+        await cut.InvokeAsync(() => feedback.Instance.ValueChanged.InvokeAsync(QuizFeedbackModes.Answers));
+        ClickButton(cut, "Save Survey");
+
+        cut.WaitForAssertion(() => _surveys.LastCreated.Should().NotBeNull());
+        _surveys.LastCreated!.IsQuiz.Should().BeTrue();
+        _surveys.LastCreated.QuizFeedback.Should().Be(QuizFeedbackModes.Answers);
+    }
+
+    [Fact]
+    public async Task Quiz_settings_warn_when_no_selected_question_has_an_answer_key()
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Which campus?"));
+
+        ClickButton(cut, "Add", 0);
+        await TurnOnQuizAsync(cut);
+
+        cut.WaitForAssertion(() => cut.Find("[data-quiz-graded]").TextContent.Should().Contain("nothing will be graded"));
+        cut.FindAll("[data-graded-chip]").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Edit_mode_loads_the_quiz_settings_and_the_answer_keys_of_the_surveys_questions()
+    {
+        // The bank hides answer keys of questions this account doesn't manage; the survey's questions carry them.
+        var hidden = new QuestionDefinition
+        {
+            Id = _capital.Id,
+            Key = _capital.Key,
+            Label = _capital.Label,
+            Type = _capital.Type,
+            Options = _capital.Options,
+        };
+        _questions.Questions.Add(hidden);
+        var survey = new SurveyDefinition
+        {
+            Id = Guid.NewGuid(),
+            Title = "Geography quiz",
+            Description = "No notes",
+            QuestionIds = [_isStudent.Id, _capital.Id],
+            CreatedAt = DateTime.UtcNow,
+            IsQuiz = true,
+            QuizFeedback = QuizFeedbackModes.Answers,
+        };
+        _surveys.Surveys.Add(survey);
+        _surveys.Questions[survey.Id] = [_isStudent, _capital];
+        await using var ctx = CreateContext();
+
+        var cut = ctx.Render<AdminCreateSurvey>(p => p.Add(x => x.Id, survey.Id));
+
+        cut.WaitForAssertion(() => cut.FindAll("[data-quiz-settings]").Should().ContainSingle());
+        cut.FindComponent<MudRadioGroup<string>>().Instance.Value.Should().Be(QuizFeedbackModes.Answers);
+        Graded(cut).Should().Contain("1 of 2 questions are graded, worth 2 points in all.");
+
+        ClickButton(cut, "Save Changes");
+        cut.WaitForAssertion(() => _surveys.LastUpdated.Should().NotBeNull());
+        _surveys.LastUpdated!.Value.Survey.IsQuiz.Should().BeTrue();
+        _surveys.LastUpdated.Value.Survey.QuizFeedback.Should().Be(QuizFeedbackModes.Answers);
+    }
+
+    [Fact]
+    public async Task The_template_gallery_marks_quizzes()
+    {
+        AddTemplates();
+        _surveys.Templates.Add(new SurveyTemplate { Id = Guid.NewGuid(), Title = "Quiz", Description = "Graded", QuestionCount = 6, IsQuiz = true });
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateSurvey>();
+
+        cut.WaitForAssertion(() => cut.FindAll("[data-template]").Should().HaveCount(4));
+        cut.FindAll("[data-template-quiz]").Should().ContainSingle();
+        cut.Find("[data-template='Quiz'] [data-template-quiz]").TextContent.Trim().Should().Be("Quiz");
     }
 }

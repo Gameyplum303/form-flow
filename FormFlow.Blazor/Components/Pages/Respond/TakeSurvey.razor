@@ -27,6 +27,10 @@
     {
         <PageHeading CssClass="mb-2">Thank you!</PageHeading>
         <MudText Class="mb-4">Your answers to "@_survey.Title" were recorded.</MudText>
+        @if (_quiz is not null)
+        {
+            <QuizScoreCard Result="_quiz" />
+        }
         <MudButton Variant="Variant.Text" Href="/surveys">Back to surveys</MudButton>
     }
     else if (ClosedMessage is { } closed)
@@ -44,6 +48,13 @@
         {
             <MudAlert Severity="Severity.Info" Class="mb-4" data-draft-notice>
                 This survey is a draft, so only the people who manage it can open it. Publish it from its Share page to collect answers.
+            </MudAlert>
+        }
+
+        @if (_survey.IsQuiz)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4" data-quiz-notice>
+                This is a quiz. You'll see your score as soon as you submit.
             </MudAlert>
         }
 
@@ -88,6 +99,9 @@
     private bool _submitting;
     private bool _submitted;
     private bool _alreadyAnswered;
+
+    /// <summary>The respondent's grade, once a quiz is submitted.</summary>
+    private QuizResult? _quiz;
 
     /// <summary>Whether the answers came back from this browser's storage.</summary>
     private bool _restored;
@@ -192,6 +206,7 @@
         if (result.Success)
         {
             _submitted = true;
+            _quiz = result.Quiz;
             await Drafts.ClearAsync(_survey.Id);
             return;
         }

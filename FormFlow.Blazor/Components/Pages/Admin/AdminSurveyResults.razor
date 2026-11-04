@@ -132,6 +132,11 @@ else
                     </MudPaper>
                 }
 
+                @if (_results.Quiz is { } quiz)
+                {
+                    <QuizResultsPanel Summary="quiz" />
+                }
+
                 @for (var index = 0; index < _results.Questions.Count; index++)
                 {
                     var question = _results.Questions[index];

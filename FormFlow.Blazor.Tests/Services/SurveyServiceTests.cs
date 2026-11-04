@@ -85,6 +85,23 @@ public class SurveyServiceTests
     }
 
     [Fact]
+    public async Task SubmitResponseAsync_returns_the_grade_of_a_quiz()
+    {
+        _http.When(HttpMethod.Post, $"http://api.test/api/surveys/{_id}/responses")
+            .Respond(HttpStatusCode.Created, Json("""
+                {"id":"6f1c0a52-2a1e-4c39-9df0-0f6d0d1f6c11","answers":{"capital":["paris"]},"score":2,"maxScore":2,
+                 "quiz":{"score":2,"maxScore":2,"percent":100,"questions":[{"key":"capital","label":"Capital?","points":2,"maxPoints":2,
+                 "correct":true,"givenAnswers":["Paris"],"correctAnswers":["Paris"],"explanation":"Since 987."}]}}
+                """));
+
+        var result = await _service.SubmitResponseAsync(_id, new() { ["capital"] = ["paris"] });
+
+        result.Success.Should().BeTrue();
+        result.Quiz!.Percent.Should().Be(100);
+        result.Quiz.Questions.Single().Explanation.Should().Be("Since 987.");
+    }
+
+    [Fact]
     public async Task SubmitResponseAsync_returns_the_errors_per_question_from_a_validation_problem()
     {
         _http.When(HttpMethod.Post, $"http://api.test/api/surveys/{_id}/responses")

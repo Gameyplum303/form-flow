@@ -391,3 +391,9 @@ h1:focus {
 .pre-line {
     white-space: pre-line;
 }
+
+/* Quizzes: points beside each reviewed question, and the figures in the results' quiz summary. */
+.quiz-points {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}

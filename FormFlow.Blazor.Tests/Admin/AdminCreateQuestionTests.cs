@@ -7,6 +7,7 @@ using FormFlow.Data.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
+using MudBlazor.Extensions;
 using MudBlazor.Services;
 
 namespace FormFlow.Blazor.Tests.Admin;
@@ -449,6 +450,207 @@ public class AdminCreateQuestionTests
         var nav = ctx.Services.GetRequiredService<NavigationManager>();
         cut.WaitForAssertion(() => nav.Uri.Should().EndWith("/admin/questions"));
         fake.UpdateCallCount.Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData("text", true)]
+    [InlineData("number", true)]
+    [InlineData("yes_no", true)]
+    [InlineData("radio", true)]
+    [InlineData("dropdown", true)]
+    [InlineData("multiselect", true)]
+    [InlineData("checkbox", false)]
+    [InlineData("long_text", false)]
+    [InlineData("email", false)]
+    [InlineData("date", false)]
+    [InlineData("rating", false)]
+    [InlineData("likert", false)]
+    [InlineData("nps", false)]
+    [InlineData("slider", false)]
+    public async Task AnswerKey_IsOnlyOfferedForGradableTypes(string type, bool shown)
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateQuestion>();
+
+        await SetTypeAsync(cut, type);
+
+        cut.WaitForAssertion(() => cut.FindAll("[data-answer-key]").Should().HaveCount(shown ? 1 : 0));
+        if (shown)
+        {
+            cut.Markup.Should().Contain("Answer key (for quizzes)");
+        }
+    }
+
+    [Fact]
+    public async Task AnswerKey_ForACheckbox_AppearsOnceItHasOptions()
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateQuestion>();
+        await SetTypeAsync(cut, "checkbox");
+        cut.FindAll("[data-answer-key]").Should().BeEmpty("a single tick box has nothing to choose between");
+
+        await InvokeAddOptionAsync(cut);
+        cut.FindAll("[data-answer-key]").Should().BeEmpty("an option without a value can't be correct yet");
+
+        var value = cut.FindComponents<MudTextField<string>>().Single(f => f.Instance.Label == "Value");
+        await cut.InvokeAsync(() => value.Instance.ValueChanged.InvokeAsync("red"));
+
+        cut.WaitForAssertion(() => cut.FindAll("[data-correct-options] input[type=checkbox]").Should().ContainSingle());
+    }
+
+    [Fact]
+    public async Task EditMode_LoadsAndSavesARadioAnswerKey()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = Capital(new AnswerKey { CorrectAnswers = ["paris"], Points = 2, Explanation = "Since the tenth century." });
+
+        var cut = await RenderEditAsync(ctx, fake.Existing);
+        var correct = cut.FindComponents<MudSelect<string>>().Single(s => s.Instance.Label == "Correct answer");
+        correct.Instance.GetState(x => x.Value).Should().Be("paris");
+        cut.FindComponents<MudNumericField<decimal>>().Single().Instance.GetState(x => x.Value).Should().Be(2);
+
+        await cut.InvokeAsync(() => correct.Instance.ValueChanged.InvokeAsync("lyon"));
+        await SaveAsync(cut);
+
+        fake.LastUpdate!.AnswerKey.Should().BeEquivalentTo(new AnswerKey { CorrectAnswers = ["lyon"], Points = 2, Explanation = "Since the tenth century." });
+    }
+
+    [Fact]
+    public async Task EditMode_ClearingTheCorrectAnswer_RemovesTheAnswerKey()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = Capital(new AnswerKey { CorrectAnswers = ["paris"] });
+
+        var cut = await RenderEditAsync(ctx, fake.Existing);
+        var correct = cut.FindComponents<MudSelect<string>>().Single(s => s.Instance.Label == "Correct answer");
+        await cut.InvokeAsync(() => correct.Instance.ValueChanged.InvokeAsync(null));
+        await SaveAsync(cut);
+
+        fake.LastUpdate!.AnswerKey.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task EditMode_RemovingTheCorrectOption_RemovesTheAnswerKey()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = Capital(new AnswerKey { CorrectAnswers = ["lyon"] });
+
+        var cut = await RenderEditAsync(ctx, fake.Existing);
+        await InvokeRemoveOptionAsync(cut, 1);
+        await SaveAsync(cut);
+
+        fake.LastUpdate!.Options.Select(o => o.Value).Should().Equal("paris");
+        fake.LastUpdate.AnswerKey.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task EditMode_ChangingToATypeThatIsntGraded_RemovesTheAnswerKey()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = Capital(new AnswerKey { CorrectAnswers = ["paris"] });
+
+        var cut = await RenderEditAsync(ctx, fake.Existing);
+        await SetTypeAsync(cut, "long_text");
+        await SaveAsync(cut);
+
+        fake.LastUpdate!.AnswerKey.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task EditMode_SavesTheSetOfCorrectOptions_InOptionOrder()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = new QuestionDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = "primes",
+            Label = "Which are prime?",
+            Type = "multiselect",
+            Options = [new() { Value = "2", Label = "Two" }, new() { Value = "3", Label = "Three" }, new() { Value = "4", Label = "Four" }],
+            AnswerKey = new AnswerKey { CorrectAnswers = ["3"] },
+        };
+
+        var cut = await RenderEditAsync(ctx, fake.Existing);
+        var boxes = cut.FindComponents<MudCheckBox<bool>>().Where(c => c.FindAll("[data-correct-options]").Count == 0).ToList();
+        boxes.Select(b => b.Instance.GetState(x => x.Value)).Should().Equal(false, true, false);
+        cut.Markup.Should().Contain("each wrong one takes a share away");
+
+        await cut.InvokeAsync(() => boxes[0].Instance.ValueChanged.InvokeAsync(true));
+        await SaveAsync(cut);
+
+        fake.LastUpdate!.AnswerKey!.CorrectAnswers.Should().Equal("2", "3");
+    }
+
+    [Fact]
+    public async Task EditMode_SavesYesNoNumberAndTextAnswerKeys()
+    {
+        foreach (var (type, correct, expected) in new (string, string[], string[])[]
+        {
+            ("yes_no", ["false"], ["false"]),
+            ("number", ["4.5"], ["4.5"]),
+            ("text", ["Paris", "City of Light"], ["Paris", "City of Light"]),
+        })
+        {
+            await using var ctx = CreateContext();
+            var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+            fake.Existing = new QuestionDefinition
+            {
+                Id = Guid.NewGuid(),
+                Key = "graded",
+                Label = "Graded",
+                Type = type,
+                AnswerKey = new AnswerKey { CorrectAnswers = correct.ToList(), Points = 3 },
+            };
+
+            var cut = await RenderEditAsync(ctx, fake.Existing);
+            await SaveAsync(cut);
+
+            fake.LastUpdate!.AnswerKey!.CorrectAnswers.Should().Equal(expected, type);
+            fake.LastUpdate.AnswerKey.Points.Should().Be(3);
+        }
+    }
+
+    [Fact]
+    public async Task AcceptedAnswers_AreOnePerLine_TrimmedAndWithoutBlanks()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = new QuestionDefinition { Id = Guid.NewGuid(), Key = "capital_name", Label = "Capital?", Type = "text" };
+
+        var cut = await RenderEditAsync(ctx, fake.Existing);
+        var accepted = cut.FindComponents<MudTextField<string>>().Single(f => f.Instance.Label == "Accepted answers");
+        await cut.InvokeAsync(() => accepted.Instance.ValueChanged.InvokeAsync("  Paris \n\n paris \nParis"));
+        await SaveAsync(cut);
+
+        fake.LastUpdate!.AnswerKey!.CorrectAnswers.Should().Equal("Paris", "paris");
+    }
+
+    private static QuestionDefinition Capital(AnswerKey key) => new()
+    {
+        Id = Guid.NewGuid(),
+        Key = "capital",
+        Label = "Capital of France?",
+        Type = "radio",
+        Options = [new() { Value = "paris", Label = "Paris" }, new() { Value = "lyon", Label = "Lyon" }],
+        AnswerKey = key,
+    };
+
+    private static Task<IRenderedComponent<AdminCreateQuestion>> RenderEditAsync(BunitContext ctx, QuestionDefinition existing)
+    {
+        var cut = ctx.Render<AdminCreateQuestion>(p => p.Add(x => x.Id, existing.Id));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Save Changes"));
+        return Task.FromResult(cut);
+    }
+
+    private static async Task SaveAsync(IRenderedComponent<AdminCreateQuestion> cut)
+    {
+        var save = cut.FindComponents<MudButton>().Single(b => b.Markup.Contains("Save Changes"));
+        await cut.InvokeAsync(() => save.Find("button").Click());
     }
 
     private static BunitContext CreateContext()
