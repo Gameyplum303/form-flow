@@ -4,11 +4,13 @@ import {
     API_BASE, getSurvey, getSurveyByShareCode, getSurveyQuestions, getSurveys, hasAnswered, respondentId, submitResponse,
 } from "./api";
 import { initialValue } from "./components/QuestionRenderer";
+import { QuizScore } from "./components/QuizScore";
 import { SurveyForm } from "./components/SurveyForm";
 import { clearDraft, loadDraft, saveDraft } from "./logic/drafts";
 import { firstPageWithError, missingAnswers, shownPages, splitPages } from "./logic/pages";
 import { visibleKeys } from "./logic/visibility";
 import { QuestionDefinition } from "./types/QuestionDefinition";
+import { QuizResult } from "./types/Quiz";
 import { AnswerErrors, Answers, SurveyDefinition } from "./types/Survey";
 
 /** Which survey to open: by id from the list (#/surveys/<id>) or by a share link (#/s/<code>). */
@@ -99,6 +101,8 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
     const [page, setPage] = useState(0);
     /** Whether the answers came back from this browser's storage. */
     const [restored, setRestored] = useState(false);
+    /** The grade, once a quiz is submitted. */
+    const [quiz, setQuiz] = useState<QuizResult | null>(null);
     const targetKey = "id" in target ? `id:${target.id}` : `code:${target.code}`;
 
     useEffect(() => {
@@ -199,6 +203,7 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
             const result = await submitResponse(survey.id, answers, respondent);
             if (result.ok) {
                 clearDraft(survey.id);
+                setQuiz(result.quiz ?? null);
                 setStatus("done");
                 return;
             }
@@ -244,6 +249,7 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
             <div className="card">
                 <h2>Thank you!</h2>
                 <p>Your answers to "{survey.title}" were recorded.</p>
+                {quiz && <QuizScore result={quiz} />}
                 <button type="button" onClick={onBack}>Back to surveys</button>
             </div>
         );
@@ -254,6 +260,9 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
             <button type="button" className="link" onClick={onBack}>&larr; All surveys</button>
             <h2>{survey.title}</h2>
             <p>{survey.description}</p>
+            {survey.isQuiz && (
+                <p className="notice" data-quiz-notice>This is a quiz. You&apos;ll see your score as soon as you submit.</p>
+            )}
             {restored && (
                 <p className="notice" data-resume-note>
                     We saved your answers on this device.{" "}
