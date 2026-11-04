@@ -1,0 +1,25 @@
+@using System.Globalization
+
+@* How often each answer was picked, as a labelled bar with its count and percentage. Used on the
+   results page, the presenter view and the summary respondents see after answering. *@
+<div class="@(Large ? "option-bars option-bars-large" : "option-bars")">
+    @foreach (var bar in Bars)
+    {
+        <div class="result-row" data-option-bar="@bar.Label" data-count="@bar.Count">
+            <span class="result-label">@bar.Label</span>
+            <MudProgressLinear Value="bar.Percent" Color="Color.Primary" Size="Size.Large" Class="result-bar"
+                               aria-label="@($"{bar.Label}: {Describe(bar)}")" />
+            <span class="result-count">@Describe(bar)</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IEnumerable<OptionBar> Bars { get; set; } = [];
+
+    /// <summary>Bigger text and thicker bars, for a projector.</summary>
+    [Parameter] public bool Large { get; set; }
+
+    private static string Describe(OptionBar bar) =>
+        $"{bar.Count} ({bar.Percent.ToString("0", CultureInfo.InvariantCulture)}%)";
+}

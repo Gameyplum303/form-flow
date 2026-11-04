@@ -20,6 +20,14 @@ builder.Services.AddHttpClient<ISurveyService, SurveyService>(UseBackendApi);
 builder.Services.AddHttpClient<IAuthService, AuthService>(UseBackendApi);
 builder.Services.AddHttpClient<IAccountService, AccountService>(UseBackendApi);
 
+// The presenter view's live results stream stays open for as long as the page does, so it has no
+// overall timeout; the client notices a dropped stream when even the keep-alives stop.
+builder.Services.AddHttpClient<ILiveResultsClient, LiveResultsClient>(client =>
+{
+    UseBackendApi(client);
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
+
 // The signed-in admin for this circuit; the services above add its token to API calls.
 builder.Services.AddScoped<AdminSession>();
 

@@ -105,6 +105,88 @@ public class TakeSurveyTests
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Thank you!"));
     }
 
+    private RespondentResults Summary(int total) => new()
+    {
+        SurveyId = _survey.Id,
+        Title = _survey.Title,
+        TotalResponses = total,
+        Questions =
+        [
+            new RespondentQuestionResult
+            {
+                Key = "is_student", Label = "Are you a student?", Type = QuestionTypes.YesNo, AnsweredCount = total,
+                Options =
+                [
+                    new RespondentOptionResult { Value = "true", Label = "Yes", Count = total - 1, Percent = 75 },
+                    new RespondentOptionResult { Value = "false", Label = "No", Count = 1, Percent = 25 },
+                ],
+            },
+        ],
+    };
+
+    private async Task SubmitAsync(IRenderedComponent<TakeSurvey> cut)
+    {
+        await AnswerYesNoAsync(cut, false);
+        await cut.InvokeAsync(() => cut.FindAll("button").Single(b => b.TextContent.Contains("Submit")).Click());
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Thank you!"));
+    }
+
+    [Fact]
+    public async Task AfterSubmitting_ShowsTheResultsSoFar_WhenTheSurveySharesThem()
+    {
+        _survey.ShowResultsToRespondents = true;
+        _service.RespondentResults[_survey.Id] = Summary(total: 4);
+        await using var ctx = CreateContext();
+        var cut = RenderPage(ctx);
+
+        await SubmitAsync(cut);
+
+        cut.WaitForAssertion(() => cut.Find("[data-respondent-results]").Should().NotBeNull());
+        cut.Find("[data-respondent-total]").TextContent.Should().Contain("Based on 4 responses");
+        cut.Find("[data-respondent-result=is_student] [data-option-bar=Yes]").TextContent.Should().Contain("3 (75%)");
+    }
+
+    [Fact]
+    public async Task AfterSubmitting_ShowsNoResults_WhenTheSurveyKeepsThemPrivate()
+    {
+        _service.RespondentResults[_survey.Id] = Summary(total: 4);
+        await using var ctx = CreateContext();
+        var cut = RenderPage(ctx);
+
+        await SubmitAsync(cut);
+
+        cut.FindAll("[data-respondent-results]").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ShowLatest_ReloadsTheResults()
+    {
+        _survey.ShowResultsToRespondents = true;
+        _service.RespondentResults[_survey.Id] = Summary(total: 4);
+        await using var ctx = CreateContext();
+        var cut = RenderPage(ctx);
+        await SubmitAsync(cut);
+        cut.WaitForAssertion(() => cut.Find("[data-respondent-total]").TextContent.Should().Contain("4 responses"));
+
+        _service.RespondentResults[_survey.Id] = Summary(total: 9);
+        await cut.InvokeAsync(() => cut.FindAll("button").Single(b => b.TextContent.Contains("Show the latest")).Click());
+
+        cut.WaitForAssertion(() => cut.Find("[data-respondent-total]").TextContent.Should().Contain("9 responses"));
+    }
+
+    [Fact]
+    public async Task ABrowserThatAlreadyAnswered_StillSeesTheSharedResults()
+    {
+        _survey.ShowResultsToRespondents = true;
+        _service.RespondentResults[_survey.Id] = Summary(total: 2);
+        _service.Answered.Add((_survey.Id, _respondent.Id));
+        await using var ctx = CreateContext();
+        var cut = RenderPage(ctx);
+
+        cut.WaitForAssertion(() => cut.Find("[data-survey-closed]").TextContent.Should().Contain("already answered"));
+        cut.WaitForAssertion(() => cut.Find("[data-respondent-results]").Should().NotBeNull());
+    }
+
     [Fact]
     public async Task Submit_ShowsServerErrorsNextToQuestions()
     {

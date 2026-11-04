@@ -60,6 +60,12 @@ namespace FormFlow.Blazor.Services
         /// <summary>Summaries of the survey's responses, narrowed or split by the query; null if refused or invalid.</summary>
         Task<SurveyResults?> GetResultsAsync(Guid surveyId, ResultsQuery? query = null);
 
+        /// <summary>
+        /// The summary respondents see after answering, or null when the survey doesn't share its results
+        /// (or they could not be loaded).
+        /// </summary>
+        Task<RespondentResults?> GetRespondentResultsAsync(Guid surveyId);
+
         /// <summary>Downloads the responses (only those matching the query's filters and dates) as CSV, or null if refused.</summary>
         Task<CsvExport?> ExportResponsesAsync(Guid surveyId, ResultsQuery? query = null);
     }

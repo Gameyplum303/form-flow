@@ -1,0 +1,78 @@
+@page "/join"
+@inject ISurveyService SurveyService
+@inject NavigationManager Nav
+
+@* Students type the code their professor shows, on a phone in a lecture hall. Capitals, spaces and
+   dashes don't matter, and a pasted share link works too. *@
+
+<PageTitle>Join a survey</PageTitle>
+
+<MudPaper Class="pa-6 mx-auto mt-10" MaxWidth="440px" Elevation="2">
+    <PageHeading CssClass="mb-2">Join a survey</PageHeading>
+    <MudText Typo="Typo.body1" Class="mb-4">Enter the code you were given, such as <strong>K7M2 P9QA</strong>.</MudText>
+
+    <EditForm Model="_form" OnSubmit="JoinAsync">
+        <MudStack Spacing="3">
+            <MudTextField T="string" @bind-Value="_form.Code"
+                          Label="Survey code"
+                          Variant="Variant.Outlined"
+                          Class="join-code"
+                          MaxLength="64"
+                          Immediate="true"
+                          Error="@(_error is not null)"
+                          ErrorText="@_error"
+                          autocomplete="off"
+                          autocapitalize="characters"
+                          autocorrect="off"
+                          spellcheck="false"
+                          enterkeyhint="go"
+                          aria-describedby="join-hint"
+                          data-join-code />
+            <MudText Typo="Typo.caption" id="join-hint" Class="mud-text-secondary">
+                Codes have 8 letters and numbers. Capitals and spaces don't matter.
+            </MudText>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
+                       FullWidth="true" Disabled="_busy">
+                Join
+            </MudButton>
+        </MudStack>
+    </EditForm>
+
+    <MudText Typo="Typo.body2" Class="mt-4">
+        No code? <MudLink Href="/surveys">See the surveys open to everyone</MudLink>.
+    </MudText>
+</MudPaper>
+
+@code {
+    private readonly JoinForm _form = new();
+    private string? _error;
+    private bool _busy;
+
+    private async Task JoinAsync()
+    {
+        _error = null;
+        if (!ShareCodes.LooksValid(_form.Code))
+        {
+            _error = string.IsNullOrWhiteSpace(_form.Code)
+                ? "Enter the survey code."
+                : $"That doesn't look like a survey code. Codes have {ShareCodes.Length} letters and numbers.";
+            return;
+        }
+
+        var code = ShareCodes.Normalize(_form.Code);
+        _busy = true;
+        var survey = await SurveyService.GetSurveyByShareCodeAsync(code);
+        _busy = false;
+        if (survey is null)
+        {
+            _error = "No open survey has that code. Check it and try again.";
+            return;
+        }
+        Nav.NavigateTo($"/s/{code}");
+    }
+
+    private sealed class JoinForm
+    {
+        public string? Code { get; set; }
+    }
+}

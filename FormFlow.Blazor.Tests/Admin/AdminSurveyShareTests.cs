@@ -84,6 +84,43 @@ public class AdminSurveyShareTests
     }
 
     [Fact]
+    public async Task ShowingRespondentsTheResults_IsSaved()
+    {
+        await using var ctx = CreateContext();
+        var cut = RenderPage(ctx);
+        var showResults = cut.FindComponents<MudCheckBox<bool>>()
+            .Single(c => c.Markup.Contains("Show respondents the results so far"));
+
+        await cut.InvokeAsync(() => showResults.Instance.ValueChanged.InvokeAsync(true));
+        await ClickAsync(cut, "Save sharing settings");
+
+        _service.LastSharing!.Value.Sharing.ShowResultsToRespondents.Should().BeTrue();
+        _survey.ShowResultsToRespondents.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TheSettingToShowResults_StartsFromTheSurvey()
+    {
+        _survey.ShowResultsToRespondents = true;
+        await using var ctx = CreateContext();
+        var cut = RenderPage(ctx);
+
+        await ClickAsync(cut, "Save sharing settings");
+
+        _service.LastSharing!.Value.Sharing.ShowResultsToRespondents.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task LinksToThePresenterView()
+    {
+        await using var ctx = CreateContext();
+        var cut = RenderPage(ctx);
+
+        cut.FindAll("a").Single(a => a.TextContent.Trim() == "Present live").GetAttribute("href")
+            .Should().Be($"/admin/surveys/{_survey.Id}/present");
+    }
+
+    [Fact]
     public async Task ADraftIsNeverListed_EvenIfTheBoxWasTicked()
     {
         await using var ctx = CreateContext();

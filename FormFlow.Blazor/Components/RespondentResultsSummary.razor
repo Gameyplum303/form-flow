@@ -1,0 +1,45 @@
+@inject ISurveyService SurveyService
+
+@* How everyone has answered so far, shown to a respondent after they answer a survey whose owner
+   shares its results. Only the questions with fixed answers are summed up; see RespondentResults. *@
+@if (_summary is { Questions.Count: > 0 } summary)
+{
+    <section class="respondent-results mb-4" data-respondent-results aria-labelledby="respondent-results-title">
+        <MudText Typo="Typo.h6" HtmlTag="h2" id="respondent-results-title">Results so far</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" data-respondent-total>
+            Based on @summary.TotalResponses @(summary.TotalResponses == 1 ? "response" : "responses")
+        </MudText>
+        <MudStack Spacing="3">
+            @foreach (var question in summary.Questions)
+            {
+                <div data-respondent-result="@question.Key">
+                    <MudText Typo="Typo.subtitle1" HtmlTag="h3">@question.Label</MudText>
+                    @if (question.MultipleAnswers)
+                    {
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-1">People could pick more than one.</MudText>
+                    }
+                    <OptionBars Bars="OptionBar.Of(question.Options)" />
+                </div>
+            }
+        </MudStack>
+        <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Refresh" Class="mt-2"
+                   Disabled="_loading" OnClick="LoadAsync">Show the latest</MudButton>
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public Guid SurveyId { get; set; }
+
+    private RespondentResults? _summary;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        // Keeps the last summary when a refresh fails.
+        _summary = await SurveyService.GetRespondentResultsAsync(SurveyId) ?? _summary;
+        _loading = false;
+    }
+}

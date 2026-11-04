@@ -1,0 +1,18 @@
+@inherits LayoutComponentBase
+
+@* A full-screen layout without the sidebar, for pages shown on a projector. The admin guard still
+   checks the sign-in, as in MainLayout. *@
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="page presenter-page" data-interactive="@(RendererInfo.IsInteractive ? "true" : "false")">
+    <AdminGuard>@Body</AdminGuard>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

@@ -1,0 +1,30 @@
+@using QRCoder
+
+@* A QR code that opens a link, drawn as SVG so it stays sharp at any size. Size it with CSS. *@
+<div class="@($"share-qr {CssClass}".Trim())" data-share-qr role="img" aria-label="@($"QR code for {Url}")">@Svg</div>
+
+@code {
+    [Parameter, EditorRequired] public string Url { get; set; } = string.Empty;
+
+    /// <summary>Extra classes, such as presenter-qr for the large one on the presenter view.</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    private string? _drawnFor;
+    private MarkupString _svg;
+
+    private MarkupString Svg
+    {
+        get
+        {
+            // Drawn again only when the link changes, not on every render.
+            if (_drawnFor != Url)
+            {
+                using var generator = new QRCodeGenerator();
+                using var data = generator.CreateQrCode(Url, QRCodeGenerator.ECCLevel.M);
+                _svg = new MarkupString(new SvgQRCode(data).GetGraphic(4));
+                _drawnFor = Url;
+            }
+            return _svg;
+        }
+    }
+}

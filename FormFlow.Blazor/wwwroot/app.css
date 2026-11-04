@@ -391,3 +391,206 @@ h1:focus {
 .pre-line {
     white-space: pre-line;
 }
+
+/* The message bar Blazor shows when the connection to the server breaks, in every layout. */
+#blazor-error-ui {
+    color-scheme: light only;
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }
+
+/* Bars of answer counts (OptionBars). The large ones are for the presenter view. */
+.option-bars-large .result-row {
+    grid-template-columns: minmax(160px, 1fr) 3fr minmax(110px, auto);
+    gap: 16px;
+    margin-bottom: 14px;
+    font-size: clamp(1.1rem, 1.5vw, 1.5rem);
+}
+
+.option-bars-large .mud-progress-linear {
+    height: 26px;
+    border-radius: 6px;
+}
+
+/* The presenter view: a full-screen page for a projector, with the join instructions on the left
+   and the live results on the right. Sizes grow with the screen so they read from the back of a room. */
+.presenter-page {
+    min-height: 100vh;
+    background-color: var(--mud-palette-background-gray);
+}
+
+.presenter {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px clamp(16px, 3vw, 48px) 40px;
+}
+
+.presenter-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.presenter-header .presenter-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: clamp(1.5rem, 2.6vw, 2.6rem);
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.presenter-connection {
+    font-size: 1rem;
+}
+
+.presenter-body {
+    display: grid;
+    grid-template-columns: minmax(300px, 34%) 1fr;
+    gap: clamp(16px, 2.5vw, 40px);
+    align-items: start;
+}
+
+.presenter-join {
+    position: sticky;
+    top: 20px;
+    padding: clamp(20px, 2.5vw, 40px);
+    text-align: center;
+    background: var(--mud-palette-surface);
+    border-radius: 12px;
+    box-shadow: var(--mud-elevation-2);
+}
+
+.presenter-join-step {
+    font-size: clamp(1.1rem, 1.6vw, 1.6rem);
+    color: var(--mud-palette-text-secondary);
+}
+
+.presenter-join-address {
+    margin: 4px 0 16px;
+    font-size: clamp(1.5rem, 2.6vw, 2.6rem);
+    font-weight: 700;
+    color: var(--mud-palette-primary);
+    overflow-wrap: anywhere;
+}
+
+.presenter-code {
+    margin: 4px 0 20px;
+    font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: clamp(3rem, 6vw, 6.5rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    color: var(--mud-palette-text-primary);
+}
+
+.presenter-qr svg {
+    display: block;
+    width: min(100%, 300px);
+    height: auto;
+    margin: 0 auto 8px;
+}
+
+.presenter-results {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
+.presenter-count {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+}
+
+.presenter-count-number {
+    font-size: clamp(3rem, 7vw, 6.5rem);
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--mud-palette-primary);
+}
+
+.presenter-count-label {
+    font-size: clamp(1.3rem, 2vw, 2rem);
+    color: var(--mud-palette-text-secondary);
+}
+
+.presenter-questions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
+    gap: 20px;
+}
+
+.presenter-question {
+    padding: clamp(16px, 2vw, 28px);
+}
+
+.presenter-question h2 {
+    font-size: clamp(1.25rem, 1.8vw, 1.8rem);
+    line-height: 1.25;
+}
+
+.presenter-figure {
+    margin-bottom: 12px;
+    font-size: clamp(1.8rem, 3vw, 3rem);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.presenter-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 0;
+    font-size: clamp(1.05rem, 1.4vw, 1.4rem);
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.presenter-message {
+    max-width: 640px;
+    margin: 10vh auto 0;
+    padding: 0 16px;
+}
+
+@media (max-width: 960px) {
+    .presenter-body {
+        grid-template-columns: 1fr;
+    }
+
+    .presenter-join {
+        position: static;
+    }
+}
+
+/* The code box on the Join page: big, spaced capitals that are easy to check on a phone. */
+.join-code input {
+    font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 1.6rem;
+    letter-spacing: 0.12em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* The results summary respondents see under the thank-you message. */
+.respondent-results {
+    padding-top: 16px;
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
