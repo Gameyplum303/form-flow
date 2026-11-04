@@ -134,7 +134,8 @@ public class AdminSurveyPresentTests
         _live.Send(Results(total: 2, yes: 2, no: 0));
         cut.WaitForAssertion(() => cut.Find("[data-connection]").GetAttribute("data-connection").Should().Be("live"),
             TimeSpan.FromSeconds(5));
-        cut.Find("[data-response-count]").GetAttribute("data-response-count").Should().Be("2");
+        // The page goes live as the connection opens, and the queued results arrive just after it.
+        cut.WaitForAssertion(() => cut.Find("[data-response-count]").GetAttribute("data-response-count").Should().Be("2"));
         _live.Connections.Should().Be(2);
     }
 
