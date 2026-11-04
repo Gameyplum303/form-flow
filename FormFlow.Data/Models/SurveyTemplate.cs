@@ -10,5 +10,8 @@ namespace FormFlow.Data.Models
 
         /// <summary>How many pages the survey has: one more than its page breaks.</summary>
         public int PageCount { get; set; } = 1;
+
+        /// <summary>Whether the template is a graded quiz.</summary>
+        public bool IsQuiz { get; set; }
     }
 }

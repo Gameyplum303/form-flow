@@ -9,5 +9,11 @@ namespace FormFlow.Data.Models
 
         /// <summary>The ids of the questions that start a new page. Ids that aren't in the survey are ignored.</summary>
         public List<Guid> PageBreaks { get; set; } = [];
+
+        /// <summary>Whether to grade the survey as a quiz. See <see cref="SurveyDefinition.IsQuiz"/>.</summary>
+        public bool IsQuiz { get; set; }
+
+        /// <summary>One of <see cref="QuizFeedbackModes"/>; empty or null means <see cref="QuizFeedbackModes.Score"/>.</summary>
+        public string? QuizFeedback { get; set; }
     }
 }

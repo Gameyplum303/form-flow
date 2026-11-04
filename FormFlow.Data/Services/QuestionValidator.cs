@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using FormFlow.Data.Models;
 using FormFlow.Data.Validation;
@@ -111,6 +112,7 @@ namespace FormFlow.Data.Services
                             "A slider needs whole-number minimum and maximum values, with the minimum below the maximum");
                     }
                 }
+                ValidateAnswerKey(question, result);
             }
 
             if (question.VisibleIf is not null)
@@ -176,6 +178,73 @@ namespace FormFlow.Data.Services
             else if (rows.Select(r => r.Value).Distinct(StringComparer.Ordinal).Count() != rows.Count)
             {
                 AddError(result, "rows", "unique", "Row values must be unique");
+            }
+        }
+
+        /// <summary>
+        /// A quiz answer key must suit the question: a gradable type, a points value from 0 to
+        /// <see cref="AnswerKey.MaxPoints"/>, and correct answers the question can actually be given (see
+        /// <see cref="QuizScorer"/> for how each type is graded).
+        /// </summary>
+        private static void ValidateAnswerKey(QuestionDefinition question, ValidationResult result)
+        {
+            if (question.AnswerKey is not { } key)
+            {
+                return;
+            }
+            if (!QuestionTypes.IsGradable(question))
+            {
+                AddError(result, "answerKey", "type", string.Equals(question.Type, QuestionTypes.Checkbox, StringComparison.OrdinalIgnoreCase)
+                    ? "A checkbox needs options to have an answer key"
+                    : $"Only these question types can have an answer key: {string.Join(", ", QuestionTypes.Gradable)}");
+                return;
+            }
+
+            if (key.Points < 0 || key.Points > AnswerKey.MaxPoints)
+            {
+                AddError(result, "answerKey.points", "range", $"Points must be from 0 to {AnswerKey.MaxPoints}");
+            }
+            if (key.Explanation is { Length: > AnswerKey.MaxExplanationLength })
+            {
+                AddError(result, "answerKey.explanation", "maxLength",
+                    $"The explanation can be at most {AnswerKey.MaxExplanationLength} characters");
+            }
+
+            var correct = key.CorrectAnswers ?? [];
+            if (correct.Count == 0 || correct.Any(string.IsNullOrWhiteSpace))
+            {
+                AddError(result, "answerKey.correctAnswers", "required", "An answer key needs at least one correct answer, and none can be empty");
+                return;
+            }
+
+            var type = question.Type.ToLowerInvariant();
+            var single = type is QuestionTypes.Radio or QuestionTypes.Dropdown or QuestionTypes.YesNo or QuestionTypes.Number;
+            if (single && correct.Count > 1)
+            {
+                AddError(result, "answerKey.correctAnswers", "single", $"A {QuestionTypes.DisplayName(type).ToLowerInvariant()} question has one correct answer");
+                return;
+            }
+
+            var options = (question.Options ?? []).Select(o => o.Value).ToHashSet(StringComparer.Ordinal);
+            switch (type)
+            {
+                case QuestionTypes.YesNo when !VisibilityEvaluator.TryParseBool(correct[0], out _):
+                    AddError(result, "answerKey.correctAnswers", "format", "The correct answer to a yes/no question must be true or false");
+                    break;
+                case QuestionTypes.Number when !decimal.TryParse(correct[0], NumberStyles.Number,
+                    CultureInfo.InvariantCulture, out _):
+                    AddError(result, "answerKey.correctAnswers", "number", "The correct answer to a number question must be a number");
+                    break;
+                case QuestionTypes.Radio or QuestionTypes.Dropdown or QuestionTypes.Checkbox or QuestionTypes.Multiselect:
+                    if (correct.FirstOrDefault(v => !options.Contains(v)) is { } unknown)
+                    {
+                        AddError(result, "answerKey.correctAnswers", "enum", $"The correct answer '{unknown}' is not one of the options");
+                    }
+                    else if (correct.Distinct(StringComparer.Ordinal).Count() != correct.Count)
+                    {
+                        AddError(result, "answerKey.correctAnswers", "unique", "Each correct option can only be listed once");
+                    }
+                    break;
             }
         }
 

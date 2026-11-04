@@ -24,6 +24,68 @@ namespace FormFlow.Data.Models
 
         /// <summary>The same summaries split by the answer to one question, when a comparison was asked for.</summary>
         public ResultComparison? Comparison { get; set; }
+
+        /// <summary>Scores of the matching responses, when the survey is a quiz; null otherwise.</summary>
+        public QuizSummary? Quiz { get; set; }
+    }
+
+    /// <summary>
+    /// How a quiz went: the average score, how scores spread out, and how often each graded question
+    /// was answered correctly. Counts only the matching responses that were graded when they were sent.
+    /// </summary>
+    public class QuizSummary
+    {
+        /// <summary>The matching responses that have a score.</summary>
+        public int GradedResponses { get; set; }
+
+        /// <summary>The average points earned, rounded to two decimal places.</summary>
+        public decimal AverageScore { get; set; }
+
+        /// <summary>
+        /// The average points available. Hidden questions don't count toward a response's maximum, so
+        /// respondents who saw different questions can have different maximums.
+        /// </summary>
+        public decimal AverageMaxScore { get; set; }
+
+        /// <summary>The average of each response's percentage, rounded to one decimal place.</summary>
+        public decimal AveragePercent { get; set; }
+
+        /// <summary>How many responses scored in each tenth of the range: 0–9%, 10–19%, …, 90–100%.</summary>
+        public List<ScoreBand> Distribution { get; set; } = new();
+
+        /// <summary>One entry per question with an answer key, in survey order.</summary>
+        public List<QuizQuestionSummary> Questions { get; set; } = new();
+    }
+
+    public class ScoreBand
+    {
+        /// <summary>Such as "80–89%".</summary>
+        public string Label { get; set; } = string.Empty;
+        public int MinPercent { get; set; }
+        public int MaxPercent { get; set; }
+        public int Count { get; set; }
+    }
+
+    public class QuizQuestionSummary
+    {
+        public Guid QuestionId { get; set; }
+        public string Key { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+
+        /// <summary>What the question is worth under its current answer key.</summary>
+        public decimal Points { get; set; }
+
+        /// <summary>The graded responses that saw this question (it wasn't hidden).</summary>
+        public int Graded { get; set; }
+
+        /// <summary>How many of those answered it exactly right.</summary>
+        public int Correct { get; set; }
+
+        /// <summary><see cref="Correct"/> as a percentage of <see cref="Graded"/>, rounded to a whole number; 0 when none.</summary>
+        public int PercentCorrect { get; set; }
+
+        /// <summary>The average points earned on the question, rounded to two decimal places.</summary>
+        public decimal AveragePoints { get; set; }
     }
 
     public static class TimelineIntervals
