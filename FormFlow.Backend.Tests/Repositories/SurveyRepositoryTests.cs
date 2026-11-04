@@ -83,5 +83,58 @@ namespace FormFlow.Backend.Tests.Repositories
 
             result.Should().BeNull();
         }
+
+        [Theory]
+        [InlineData("k7m2p9qa")]
+        [InlineData("K7M2P9QA")]
+        [InlineData(" k7m2 p9qa ")]
+        [InlineData("K7M2-P9QA")]
+        public void FindByShareCode_IgnoresCaseSpacesAndDashes(string typed)
+        {
+            using var db = CreateInMemoryDb();
+            var repo = new SurveyRepository(db);
+            var survey = repo.Insert(new SurveyDefinition
+            {
+                Id = Guid.NewGuid(),
+                Title = "Lecture poll",
+                Description = "desc",
+                QuestionIds = [],
+                CreatedAt = DateTime.UtcNow,
+                ShareCode = "k7m2p9qa",
+            });
+
+            repo.FindByShareCode(typed)!.Id.Should().Be(survey.Id);
+            repo.FindByShareCode("k7m2p9qb").Should().BeNull();
+            repo.FindByShareCode(" ").Should().BeNull();
+        }
+
+        [Fact]
+        public void ShowResultsToRespondents_IsStored_AndOffForOlderSurveys()
+        {
+            using var db = CreateInMemoryDb();
+            var repo = new SurveyRepository(db);
+            var shared = repo.Insert(new SurveyDefinition
+            {
+                Id = Guid.NewGuid(),
+                Title = "Shared",
+                Description = "desc",
+                QuestionIds = [],
+                CreatedAt = DateTime.UtcNow,
+                ShowResultsToRespondents = true,
+            });
+            // A survey stored before the setting existed has no field for it.
+            var older = Guid.NewGuid();
+            db.GetCollection(SurveyRepository.CollectionName).Insert(new BsonDocument
+            {
+                ["_id"] = older,
+                ["Title"] = "Older",
+                ["Description"] = "desc",
+                ["QuestionIds"] = new BsonArray(),
+                ["CreatedAt"] = DateTime.UtcNow,
+            });
+
+            repo.FindById(shared.Id)!.ShowResultsToRespondents.Should().BeTrue();
+            repo.FindById(older)!.ShowResultsToRespondents.Should().BeFalse();
+        }
     }
 }

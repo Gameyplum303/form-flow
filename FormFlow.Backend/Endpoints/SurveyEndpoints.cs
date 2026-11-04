@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using FormFlow.Backend.Auth;
+using FormFlow.Backend.Live;
 using FormFlow.Backend.Repositories;
 using FormFlow.Data.Models;
 using FormFlow.Data.Services;
@@ -152,7 +153,8 @@ namespace FormFlow.Backend.Endpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
-            // Publish or unpublish a survey, choose whether it is on the public list, and when it closes
+            // Publish or unpublish a survey, choose whether it is on the public list, when it closes,
+            // and whether respondents see the results after answering
             group.MapPut("/{id:guid}/sharing", (Guid id, SurveySharing sharing, ClaimsPrincipal principal, ISurveyRepository repo) =>
             {
                 var existing = repo.FindById(id);
@@ -168,6 +170,7 @@ namespace FormFlow.Backend.Endpoints
                 existing.Status = sharing.Status;
                 existing.Listed = sharing.Listed;
                 existing.ClosesAt = sharing.ClosesAt?.ToUniversalTime();
+                existing.ShowResultsToRespondents = sharing.ShowResultsToRespondents;
                 repo.Update(existing);
                 return Results.Ok(existing);
             })
@@ -193,7 +196,7 @@ namespace FormFlow.Backend.Endpoints
             .Produces(StatusCodes.Status404NotFound);
 
             group.MapDelete("/{id:guid}", (Guid id, ClaimsPrincipal principal, ISurveyRepository repo,
-                IResponseRepository responses) =>
+                IResponseRepository responses, ILiveResultsPublisher live) =>
             {
                 var existing = repo.FindById(id);
                 if (CurrentUser.From(principal).CannotManage(existing, "surveys", out var denied))
@@ -205,6 +208,9 @@ namespace FormFlow.Backend.Endpoints
 
                 // Responses are meaningless without their survey.
                 responses.DeleteBySurveyId(id);
+
+                // Open live results streams see the survey is gone and end.
+                live.Publish(id);
                 return Results.NoContent();
             })
             .WithName("DeleteSurvey")
@@ -217,7 +223,8 @@ namespace FormFlow.Backend.Endpoints
 
         /// <summary>
         /// Stores a copy of a survey or template as a new draft owned by the caller: the same questions and
-        /// pages, with a new share code, no responses, and no close date.
+        /// pages and the same choice of showing respondents the results, with a new share code, no
+        /// responses, and no close date.
         /// </summary>
         public static SurveyDefinition DraftCopy(SurveyDefinition source, string title, CurrentUser user,
             ISurveyRepository repo, TimeProvider clock)
@@ -233,6 +240,7 @@ namespace FormFlow.Backend.Endpoints
                 Status = SurveyStatuses.Draft,
                 Listed = false,
                 ShareCode = repo.NewShareCode(),
+                ShowResultsToRespondents = source.ShowResultsToRespondents,
             };
             user.Own(copy);
             return repo.Insert(copy);
