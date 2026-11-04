@@ -29,5 +29,14 @@ namespace FormFlow.Data.Models
         /// Questions that were hidden or left blank are absent.
         /// </summary>
         public Dictionary<string, List<string>> Answers { get; set; } = new();
+
+        /// <summary>
+        /// The points earned, when the survey was a quiz at the time of submitting; null otherwise.
+        /// Scores are kept as graded: changing an answer key later doesn't regrade them.
+        /// </summary>
+        public decimal? Score { get; set; }
+
+        /// <summary>The points that were available to this respondent, alongside <see cref="Score"/>.</summary>
+        public decimal? MaxScore { get; set; }
     }
 }

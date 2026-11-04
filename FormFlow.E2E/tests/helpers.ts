@@ -108,6 +108,24 @@ export async function headersFor(request: APIRequestContext, account: { username
     return { Authorization: `Bearer ${tokens.get(account.username)}` };
 }
 
+/**
+ * Signs in through the API like headersFor, but waits out the sign-in rate limit (20 a minute per
+ * address) when the tests before used it up, so the sign-ins that follow have a fresh minute.
+ */
+export async function headersWhenSignInAllowed(request: APIRequestContext, account: { username: string; password: string }) {
+    if (!tokens.has(account.username)) {
+        const deadline = Date.now() + 75_000;
+        let response = await request.post(`${urls.api}/api/auth/login`, { data: account });
+        while (response.status() === 429 && Date.now() < deadline) {
+            await new Promise(resolve => setTimeout(resolve, 5_000));
+            response = await request.post(`${urls.api}/api/auth/login`, { data: account });
+        }
+        expect(response.status(), `${account.username} sign-in through the API`).toBe(200);
+        tokens.set(account.username, (await response.json()).token);
+    }
+    return headersFor(request, account);
+}
+
 /** Headers for API calls that need an admin. */
 export function adminHeaders(request: APIRequestContext) {
     return headersFor(request, admin);
@@ -157,6 +175,31 @@ export async function submitSignIn(page: Page, username: string, password: strin
     await page.locator("input[type=password]").fill(password);
     await page.locator("input[type=password]").press("Tab");
     await page.getByRole("button", { name: "Sign in" }).click();
+}
+
+/**
+ * Signs in through the Blazor sign-in page like signIn, but when the sign-in rate limit is used up
+ * it waits for the next minute and tries again. Refused attempts don't count towards the limit.
+ */
+export async function signInWhenAllowed(page: Page, account = admin, landsOn = /\/admin\/surveys$/) {
+    const deadline = Date.now() + 75_000;
+    await openBlazor(page, "/login");
+    while (true) {
+        await submitSignIn(page, account.username, account.password);
+        const limited = page.getByText("Too many sign-in attempts.");
+        let outcome = "waiting";
+        await expect.poll(async () => {
+            outcome = landsOn.test(page.url()) ? "signed in" : await limited.isVisible() ? "limited" : "waiting";
+            return outcome;
+        }, { message: `${account.username} sign-in` }).not.toBe("waiting");
+        if (outcome === "signed in" || Date.now() > deadline) {
+            break;
+        }
+        // A fresh page, so the next try isn't judged by this one's message.
+        await page.waitForTimeout(5_000);
+        await openBlazor(page, "/login");
+    }
+    await expect(page).toHaveURL(landsOn);
 }
 
 /** Signs in through the Blazor sign-in page, landing on the survey builder. The sign-in lasts for this tab, across page loads. */

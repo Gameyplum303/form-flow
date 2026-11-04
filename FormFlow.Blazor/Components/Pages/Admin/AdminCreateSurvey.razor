@@ -53,6 +53,10 @@
                                 <MudText Typo="Typo.h6" HtmlTag="h3" Class="mb-1">@template.Title</MudText>
                                 <MudText Typo="Typo.body2" Class="mb-2">@template.Description</MudText>
                                 <MudText Typo="Typo.caption" Class="mud-text-secondary" data-template-size>@SizeOf(template)</MudText>
+                                @if (template.IsQuiz)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" Class="ml-2" data-template-quiz>Quiz</MudChip>
+                                }
                             </MudCardContent>
                             <MudCardActions>
                                 <MudButton Variant="Variant.Filled"
@@ -88,6 +92,41 @@
                         Immediate=true
                         Required="true"
                         RequiredError="Description is required." />
+
+            <MudDivider Class="my-4" />
+
+            <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-2">Quiz</MudText>
+            <MudSwitch T="bool" @bind-Value="_newSurvey.IsQuiz" Label="Grade answers as a quiz" Color="Color.Primary" data-quiz-switch />
+            @if (_newSurvey.IsQuiz)
+            {
+                <div class="mt-2" data-quiz-settings>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                        Questions with an answer key are graded as soon as a student submits. Set answer keys in the question editor.
+                    </MudText>
+                    <MudText Typo="Typo.subtitle2" HtmlTag="h3">After submitting, students see</MudText>
+                    <MudRadioGroup T="string" @bind-Value="QuizFeedback" Class="d-flex flex-column mb-2" data-quiz-feedback>
+                        <MudRadio T="string" Value="@QuizFeedbackModes.Score" Color="Color.Primary">Their score only</MudRadio>
+                        <MudRadio T="string" Value="@QuizFeedbackModes.Answers" Color="Color.Primary">Their score, the correct answers and explanations</MudRadio>
+                    </MudRadioGroup>
+                    @if (_selectedQuestions.Any())
+                    {
+                        var graded = _selectedQuestions.Where(IsGraded).ToList();
+                        @if (graded.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" data-quiz-graded>
+                                None of the selected questions has an answer key yet, so nothing will be graded.
+                            </MudAlert>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" data-quiz-graded>
+                                @graded.Count of @_selectedQuestions.Count @(_selectedQuestions.Count == 1 ? "question is" : "questions are") graded,
+                                worth @QuizText.PointsLabel(graded.Sum(q => _answerKeys[q.Id].Points)) in all.
+                            </MudText>
+                        }
+                    }
+                </div>
+            }
 
             <MudDivider Class="my-4" />
 
@@ -168,7 +207,15 @@
 
                             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mud-width-full">
                                 <div>
-                                    <MudText>@(index + 1). @q.Label</MudText>
+                                    <MudText>
+                                        @(index + 1). @q.Label
+                                        @if (_newSurvey.IsQuiz && IsGraded(q))
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" Class="ml-2" data-graded-chip>
+                                                @QuizText.PointsLabel(_answerKeys[q.Id].Points)
+                                            </MudChip>
+                                        }
+                                    </MudText>
                                     @if (index > 0)
                                     {
                                         <MudSwitch T="bool"
@@ -277,6 +324,7 @@
 
         _questionBank = await QuestionService.GetAllQuestionsAsync();
         _questionBankError = _questionBank is null;
+        _answerKeys = (_questionBank ?? []).Where(q => q.AnswerKey is not null).ToDictionary(q => q.Id, q => q.AnswerKey!);
 
         if (Id is { } id)
         {
@@ -291,7 +339,22 @@
             }
             else
             {
-                _newSurvey = new NewSurvey { Title = survey.Title, Description = survey.Description };
+                _newSurvey = new NewSurvey
+                {
+                    Title = survey.Title,
+                    Description = survey.Description,
+                    IsQuiz = survey.IsQuiz,
+                    QuizFeedback = survey.QuizFeedback,
+                };
+                // The bank only shows answer keys for the questions this account manages; the survey's
+                // own questions come with theirs, so the quiz settings can count what will be graded.
+                foreach (var q in await SurveyService.GetSurveyQuestionsAsync(id) ?? [])
+                {
+                    if (q.AnswerKey is { } key)
+                    {
+                        _answerKeys[q.Id] = key;
+                    }
+                }
                 var byId = (_questionBank ?? new()).ToDictionary(q => q.Id);
                 foreach (var qid in survey.QuestionIds)
                 {
@@ -330,6 +393,19 @@
 
         Snackbar.Add($"Created \"{survey.Title}\" from the template as a draft. Edit it, then use Share to publish it.", Severity.Success);
         Nav.NavigateTo($"/admin/surveys/{survey.Id}/edit");
+    }
+
+    /// <summary>The answer keys this account can see, by question id: the questions it manages, and this survey's own.</summary>
+    private Dictionary<Guid, AnswerKey> _answerKeys = new();
+
+    private bool IsGraded(QuestionDefinition q) =>
+        _answerKeys.TryGetValue(q.Id, out var key) && key.CorrectAnswers.Count > 0 && QuestionTypes.IsGradable(q);
+
+    /// <summary>What students see after submitting a quiz; score only until the builder chooses otherwise.</summary>
+    private string QuizFeedback
+    {
+        get => _newSurvey.QuizFeedback ?? QuizFeedbackModes.Score;
+        set => _newSurvey.QuizFeedback = value;
     }
 
     private bool IsSelected(QuestionDefinition q)

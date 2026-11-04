@@ -41,6 +41,29 @@ namespace FormFlow.Data.Models
         /// </summary>
         public bool IsTemplate { get; set; }
 
+        // Quizzes. A quiz grades each submission against its questions' answer keys.
+
+        /// <summary>
+        /// Whether submissions are graded: each response stores its score, and the respondent sees it
+        /// straight away. Questions without an answer key aren't graded.
+        /// </summary>
+        public bool IsQuiz { get; set; }
+
+        /// <summary>
+        /// What respondents see after submitting a quiz: one of <see cref="QuizFeedbackModes"/>. Only the
+        /// score unless the builder chooses to show the correct answers and explanations too.
+        /// </summary>
+        public string QuizFeedback { get; set; } = QuizFeedbackModes.Score;
+
+        /// <summary>Whether respondents see the correct answers and explanations after submitting a quiz.</summary>
+        public bool ShowsCorrectAnswers() => IsQuiz && QuizFeedback == QuizFeedbackModes.Answers;
+
+        /// <summary>
+        /// Whether respondents see a summary of everyone's answers to the questions with fixed answers
+        /// after they submit (see <see cref="RespondentResults"/>). Set on the Share page; off by default.
+        /// </summary>
+        public bool ShowResultsToRespondents { get; set; }
+
         public bool IsPublished() => Status == SurveyStatuses.Published;
 
         public bool IsClosed(DateTime utcNow) => ClosesAt is { } closesAt && closesAt <= utcNow;
@@ -61,6 +84,18 @@ namespace FormFlow.Data.Models
         public static bool IsKnown(string? status) => status is Draft or Published;
     }
 
+    /// <summary>The values of <see cref="SurveyDefinition.QuizFeedback"/>.</summary>
+    public static class QuizFeedbackModes
+    {
+        /// <summary>Respondents see their score only.</summary>
+        public const string Score = "score";
+
+        /// <summary>Respondents see their score, then each question marked right or wrong with the correct answer and explanation.</summary>
+        public const string Answers = "answers";
+
+        public static bool IsKnown(string? mode) => mode is Score or Answers;
+    }
+
     /// <summary>Body of PUT /api/surveys/{id}/sharing.</summary>
     public class SurveySharing
     {
@@ -69,5 +104,8 @@ namespace FormFlow.Data.Models
 
         /// <summary>When the survey stops taking answers, or null to stay open.</summary>
         public DateTime? ClosesAt { get; set; }
+
+        /// <summary>Whether respondents see a summary of the results after answering.</summary>
+        public bool ShowResultsToRespondents { get; set; }
     }
 }

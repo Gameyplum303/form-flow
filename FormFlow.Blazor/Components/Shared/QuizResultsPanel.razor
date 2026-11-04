@@ -1,0 +1,76 @@
+@using System.Globalization
+@* The quiz part of the results page: the average score, how the scores spread out, and how often each
+   graded question was answered correctly. It counts the responses that match the page's filters. *@
+<MudPaper Class="pa-4" Elevation="1" data-quiz-summary>
+    <MudText Typo="Typo.h6" HtmlTag="h2">Quiz scores</MudText>
+    <MudText Typo="Typo.caption" Class="mb-3 d-block">
+        @(Summary.GradedResponses == 1 ? "1 graded response" : $"{Summary.GradedResponses} graded responses")
+    </MudText>
+
+    @if (Summary.GradedResponses == 0)
+    {
+        <MudText Typo="Typo.body2" data-quiz-empty>
+            No graded responses yet. Responses are graded when they are sent, so those from before this survey became a quiz aren't scored.
+        </MudText>
+    }
+    else
+    {
+        <MudStack Row="true" Spacing="6" Wrap="Wrap.Wrap" Class="mb-4">
+            <div>
+                <MudText Typo="Typo.caption">Average score</MudText>
+                <MudText Typo="Typo.h6" HtmlTag="div" Class="quiz-points" data-quiz-average>
+                    @QuizText.Score(Summary.AverageScore, Summary.AverageMaxScore)
+                </MudText>
+            </div>
+            <div>
+                <MudText Typo="Typo.caption">Average percentage</MudText>
+                <MudText Typo="Typo.h6" HtmlTag="div" Class="quiz-points" data-quiz-average-percent>@Percent(Summary.AveragePercent)</MudText>
+            </div>
+        </MudStack>
+
+        <MudText Typo="Typo.subtitle2" HtmlTag="h3" Class="mb-2">Score distribution</MudText>
+        <div class="mb-4" data-quiz-distribution>
+            @foreach (var band in Summary.Distribution)
+            {
+                var share = band.Count * 100.0 / Summary.GradedResponses;
+                <div class="result-row" data-score-band="@band.Label" data-count="@band.Count">
+                    <span class="result-label">@band.Label</span>
+                    <MudProgressLinear Value="share" Color="Color.Primary" Size="Size.Large" Class="result-bar"
+                                       aria-label="@($"{band.Label}: {band.Count} {(band.Count == 1 ? "response" : "responses")}")" />
+                    <span class="result-count">@band.Count (@share.ToString("0", CultureInfo.InvariantCulture)%)</span>
+                </div>
+            }
+        </div>
+
+        <MudText Typo="Typo.subtitle2" HtmlTag="h3" Class="mb-2">Correct answers by question</MudText>
+        <MudSimpleTable Dense="true" Bordered="true" data-quiz-questions>
+            <thead>
+                <tr>
+                    <th>Question</th>
+                    <th>Points</th>
+                    <th>Answered correctly</th>
+                    <th>Average points</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var question in Summary.Questions)
+                {
+                    <tr data-quiz-question="@question.Key">
+                        <th scope="row">@question.Label</th>
+                        <td class="quiz-points">@QuizText.Points(question.Points)</td>
+                        <td class="quiz-points" data-percent-correct="@question.PercentCorrect">
+                            @(question.Graded == 0 ? "–" : $"{question.Correct} of {question.Graded} ({question.PercentCorrect}%)")
+                        </td>
+                        <td class="quiz-points">@(question.Graded == 0 ? "–" : QuizText.Points(question.AveragePoints))</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public QuizSummary Summary { get; set; } = default!;
+
+    private static string Percent(decimal percent) => percent.ToString("0.#", CultureInfo.InvariantCulture) + "%";
+}

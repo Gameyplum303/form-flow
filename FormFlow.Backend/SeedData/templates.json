@@ -419,5 +419,163 @@
     "pageBreaks": [
       "customer_sat_resolved"
     ]
+  },
+  {
+    "id": "5423594b-900d-55f0-ab8f-18fd23ac3442",
+    "title": "Quiz",
+    "description": "A short graded quiz on computing basics. Students see their score, each correct answer and an explanation as soon as they submit.",
+    "isQuiz": true,
+    "quizFeedback": "answers",
+    "questions": [
+      {
+        "id": "5c27c643-eefc-542f-9b0d-dc716a21cdc6",
+        "key": "quiz_cpu",
+        "label": "Which part of a computer carries out a program's instructions?",
+        "type": "radio",
+        "required": true,
+        "options": [
+          {
+            "value": "cpu",
+            "label": "The processor (CPU)"
+          },
+          {
+            "value": "ram",
+            "label": "Memory (RAM)"
+          },
+          {
+            "value": "ssd",
+            "label": "Storage (SSD)"
+          },
+          {
+            "value": "monitor",
+            "label": "The monitor"
+          }
+        ],
+        "answerKey": {
+          "correctAnswers": [
+            "cpu"
+          ],
+          "points": 1,
+          "explanation": "The processor fetches and runs each instruction. Memory and storage only hold the program and its data."
+        }
+      },
+      {
+        "id": "2cab4b2b-6ebd-59b8-85db-e2f4ca67a1e6",
+        "key": "quiz_byte",
+        "label": "How many bits are in a byte?",
+        "type": "dropdown",
+        "required": true,
+        "options": [
+          {
+            "value": "4",
+            "label": "4"
+          },
+          {
+            "value": "8",
+            "label": "8"
+          },
+          {
+            "value": "16",
+            "label": "16"
+          },
+          {
+            "value": "32",
+            "label": "32"
+          }
+        ],
+        "answerKey": {
+          "correctAnswers": [
+            "8"
+          ],
+          "points": 1,
+          "explanation": "A byte is 8 bits, enough for 256 different values."
+        }
+      },
+      {
+        "id": "e34ff7cc-d644-5ec7-ab63-2d5ed9bff52f",
+        "key": "quiz_binary",
+        "label": "What is the binary number 1010 in decimal?",
+        "type": "number",
+        "required": true,
+        "helpText": "Answer with a whole number.",
+        "answerKey": {
+          "correctAnswers": [
+            "10"
+          ],
+          "points": 1,
+          "explanation": "1010 in binary is 8 + 0 + 2 + 0, which is 10."
+        }
+      },
+      {
+        "id": "1fd7e582-22f3-5569-af74-bff39456b14b",
+        "key": "quiz_ram_volatile",
+        "label": "Is what's in memory (RAM) lost when the computer is switched off?",
+        "type": "yes_no",
+        "required": true,
+        "answerKey": {
+          "correctAnswers": [
+            "true"
+          ],
+          "points": 1,
+          "explanation": "RAM is volatile. Anything that must survive a restart is saved to storage."
+        }
+      },
+      {
+        "id": "2afd8ade-ae2c-5423-9486-873bc726dc0e",
+        "key": "quiz_languages",
+        "label": "Which of these are programming languages?",
+        "type": "checkbox",
+        "required": true,
+        "helpText": "Tick every one that applies.",
+        "options": [
+          {
+            "value": "python",
+            "label": "Python"
+          },
+          {
+            "value": "java",
+            "label": "Java"
+          },
+          {
+            "value": "html",
+            "label": "HTML"
+          },
+          {
+            "value": "csharp",
+            "label": "C#"
+          },
+          {
+            "value": "json",
+            "label": "JSON"
+          }
+        ],
+        "answerKey": {
+          "correctAnswers": [
+            "python",
+            "java",
+            "csharp"
+          ],
+          "points": 2,
+          "explanation": "HTML marks up web pages and JSON stores data; neither is a programming language."
+        }
+      },
+      {
+        "id": "2a9de92a-6c22-5168-a080-6ae39c293256",
+        "key": "quiz_html",
+        "label": "What does the \"HT\" in HTML stand for?",
+        "type": "text",
+        "required": true,
+        "placeholder": "Two words, or one",
+        "answerKey": {
+          "correctAnswers": [
+            "HyperText",
+            "Hyper Text"
+          ],
+          "points": 1,
+          "explanation": "HTML is short for HyperText Markup Language."
+        }
+      }
+    ],
+    "pageBreaks": []
   }
 ]

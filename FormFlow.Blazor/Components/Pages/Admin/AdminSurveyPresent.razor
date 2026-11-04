@@ -1,0 +1,256 @@
+@page "/admin/surveys/{Id:guid}/present"
+@layout Layout.PresenterLayout
+@using System.Globalization
+@implements IDisposable
+@inject ISurveyService SurveyService
+@inject ILiveResultsClient LiveResults
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+@* The presenter view: join instructions big enough to read from the back of a lecture hall, and
+   charts that update as answers arrive, over the API's live results stream. *@
+
+<PageTitle>@(_survey is null ? "Present live" : $"Present: {_survey.Title}")</PageTitle>
+
+@if (_loading)
+{
+    <div class="presenter-message">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" aria-label="Loading the survey" />
+    </div>
+}
+else if (_survey is null || !Current.CanManage(_survey))
+{
+    <div class="presenter-message">
+        <MudAlert Severity="Severity.Warning">
+            @(_survey is null ? "Survey not found." : "You can only present surveys you created.")
+        </MudAlert>
+        <MudButton Class="mt-4" Variant="Variant.Outlined" Href="/admin/surveys">Back to surveys</MudButton>
+    </div>
+}
+else
+{
+    <div class="presenter" data-presenter>
+        <header class="presenter-header">
+            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Href="@($"/admin/surveys/{Id}/share")">
+                Exit
+            </MudButton>
+            <PageHeading CssClass="mb-0 presenter-title">@_survey.Title</PageHeading>
+            <MudChip T="string" Variant="Variant.Outlined" Color="@ConnectionColor" Icon="@ConnectionIcon"
+                     Class="presenter-connection" data-connection="@ConnectionState.ToString().ToLowerInvariant()">
+                @ConnectionLabel
+            </MudChip>
+            <MudTooltip Text="Full screen">
+                <MudIconButton Icon="@Icons.Material.Filled.Fullscreen" aria-label="Full screen" OnClick="ToggleFullscreenAsync" />
+            </MudTooltip>
+        </header>
+
+        @if (Notice is { } notice)
+        {
+            <MudAlert Severity="Severity.Warning" Class="presenter-notice" data-presenter-notice>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
+                    <span>@notice</span>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="_saving"
+                               OnClick="OpenForAnswersAsync">
+                        @(_survey.IsPublished() ? "Reopen now" : "Publish now")
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Href="@($"/admin/surveys/{Id}/share")">Sharing settings</MudButton>
+                </MudStack>
+            </MudAlert>
+        }
+        @if (_connection?.StopReason is { } stopped)
+        {
+            <MudAlert Severity="Severity.Error" Class="presenter-notice">@stopped</MudAlert>
+        }
+
+        <div class="presenter-body">
+            <section class="presenter-join" aria-label="How to join">
+                <div class="presenter-join-step">Go to</div>
+                <div class="presenter-join-address" data-join-address>@JoinAddress</div>
+                <div class="presenter-join-step">and enter the code</div>
+                <div class="presenter-code" data-share-code="@_survey.ShareCode">@ShareCodes.Display(_survey.ShareCode)</div>
+                <ShareQrCode Url="@Link" CssClass="presenter-qr" />
+                <div class="presenter-join-step">or scan to open the survey</div>
+            </section>
+
+            <section class="presenter-results" aria-label="Results so far">
+                <div class="presenter-count" data-response-count="@(_results?.TotalResponses.ToString(CultureInfo.InvariantCulture) ?? "")"
+                     aria-live="polite">
+                    <span class="presenter-count-number">@(_results?.TotalResponses.ToString(CultureInfo.InvariantCulture) ?? "–")</span>
+                    <span class="presenter-count-label">@(_results?.TotalResponses == 1 ? "response" : "responses")</span>
+                </div>
+
+                @if (_results is null)
+                {
+                    <MudText Typo="Typo.h6" HtmlTag="p" Class="mud-text-secondary">Waiting for the results…</MudText>
+                }
+                else
+                {
+                    <div class="presenter-questions">
+                        @foreach (var question in _results.Questions)
+                        {
+                            <MudPaper Class="presenter-question" Elevation="1" data-live-result="@question.Key">
+                                <MudText Typo="Typo.h6" HtmlTag="h2">@question.Label</MudText>
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                                    @question.AnsweredCount @(question.AnsweredCount == 1 ? "answer" : "answers")
+                                </MudText>
+
+                                @if (question.Nps is { } nps)
+                                {
+                                    <div class="presenter-figure" data-live-nps>NPS @(nps.Score > 0 ? $"+{nps.Score}" : nps.Score.ToString(CultureInfo.InvariantCulture))</div>
+                                }
+                                else if (question.Options.Count > 0)
+                                {
+                                    @if (question.Numbers is { } rating)
+                                    {
+                                        <div class="presenter-figure">@rating.Average.ToString(CultureInfo.InvariantCulture) average</div>
+                                    }
+                                    <OptionBars Large="true" Bars="OptionBar.Of(question.Options, question.AnsweredCount)" />
+                                }
+                                else if (question.Numbers is { } numbers)
+                                {
+                                    <div class="presenter-figure">@numbers.Average.ToString(CultureInfo.InvariantCulture) average</div>
+                                    <MudText Typo="Typo.body1">From @numbers.Min to @numbers.Max</MudText>
+                                }
+                                else if (question.Rows.Count > 0)
+                                {
+                                    @foreach (var row in question.Rows)
+                                    {
+                                        <div class="presenter-row">
+                                            <span>@row.Label</span>
+                                            <strong>@(row.Average?.ToString(CultureInfo.InvariantCulture) ?? $"{row.AnsweredCount}")</strong>
+                                        </div>
+                                    }
+                                }
+                                else if (question.AnsweredCount > 0)
+                                {
+                                    @* Written answers aren't put on a projector; they stay on the results page. *@
+                                    <MudText Typo="Typo.body1" Class="mud-text-secondary">Written answers are on the results page.</MudText>
+                                }
+                            </MudPaper>
+                        }
+                    </div>
+                }
+            </section>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] public AdminAccess? Access { get; set; }
+
+    private AdminAccess Current => Access ?? AdminAccess.Administrator;
+
+    private SurveyDefinition? _survey;
+    private SurveyResults? _results;
+    private bool _loading = true;
+    private bool _saving;
+    private LiveResultsConnection? _connection;
+    private readonly CancellationTokenSource _stop = new();
+
+    private string Link => Nav.BaseUri + "s/" + _survey?.ShareCode;
+
+    /// <summary>The Join page's address without the scheme, as people type it: "formflow.example/join".</summary>
+    private string JoinAddress
+    {
+        get
+        {
+            var site = new Uri(Nav.BaseUri);
+            return site.Authority + site.AbsolutePath + "join";
+        }
+    }
+
+    /// <summary>Why students can't answer right now, or null when they can.</summary>
+    private string? Notice =>
+        _survey is null ? null
+        : !_survey.IsPublished() ? "This survey is a draft, so students can't open it yet."
+        : _survey.IsClosed(DateTime.UtcNow) ? "This survey has closed, so it no longer takes answers."
+        : null;
+
+    private LiveConnectionState ConnectionState => _connection?.State ?? LiveConnectionState.Connecting;
+
+    private string ConnectionLabel => ConnectionState switch
+    {
+        LiveConnectionState.Live => "Live",
+        LiveConnectionState.Reconnecting => "Reconnecting…",
+        LiveConnectionState.Stopped => "Not connected",
+        _ => "Connecting…",
+    };
+
+    private Color ConnectionColor => ConnectionState switch
+    {
+        LiveConnectionState.Live => Color.Success,
+        LiveConnectionState.Reconnecting => Color.Warning,
+        LiveConnectionState.Stopped => Color.Error,
+        _ => Color.Default,
+    };
+
+    private string ConnectionIcon => ConnectionState switch
+    {
+        LiveConnectionState.Live => Icons.Material.Filled.Sensors,
+        LiveConnectionState.Stopped => Icons.Material.Filled.SensorsOff,
+        _ => Icons.Material.Filled.Sync,
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _survey = await SurveyService.GetSurveyAsync(Id);
+        _loading = false;
+        if (_survey is not null && Current.CanManage(_survey))
+        {
+            _connection = new LiveResultsConnection(LiveResults);
+            _connection.ResultsReceived += OnResults;
+            _connection.StateChanged += OnStateChanged;
+            _ = _connection.RunAsync(Id, _stop.Token);
+        }
+    }
+
+    private void OnResults(SurveyResults results) => _ = InvokeAsync(() =>
+    {
+        _results = results;
+        StateHasChanged();
+    });
+
+    private void OnStateChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>Publishes a draft, or reopens a closed survey by clearing its close date.</summary>
+    private async Task OpenForAnswersAsync()
+    {
+        _saving = true;
+        var (saved, error) = await SurveyService.UpdateSharingAsync(Id, new SurveySharing
+        {
+            Status = SurveyStatuses.Published,
+            Listed = _survey!.Listed,
+            ClosesAt = _survey.IsClosed(DateTime.UtcNow) ? null : _survey.ClosesAt,
+            ShowResultsToRespondents = _survey.ShowResultsToRespondents,
+        });
+        _saving = false;
+
+        if (saved is null)
+        {
+            Snackbar.Add($"The survey could not be opened for answers: {error}", Severity.Error);
+            return;
+        }
+        _survey = saved;
+        Snackbar.Add("Students can join now.", Severity.Success);
+    }
+
+    private async Task ToggleFullscreenAsync()
+    {
+        if (!await JS.InvokeAsync<bool>("formFlow.toggleFullscreen"))
+        {
+            Snackbar.Add("Your browser didn't allow full screen. Try its own full screen key, often F11.", Severity.Info);
+        }
+    }
+
+    public void Dispose()
+    {
+        _stop.Cancel();
+        if (_connection is not null)
+        {
+            _connection.ResultsReceived -= OnResults;
+            _connection.StateChanged -= OnStateChanged;
+        }
+    }
+}

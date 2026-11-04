@@ -428,7 +428,11 @@ test.describe.serial("Blazor: admin", () => {
         await question(student, "course_eval_attendance").locator("label.mud-radio").nth(1).click();
         await student.getByRole("button", { name: "Next" }).click();
         await expect(student.locator("[data-page-label]")).toHaveText("Page 2 of 3");
+        // Answers are saved in the browser after each change. Wait for this one to be saved before leaving.
+        const savedAnswers = () => student.evaluate(key => localStorage.getItem(key), `formflow.answers.${survey.id.replace(/-/g, "")}`);
+        const before = await savedAnswers();
         await question(student, "course_eval_overall").locator(".mud-rating-item").nth(3).click();
+        await expect.poll(savedAnswers).not.toBe(before);
 
         // Coming back later picks up the answers, on the first page.
         await openBlazor(student, `/s/${survey.shareCode}`);

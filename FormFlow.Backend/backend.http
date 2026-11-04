@@ -64,6 +64,18 @@ Content-Type: application/json
   "closesAt": "2026-10-15T17:00:00Z"
 }
 
+### Publish a lecture poll that shows respondents the results so far
+PUT {{host}}/api/surveys/{{surveyId}}/sharing
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "published",
+  "listed": false,
+  "closesAt": null,
+  "showResultsToRespondents": true
+}
+
 ### Copy a survey into a new draft you own
 POST {{host}}/api/surveys/{{surveyId}}/duplicate
 Authorization: Bearer {{token}}
@@ -116,6 +128,13 @@ Authorization: Bearer {{token}}
 ### Results for one week
 GET {{host}}/api/surveys/{{surveyId}}/results?from=2026-09-01T00:00:00Z&to=2026-09-08T00:00:00Z
 Authorization: Bearer {{token}}
+
+### Live results as server-sent events (stays open; submit answers in another request to see updates)
+GET {{host}}/api/surveys/{{surveyId}}/results/live
+Authorization: Bearer {{token}}
+
+### The results summary respondents see, once the survey shares it (no token)
+GET {{host}}/api/surveys/{{surveyId}}/results/public
 
 ### Download responses as CSV
 GET {{host}}/api/surveys/{{surveyId}}/responses/export

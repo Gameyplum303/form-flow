@@ -33,5 +33,12 @@ namespace FormFlow.Data.Models
         public string? ValidationConfigs { get; set; }
 
         public string? HelpText { get; set; }
+
+        /// <summary>
+        /// How the question is graded in a quiz, or null when it isn't graded. Only gradable types can
+        /// have one (see <see cref="QuestionTypes.IsGradable"/>). The API hides it from anyone who can't
+        /// manage the question or the survey it is served with.
+        /// </summary>
+        public AnswerKey? AnswerKey { get; set; }
     }
 }

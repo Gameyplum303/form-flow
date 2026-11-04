@@ -1,0 +1,73 @@
+@* The thank-you screen of a quiz: the respondent's score, then, when the survey shows them, each graded
+   question marked right or wrong with the correct answer and the explanation. *@
+<section aria-labelledby="quiz-score-heading" data-quiz-result>
+    <MudPaper Outlined="true" Class="pa-4 mb-4">
+        <MudText Typo="Typo.h6" HtmlTag="h2" id="quiz-score-heading">Your score</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Baseline" Spacing="3" Wrap="Wrap.Wrap" Class="mb-2">
+            <MudText Typo="Typo.h4" HtmlTag="p" data-quiz-score>@QuizText.Score(Result.Score, Result.MaxScore)</MudText>
+            @if (Result.MaxScore > 0)
+            {
+                <MudText Typo="Typo.h6" HtmlTag="p" Class="mud-text-secondary" data-quiz-percent>@Result.Percent%</MudText>
+            }
+        </MudStack>
+        @if (Result.MaxScore > 0)
+        {
+            <MudProgressLinear Value="@Result.Percent" Color="Color.Primary" Size="Size.Large" Rounded="true"
+                               aria-label="@($"Score: {Result.Percent}%")" />
+        }
+    </MudPaper>
+
+    @if (Result.Questions.Count > 0)
+    {
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-2">Review your answers</MudText>
+        <MudStack Spacing="2" Class="mb-4" data-quiz-review>
+            @foreach (var grade in Result.Questions)
+            {
+                <MudPaper Outlined="true" Class="pa-3" data-quiz-question="@grade.Key" data-correct="@(grade.Correct ? "true" : "false")">
+                    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                        <MudIcon Icon="@IconOf(grade)" Color="@ColorOf(grade)" Class="mt-1" aria-hidden="true" />
+                        <div class="flex-grow-1">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Spacing="2">
+                                <MudText Typo="Typo.subtitle1" HtmlTag="h3">@grade.Label</MudText>
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary quiz-points mt-1" data-quiz-points>
+                                    @QuizText.Points(grade.Points) / @QuizText.Points(grade.MaxPoints)
+                                </MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Color="@ColorOf(grade)" Class="mb-1" data-quiz-verdict>@VerdictOf(grade)</MudText>
+                            <MudText Typo="Typo.body2">
+                                <strong>Your answer:</strong> @(grade.GivenAnswers.Count == 0 ? "No answer" : string.Join(", ", grade.GivenAnswers))
+                            </MudText>
+                            @if (!grade.Correct)
+                            {
+                                <MudText Typo="Typo.body2" data-quiz-correct-answer>
+                                    <strong>Correct answer:</strong> @string.Join(", ", grade.CorrectAnswers)
+                                </MudText>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(grade.Explanation))
+                            {
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1" data-quiz-explanation>@grade.Explanation</MudText>
+                            }
+                        </div>
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public QuizResult Result { get; set; } = default!;
+
+    private static bool IsPartly(QuestionGrade grade) => !grade.Correct && grade.Points > 0;
+
+    private static string VerdictOf(QuestionGrade grade) =>
+        grade.Correct ? "Correct" : IsPartly(grade) ? "Partly correct" : "Incorrect";
+
+    private static Color ColorOf(QuestionGrade grade) =>
+        grade.Correct ? Color.Success : IsPartly(grade) ? Color.Warning : Color.Error;
+
+    private static string IconOf(QuestionGrade grade) =>
+        grade.Correct ? Icons.Material.Filled.CheckCircle
+        : IsPartly(grade) ? Icons.Material.Filled.RemoveCircle
+        : Icons.Material.Filled.Cancel;
+}

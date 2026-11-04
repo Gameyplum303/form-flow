@@ -4,9 +4,11 @@ namespace FormFlow.Blazor.Services
 {
     /// <summary>
     /// Outcome of submitting answers to a survey. <see cref="CanRetry"/> is false when fixing answers won't
-    /// help: the survey closed, is gone, or this browser already answered it.
+    /// help: the survey closed, is gone, or this browser already answered it. <see cref="Quiz"/> is the
+    /// respondent's grade when the survey is a quiz.
     /// </summary>
-    public record SubmitResult(bool Success, IReadOnlyDictionary<string, string[]> Errors, string? Message = null, bool CanRetry = true);
+    public record SubmitResult(bool Success, IReadOnlyDictionary<string, string[]> Errors, string? Message = null, bool CanRetry = true,
+        QuizResult? Quiz = null);
 
     /// <summary>A downloaded CSV file.</summary>
     public record CsvExport(string FileName, byte[] Content);
@@ -51,7 +53,10 @@ namespace FormFlow.Blazor.Services
         /// <summary>Publishes or unpublishes a survey, lists it or not, and sets when it closes.</summary>
         Task<(SurveyDefinition? Survey, string? Error)> UpdateSharingAsync(Guid id, SurveySharing sharing);
 
-        /// <summary>Sends answers. The respondent id lets the server refuse a second answer from the same browser.</summary>
+        /// <summary>
+        /// Sends answers. The respondent id lets the server refuse a second answer from the same browser.
+        /// A quiz comes back graded.
+        /// </summary>
         Task<SubmitResult> SubmitResponseAsync(Guid surveyId, Dictionary<string, List<string>> answers, string? respondentId = null);
 
         /// <summary>Whether the browser with this respondent id already answered the survey (false when unknown).</summary>
@@ -59,6 +64,12 @@ namespace FormFlow.Blazor.Services
 
         /// <summary>Summaries of the survey's responses, narrowed or split by the query; null if refused or invalid.</summary>
         Task<SurveyResults?> GetResultsAsync(Guid surveyId, ResultsQuery? query = null);
+
+        /// <summary>
+        /// The summary respondents see after answering, or null when the survey doesn't share its results
+        /// (or they could not be loaded).
+        /// </summary>
+        Task<RespondentResults?> GetRespondentResultsAsync(Guid surveyId);
 
         /// <summary>Downloads the responses (only those matching the query's filters and dates) as CSV, or null if refused.</summary>
         Task<CsvExport?> ExportResponsesAsync(Guid surveyId, ResultsQuery? query = null);

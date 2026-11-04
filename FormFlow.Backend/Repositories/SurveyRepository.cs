@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using FormFlow.Data.Models;
+using FormFlow.Data.Services;
 using LiteDB;
 
 namespace FormFlow.Backend.Repositories
@@ -21,19 +22,16 @@ namespace FormFlow.Backend.Repositories
             _surveys.EnsureIndex(s => s.ShareCode);
         }
 
-        // No 0/o, 1/l/i, so a code read aloud or copied by hand comes out right.
-        private const string ShareCodeAlphabet = "23456789abcdefghjkmnpqrstuvwxyz";
-        private const int ShareCodeLength = 8;
-
+        // Codes are stored lowercase. Normalizing also drops the spaces and dashes people type.
         public SurveyDefinition? FindByShareCode(string code) =>
-            string.IsNullOrWhiteSpace(code) ? null
-            : _surveys.FindOne(s => s.ShareCode == code.Trim().ToLowerInvariant()) is { IsTemplate: false } survey ? survey : null;
+            ShareCodes.Normalize(code) is not { Length: > 0 } normalized ? null
+            : _surveys.FindOne(s => s.ShareCode == normalized) is { IsTemplate: false } survey ? survey : null;
 
         public string NewShareCode()
         {
             while (true)
             {
-                var code = RandomNumberGenerator.GetString(ShareCodeAlphabet, ShareCodeLength);
+                var code = RandomNumberGenerator.GetString(ShareCodes.Alphabet, ShareCodes.Length);
                 if (FindByShareCode(code) is null)
                 {
                     return code;

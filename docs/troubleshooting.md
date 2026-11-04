@@ -26,6 +26,10 @@ Tokens are signed with `Jwt:Key`. When it isn't set, the API makes a new random 
 
 It calls `http://localhost:5164` by default. Start the API, or set `REACT_APP_API_URL` before `npm start` if the API is somewhere else.
 
+**The presenter view stays on "Reconnecting…", or updates arrive in bunches**
+
+The Blazor server reads the live results stream from the API. If a proxy sits between them, it is probably holding the events back or closing the connection while the room is quiet. Turn off response buffering for `text/event-stream`, and keep its idle timeout above `LiveResults:KeepAliveInterval` (15 seconds); see [deployment.md](deployment.md#live-results-behind-a-proxy). "Not connected" instead means the survey was deleted or the sign-in ran out: sign in again and reopen the page.
+
 **The browser warns "Your connection is not private" on localhost**
 
 Run `dotnet dev-certs https --trust` and restart the browser, or use the HTTP URLs.

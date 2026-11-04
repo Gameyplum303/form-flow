@@ -3,6 +3,7 @@ using FormFlow.Backend;
 using FormFlow.Backend.Auth;
 using FormFlow.Backend.Email;
 using FormFlow.Backend.Endpoints;
+using FormFlow.Backend.Live;
 using FormFlow.Backend.Repositories;
 using FormFlow.Data.Models;
 using FormFlow.Data.Services;
@@ -33,6 +34,10 @@ builder.Services.AddSingleton<AdminAccountSeeder>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<IAccountTokenRepository, AccountTokenRepository>();
+
+// New responses wake the live results streams of the presenter view.
+builder.Services.AddSingleton<ILiveResultsPublisher, LiveResultsPublisher>();
+builder.Services.AddOptions<LiveResultsOptions>().Bind(builder.Configuration.GetSection(LiveResultsOptions.Section));
 
 // Emails for verifying addresses and resetting passwords go through SMTP when Email:Smtp:Host is set,
 // and to an in-memory outbox otherwise.
@@ -145,6 +150,7 @@ app.MapQuestionEndpoints();
 app.MapSurveyEndpoints();
 app.MapTemplateEndpoints();
 app.MapResponseEndpoints();
+app.MapLiveResultsEndpoints();
 
 app.Run();
 

@@ -76,7 +76,8 @@ namespace FormFlow.Blazor.Services
                 var response = await Client.PostAsJsonAsync($"api/surveys/{surveyId}/responses", new { answers, respondentId });
                 if (response.IsSuccessStatusCode)
                 {
-                    return new SubmitResult(true, new Dictionary<string, string[]>());
+                    var submitted = await ReadSubmittedAsync(response);
+                    return new SubmitResult(true, new Dictionary<string, string[]>(), Quiz: submitted?.Quiz);
                 }
 
                 if (response.StatusCode == HttpStatusCode.BadRequest)
@@ -98,8 +99,24 @@ namespace FormFlow.Blazor.Services
                 };
             }, new SubmitResult(false, new Dictionary<string, string[]>(), ApiErrors.Unreachable));
 
+        /// <summary>The 201 body of a submission, or null when it has none the app can read; the answers were stored either way.</summary>
+        private static async Task<SubmittedResponse?> ReadSubmittedAsync(HttpResponseMessage response)
+        {
+            try
+            {
+                return await response.Content.ReadFromJsonAsync<SubmittedResponse>();
+            }
+            catch (Exception ex) when (ex is System.Text.Json.JsonException or NotSupportedException)
+            {
+                return null;
+            }
+        }
+
         public Task<SurveyResults?> GetResultsAsync(Guid surveyId, ResultsQuery? query = null) =>
             GetOrNullAsync<SurveyResults>(WithQuery($"api/surveys/{surveyId}/results", query));
+
+        public Task<RespondentResults?> GetRespondentResultsAsync(Guid surveyId) =>
+            GetOrNullAsync<RespondentResults>($"api/surveys/{surveyId}/results/public");
 
         public Task<CsvExport?> ExportResponsesAsync(Guid surveyId, ResultsQuery? query = null) =>
             ApiErrors.TryAsync(async () =>

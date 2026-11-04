@@ -7,15 +7,21 @@ namespace FormFlow.Backend.Services
     /// <summary>
     /// Writes survey responses as CSV: one row per response, one column per question, except a
     /// likert grid, which gets a column per statement named <c>key[rowValue]</c>.
-    /// Multiple selections are joined with "; ".
+    /// Multiple selections are joined with "; ". A quiz adds <c>score</c> and <c>max_score</c> columns
+    /// after <c>submitted_by</c>, empty for responses sent before the survey became a quiz.
     /// </summary>
     public static class CsvExporter
     {
-        public static string Export(IReadOnlyList<QuestionDefinition> questions, IEnumerable<SurveyResponse> responses)
+        public static string Export(IReadOnlyList<QuestionDefinition> questions, IEnumerable<SurveyResponse> responses,
+            bool includeScores = false)
         {
             var sb = new StringBuilder();
 
             var header = new List<string> { "response_id", "submitted_at", "submitted_by" };
+            if (includeScores)
+            {
+                header.AddRange(["score", "max_score"]);
+            }
             header.AddRange(questions.SelectMany(q => IsLikert(q)
                 ? q.Rows.Select(r => $"{q.Key}[{r.Value}]")
                 : [q.Key]));
@@ -29,6 +35,10 @@ namespace FormFlow.Backend.Services
                     response.SubmittedAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"),
                     response.SubmittedBy ?? string.Empty
                 };
+                if (includeScores)
+                {
+                    row.AddRange([Number(response.Score), Number(response.MaxScore)]);
+                }
                 foreach (var question in questions)
                 {
                     response.Answers.TryGetValue(question.Key, out var values);
@@ -46,6 +56,9 @@ namespace FormFlow.Backend.Services
 
             return sb.ToString();
         }
+
+        private static string Number(decimal? value) =>
+            value?.ToString("0.##", CultureInfo.InvariantCulture) ?? string.Empty;
 
         private static bool IsLikert(QuestionDefinition question) =>
             string.Equals(question.Type, QuestionTypes.Likert, StringComparison.OrdinalIgnoreCase);

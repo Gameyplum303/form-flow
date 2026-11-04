@@ -72,11 +72,13 @@ Endpoints and services only use the repository interfaces, never LiteDB directly
     "first_name": ["Ada"],
     "is_student": ["true"],
     "skills": ["csharp", "sql"]
-  }
+  },
+  "score": null,
+  "maxScore": null
 }
 ```
 
-Every answer is a list of strings, whatever the question type. Answers to hidden questions are never stored.
+Every answer is a list of strings, whatever the question type. Answers to hidden questions are never stored. `score` and `maxScore` are set when the survey is a quiz, from the answer keys at the time of submission, and stay `null` otherwise. A question's answer key is stored on the question document as `answerKey`.
 
 ## Resetting
 

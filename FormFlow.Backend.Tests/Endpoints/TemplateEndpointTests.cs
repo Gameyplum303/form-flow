@@ -20,7 +20,7 @@ namespace FormFlow.Backend.Tests.Endpoints
         private readonly HttpClient _anonymous;
 
         private static readonly string[] TemplateTitles =
-            ["Course evaluation", "Customer satisfaction", "Event feedback", "Research study intake"];
+            ["Course evaluation", "Customer satisfaction", "Event feedback", "Quiz", "Research study intake"];
 
         public TemplateEndpointTests()
         {
@@ -53,7 +53,7 @@ namespace FormFlow.Backend.Tests.Endpoints
             var course = templates.Single(t => t.Title == "Course evaluation");
             course.QuestionCount.Should().Be(10);
             course.PageCount.Should().Be(3);
-            (await TemplatesAsync(_admin)).Should().HaveCount(4);
+            (await TemplatesAsync(_admin)).Should().HaveCount(5);
         }
 
         [Fact]
@@ -141,12 +141,13 @@ namespace FormFlow.Backend.Tests.Endpoints
         [Fact]
         public async Task TemplateQuestions_AreInTheBank_WithPrefixedKeys_AndValid()
         {
-            var questions = (await _anonymous.GetFromJsonAsync<List<QuestionDefinition>>("/api/questions"))!;
-            var prefixes = new[] { "course_eval_", "event_feedback_", "research_intake_", "customer_sat_" };
+            // Administrators manage the templates' questions, so they see the quiz answer keys to validate too.
+            var questions = (await _admin.GetFromJsonAsync<List<QuestionDefinition>>("/api/questions"))!;
+            var prefixes = new[] { "course_eval_", "event_feedback_", "research_intake_", "customer_sat_", "quiz_" };
 
             var templateQuestions = questions.Where(q => prefixes.Any(q.Key.StartsWith)).ToList();
 
-            templateQuestions.Should().HaveCount(10 + 5 + 8 + 7);
+            templateQuestions.Should().HaveCount(10 + 5 + 8 + 7 + 6);
             questions.Select(q => q.Key).Should().OnlyHaveUniqueItems();
             templateQuestions.Should().OnlyContain(q => q.OwnerId == null, "templates belong to the administrators");
             templateQuestions.Should().OnlyContain(q => QuestionTypes.IsKnown(q.Type));
@@ -193,7 +194,7 @@ namespace FormFlow.Backend.Tests.Endpoints
             _factory.Services.GetRequiredService<DatabaseSeeder>().Seed();
             _factory.Services.GetRequiredService<DatabaseSeeder>().Seed();
 
-            repository.FindTemplates().Should().HaveCount(templatesBefore).And.HaveCount(4);
+            repository.FindTemplates().Should().HaveCount(templatesBefore).And.HaveCount(5);
             (await _anonymous.GetFromJsonAsync<List<QuestionDefinition>>("/api/questions"))!.Should().HaveCount(questionsBefore);
             repository.FindAll().Should().ContainSingle(s => s.Title == InMemoryApiFactory.DemoSurveyTitle);
         }
@@ -206,7 +207,7 @@ namespace FormFlow.Backend.Tests.Endpoints
             repository.AssignMissingShareCodes();
 
             repository.FindTemplates().Should().OnlyContain(t => t.ShareCode == null);
-            (await TemplatesAsync()).Should().HaveCount(4);
+            (await TemplatesAsync()).Should().HaveCount(5);
         }
     }
 }

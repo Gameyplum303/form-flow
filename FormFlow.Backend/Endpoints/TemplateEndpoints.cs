@@ -25,6 +25,7 @@ namespace FormFlow.Backend.Endpoints
                         Description = t.Description,
                         QuestionCount = t.QuestionIds.Count,
                         PageCount = t.PageBreaks.Count + 1,
+                        IsQuiz = t.IsQuiz,
                     })
                     .ToList()))
             .WithName("GetTemplates")

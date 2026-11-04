@@ -31,6 +31,8 @@ else
         </div>
         <MudStack Row="true" Spacing="2">
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@($"/admin/surveys/{Id}/share")">Share</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CastForEducation"
+                       Href="@($"/admin/surveys/{Id}/present")">Present live</MudButton>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Download"
@@ -132,6 +134,11 @@ else
                     </MudPaper>
                 }
 
+                @if (_results.Quiz is { } quiz)
+                {
+                    <QuizResultsPanel Summary="quiz" />
+                }
+
                 @for (var index = 0; index < _results.Questions.Count; index++)
                 {
                     var question = _results.Questions[index];
@@ -159,16 +166,7 @@ else
                                     <div><MudText Typo="Typo.caption">Detractors (0–6)</MudText><MudText Typo="Typo.h6" HtmlTag="div">@nps.Detractors</MudText></div>
                                 </MudStack>
                             }
-                            var total = Math.Max(1, question.Options.Sum(o => o.Count));
-                            @foreach (var option in question.Options)
-                            {
-                                var percent = option.Count * 100.0 / total;
-                                <div class="result-row">
-                                    <span class="result-label">@option.Label</span>
-                                    <MudProgressLinear Value="percent" Color="Color.Primary" Size="Size.Large" Class="result-bar" />
-                                    <span class="result-count">@option.Count (@percent.ToString("0")%)</span>
-                                </div>
-                            }
+                            <OptionBars Bars="OptionBar.Of(question.Options, question.Options.Sum(o => o.Count))" />
                         }
                         else if (question.Numbers is { } numbers)
                         {

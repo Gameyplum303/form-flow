@@ -16,5 +16,8 @@ namespace FormFlow.Data.Models
         public List<Option> Rows { get; set; } = new();
         public VisibleIf? VisibleIf { get; set; }
         public string? ValidationConfigs { get; set; }
+
+        /// <summary>How the question is graded in a quiz, or null when it isn't graded.</summary>
+        public AnswerKey? AnswerKey { get; set; }
     }
 }

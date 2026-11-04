@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using FormFlow.Backend.Auth;
+using FormFlow.Backend.Live;
 using FormFlow.Backend.Repositories;
 using FormFlow.Backend.Services;
 using FormFlow.Data.Models;
@@ -21,7 +22,10 @@ namespace FormFlow.Backend.Endpoints
         public string? RespondentId { get; set; }
     }
 
-    /// <summary>Response endpoints: submitting answers, and the results and CSV export for a survey's builders.</summary>
+    /// <summary>
+    /// Response endpoints: submitting answers (graded straight away when the survey is a quiz), and the
+    /// results and CSV export for a survey's builders.
+    /// </summary>
     public static class ResponseEndpoints
     {
         public const string SubmitRateLimit = "submissions";
@@ -36,7 +40,7 @@ namespace FormFlow.Backend.Endpoints
             // Anyone can answer a survey. When the person is signed in, the response records who sent it.
             group.MapPost("/responses", (Guid surveyId, SubmitResponseRequest request, ClaimsPrincipal principal,
                 ISurveyRepository surveys, IQuestionRepository questionRepository, IResponseRepository responses,
-                ResponseValidator validator, TimeProvider clock) =>
+                ResponseValidator validator, TimeProvider clock, ILiveResultsPublisher live) =>
             {
                 var survey = surveys.FindById(surveyId);
                 var user = CurrentUser.From(principal);
@@ -71,6 +75,9 @@ namespace FormFlow.Backend.Endpoints
                     return Results.ValidationProblem(result.Errors);
                 }
 
+                // A quiz is graded on the answers as stored, so hidden questions don't count.
+                var quiz = survey.IsQuiz ? QuizScorer.Score(questions, result.Answers) : null;
+
                 var response = responses.Insert(new SurveyResponse
                 {
                     Id = Guid.NewGuid(),
@@ -78,14 +85,22 @@ namespace FormFlow.Backend.Endpoints
                     SubmittedAt = clock.GetUtcNow().UtcDateTime,
                     SubmittedBy = user.IsSignedIn ? user.Username : null,
                     RespondentId = string.IsNullOrEmpty(respondentId) ? null : respondentId,
-                    Answers = result.Answers
+                    Answers = result.Answers,
+                    Score = quiz?.Score,
+                    MaxScore = quiz?.MaxScore
                 });
+                live.Publish(surveyId);
 
-                return Results.Created($"/api/surveys/{surveyId}/responses/{response.Id}", response);
+                // The question by question review holds the correct answers, so it is only sent when the survey shows them.
+                if (quiz is not null && !survey.ShowsCorrectAnswers())
+                {
+                    quiz.Questions = [];
+                }
+                return Results.Created($"/api/surveys/{surveyId}/responses/{response.Id}", SubmittedResponse.From(response, quiz));
             })
             .WithName("SubmitResponse")
             .RequireRateLimiting(SubmitRateLimit)
-            .Produces<SurveyResponse>(StatusCodes.Status201Created)
+            .Produces<SubmittedResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict)
@@ -157,7 +172,8 @@ namespace FormFlow.Backend.Endpoints
                 {
                     return Results.ValidationProblem(errors);
                 }
-                var csv = CsvExporter.Export(questions, SurveyResultsBuilder.Filter(responses.FindBySurveyId(surveyId), query));
+                var csv = CsvExporter.Export(questions, SurveyResultsBuilder.Filter(responses.FindBySurveyId(surveyId), query),
+                    includeScores: survey.IsQuiz);
                 return Results.File(Encoding.UTF8.GetBytes(csv), "text/csv", $"{FileNameFor(survey.Title)}-responses.csv");
             })
             .WithName("ExportResponses")

@@ -1,4 +1,6 @@
 import { QuestionDefinition } from "./types/QuestionDefinition";
+import { QuizResult } from "./types/Quiz";
+import { RespondentResults } from "./types/RespondentResults";
 import { AnswerErrors, Answers, SurveyDefinition } from "./types/Survey";
 
 /** Base URL of FormFlow.Backend. Override with REACT_APP_API_URL at build time. */
@@ -27,6 +29,18 @@ export function getSurveyByShareCode(code: string): Promise<SurveyDefinition> {
 
 export function getSurveyQuestions(id: string): Promise<QuestionDefinition[]> {
     return getJson<QuestionDefinition[]>(`/api/surveys/${id}/questions`);
+}
+
+/**
+ * The results summary shown after answering, or null when the survey doesn't share its results
+ * (the API answers 404) or the request fails.
+ */
+export async function getRespondentResults(surveyId: string): Promise<RespondentResults | null> {
+    try {
+        return await getJson<RespondentResults>(`/api/surveys/${surveyId}/results/public`);
+    } catch {
+        return null;
+    }
 }
 
 const RESPONDENT_KEY = "formflow.respondent";
@@ -70,10 +84,10 @@ export async function hasAnswered(surveyId: string, respondent: string): Promise
 
 /**
  * The outcome of a submission. `final` means trying again won't help: the survey closed, was
- * taken offline, or this browser already answered it.
+ * taken offline, or this browser already answered it. A quiz comes back with its grade in `quiz`.
  */
 export type SubmitResult =
-    | { ok: true }
+    | { ok: true; quiz?: QuizResult }
     | { ok: false; errors: AnswerErrors; message: string; final?: boolean };
 
 /** Submits answers; validation problems come back keyed by question. */
@@ -85,7 +99,14 @@ export async function submitResponse(surveyId: string, answers: Answers, respond
     });
 
     if (response.ok) {
-        return { ok: true };
+        // The answers are stored either way; a body that can't be read just means no grade to show.
+        let created: { quiz?: QuizResult | null } | null = null;
+        try {
+            created = await response.json();
+        } catch {
+            created = null;
+        }
+        return created?.quiz ? { ok: true, quiz: created.quiz } : { ok: true };
     }
 
     if (response.status === 400) {

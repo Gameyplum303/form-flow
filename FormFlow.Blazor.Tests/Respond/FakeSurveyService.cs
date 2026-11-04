@@ -136,6 +136,7 @@ public sealed class FakeSurveyService : ISurveyService
         survey.Status = sharing.Status;
         survey.Listed = sharing.Listed;
         survey.ClosesAt = sharing.ClosesAt;
+        survey.ShowResultsToRespondents = sharing.ShowResultsToRespondents;
         return Task.FromResult<(SurveyDefinition?, string?)>((survey, null));
     }
 
@@ -165,6 +166,12 @@ public sealed class FakeSurveyService : ISurveyService
         ResultsQueries.Add(query);
         return Task.FromResult(ResultsFor is null ? Results : ResultsFor(query));
     }
+
+    /// <summary>The summaries respondents see, per survey; a survey without one doesn't share its results.</summary>
+    public Dictionary<Guid, RespondentResults> RespondentResults { get; } = new();
+
+    public Task<RespondentResults?> GetRespondentResultsAsync(Guid surveyId) =>
+        Task.FromResult(RespondentResults.GetValueOrDefault(surveyId));
 
     public ResultsQuery? LastExportQuery { get; private set; }
 

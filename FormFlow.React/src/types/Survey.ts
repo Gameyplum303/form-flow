@@ -14,6 +14,12 @@ export interface SurveyDefinition {
     closesAt?: string | null;
     /** The ids of the questions that start a new page. Without any, the survey is one page. */
     pageBreaks?: string[];
+    /** Whether submissions are graded; the respondent sees their score straight after submitting. */
+    isQuiz?: boolean;
+    /** "score" to show the score only, or "answers" to show the correct answers and explanations too. */
+    quizFeedback?: string;
+    /** Whether respondents see a summary of the results after answering. */
+    showResultsToRespondents?: boolean;
 }
 
 /** Answers keyed by question key; multi-select questions hold several values. */

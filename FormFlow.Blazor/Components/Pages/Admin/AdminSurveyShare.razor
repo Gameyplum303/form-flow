@@ -1,7 +1,6 @@
 @page "/admin/surveys/{Id:guid}/share"
 @using System.Globalization
 @using FormFlow.Blazor.Services
-@using QRCoder
 @inject ISurveyService SurveyService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -25,9 +24,13 @@ else if (!Current.CanManage(_survey))
 }
 else
 {
-    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-        <PageHeading CssClass="mb-0">Share "@_survey.Title"</PageHeading>
-        <SurveyStatusChip Survey="_survey" />
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2" Class="mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <PageHeading CssClass="mb-0">Share "@_survey.Title"</PageHeading>
+            <SurveyStatusChip Survey="_survey" />
+        </MudStack>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CastForEducation"
+                   Href="@($"/admin/surveys/{Id}/present")">Present live</MudButton>
     </MudStack>
 
     <MudGrid>
@@ -58,6 +61,15 @@ else
                 </MudStack>
                 <MudText Typo="Typo.caption" Class="d-block mt-1">Leave empty to keep the survey open until you unpublish it.</MudText>
 
+                <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-4 mb-2">After answering</MudText>
+                <MudCheckBox T="bool" @bind-Value="_showResults" Color="Color.Primary" data-show-results>
+                    Show respondents the results so far
+                </MudCheckBox>
+                <MudText Typo="Typo.caption" Class="d-block">
+                    They see how many picked each answer of the yes/no, choice, rating and NPS questions.
+                    Written answers, numbers and dates stay private, and so does who answered.
+                </MudText>
+
                 <MudButton Class="mt-4" Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveAsync">
                     Save sharing settings
                 </MudButton>
@@ -76,7 +88,7 @@ else
                 {
                     <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">The link works for everyone once you publish the survey.</MudAlert>
                 }
-                <div class="share-qr mt-3" data-share-qr>@QrCode</div>
+                <ShareQrCode Url="@Link" CssClass="mt-3" />
                 <MudText Typo="Typo.caption">Students can scan this to open the survey on their phones.</MudText>
             </MudPaper>
         </MudItem>
@@ -97,6 +109,7 @@ else
     private string _status = SurveyStatuses.Draft;
     private bool _listed;
     private DateTime? _closesAtUtc;
+    private bool _showResults;
 
     /// <summary>Minutes from the browser's local time to UTC, so the close time is entered in local time.</summary>
     private int _timezoneOffset;
@@ -118,16 +131,6 @@ else
             : null;
     }
 
-    private MarkupString QrCode
-    {
-        get
-        {
-            using var generator = new QRCodeGenerator();
-            using var data = generator.CreateQrCode(Link, QRCodeGenerator.ECCLevel.M);
-            return new MarkupString(new SvgQRCode(data).GetGraphic(4));
-        }
-    }
-
     protected override async Task OnInitializedAsync()
     {
         _survey = await SurveyService.GetSurveyAsync(Id);
@@ -136,6 +139,7 @@ else
             _status = _survey.Status;
             _listed = _survey.Listed;
             _closesAtUtc = _survey.ClosesAt;
+            _showResults = _survey.ShowResultsToRespondents;
         }
         _loading = false;
     }
@@ -160,6 +164,7 @@ else
             Status = _status,
             Listed = _status == SurveyStatuses.Published && _listed,
             ClosesAt = _closesAtUtc,
+            ShowResultsToRespondents = _showResults,
         });
         _saving = false;
 
