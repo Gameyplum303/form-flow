@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using FormFlow.Backend.Auth;
+using FormFlow.Backend.Live;
 using FormFlow.Backend.Repositories;
 using FormFlow.Backend.Services;
 using FormFlow.Data.Models;
@@ -39,7 +40,7 @@ namespace FormFlow.Backend.Endpoints
             // Anyone can answer a survey. When the person is signed in, the response records who sent it.
             group.MapPost("/responses", (Guid surveyId, SubmitResponseRequest request, ClaimsPrincipal principal,
                 ISurveyRepository surveys, IQuestionRepository questionRepository, IResponseRepository responses,
-                ResponseValidator validator, TimeProvider clock) =>
+                ResponseValidator validator, TimeProvider clock, ILiveResultsPublisher live) =>
             {
                 var survey = surveys.FindById(surveyId);
                 var user = CurrentUser.From(principal);
@@ -88,6 +89,7 @@ namespace FormFlow.Backend.Endpoints
                     Score = quiz?.Score,
                     MaxScore = quiz?.MaxScore
                 });
+                live.Publish(surveyId);
 
                 // The question by question review holds the correct answers, so it is only sent when the survey shows them.
                 if (quiz is not null && !survey.ShowsCorrectAnswers())

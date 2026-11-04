@@ -49,6 +49,8 @@ namespace FormFlow.Data.Models
         // Quiz mode: grade answers on submit, and what the respondent sees then
         public bool IsQuiz { get; set; }
         public string QuizFeedback { get; set; } = QuizFeedbackModes.Score; // "score" or "answers"
+        // Show respondents a summary of the results after they answer
+        public bool ShowResultsToRespondents { get; set; }
     }
 }
 ```
@@ -64,6 +66,8 @@ namespace FormFlow.Data.Models
 * **PageBreaks** lists the questions that start a new page. It is empty for a one-page survey, and the API keeps only questions in the survey other than the first, in survey order. See [api.md](api.md#pages).
 * **IsTemplate** marks the seeded templates. See [api.md](api.md#templates).
 * **IsQuiz** grades each response against its questions' answer keys when it's submitted. **QuizFeedback** is `score` to show the respondent only their score, or `answers` to also show each correct answer and explanation. Duplicating a survey or using a template keeps both. See [api.md](api.md#quizzes).
+* **ShowResultsToRespondents** is set with the other sharing settings and is `false` for new surveys and for surveys stored before it existed. When it's on and the survey is published, `GET /api/surveys/{id}/results/public` returns counts for its fixed-answer questions, which the thank-you screens show. Duplicating a survey or using a template keeps it. See [api.md](api.md#get-apisurveysidresultspublic).
+* **ShareCode** is 8 characters from `23456789abcdefghjkmnpqrstuvwxyz`, and lookups ignore capitals, spaces and dashes (`ShareCodes.Normalize` in FormFlow.Data, shared by the API and the Blazor app).
 
 ---
 

@@ -31,12 +31,20 @@
         {
             <QuizScoreCard Result="_quiz" />
         }
+        @if (_survey.ShowResultsToRespondents)
+        {
+            <RespondentResultsSummary SurveyId="_survey.Id" />
+        }
         <MudButton Variant="Variant.Text" Href="/surveys">Back to surveys</MudButton>
     }
     else if (ClosedMessage is { } closed)
     {
         <PageHeading CssClass="mb-2">@_survey.Title</PageHeading>
         <MudAlert Severity="Severity.Info" Class="mb-4" data-survey-closed>@closed</MudAlert>
+        @if (_survey.ShowResultsToRespondents && _survey.IsPublished())
+        {
+            <RespondentResultsSummary SurveyId="_survey.Id" />
+        }
         <MudButton Variant="Variant.Text" Href="/surveys">Back to surveys</MudButton>
     }
     else

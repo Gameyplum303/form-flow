@@ -1,5 +1,6 @@
 import { QuestionDefinition } from "./types/QuestionDefinition";
 import { QuizResult } from "./types/Quiz";
+import { RespondentResults } from "./types/RespondentResults";
 import { AnswerErrors, Answers, SurveyDefinition } from "./types/Survey";
 
 /** Base URL of FormFlow.Backend. Override with REACT_APP_API_URL at build time. */
@@ -28,6 +29,18 @@ export function getSurveyByShareCode(code: string): Promise<SurveyDefinition> {
 
 export function getSurveyQuestions(id: string): Promise<QuestionDefinition[]> {
     return getJson<QuestionDefinition[]>(`/api/surveys/${id}/questions`);
+}
+
+/**
+ * The results summary shown after answering, or null when the survey doesn't share its results
+ * (the API answers 404) or the request fails.
+ */
+export async function getRespondentResults(surveyId: string): Promise<RespondentResults | null> {
+    try {
+        return await getJson<RespondentResults>(`/api/surveys/${surveyId}/results/public`);
+    } catch {
+        return null;
+    }
 }
 
 const RESPONDENT_KEY = "formflow.respondent";

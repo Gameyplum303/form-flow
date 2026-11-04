@@ -58,6 +58,12 @@ namespace FormFlow.Data.Models
         /// <summary>Whether respondents see the correct answers and explanations after submitting a quiz.</summary>
         public bool ShowsCorrectAnswers() => IsQuiz && QuizFeedback == QuizFeedbackModes.Answers;
 
+        /// <summary>
+        /// Whether respondents see a summary of everyone's answers to the questions with fixed answers
+        /// after they submit (see <see cref="RespondentResults"/>). Set on the Share page; off by default.
+        /// </summary>
+        public bool ShowResultsToRespondents { get; set; }
+
         public bool IsPublished() => Status == SurveyStatuses.Published;
 
         public bool IsClosed(DateTime utcNow) => ClosesAt is { } closesAt && closesAt <= utcNow;
@@ -98,5 +104,8 @@ namespace FormFlow.Data.Models
 
         /// <summary>When the survey stops taking answers, or null to stay open.</summary>
         public DateTime? ClosesAt { get; set; }
+
+        /// <summary>Whether respondents see a summary of the results after answering.</summary>
+        public bool ShowResultsToRespondents { get; set; }
     }
 }

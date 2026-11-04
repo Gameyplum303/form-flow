@@ -115,6 +115,9 @@ namespace FormFlow.Blazor.Services
         public Task<SurveyResults?> GetResultsAsync(Guid surveyId, ResultsQuery? query = null) =>
             GetOrNullAsync<SurveyResults>(WithQuery($"api/surveys/{surveyId}/results", query));
 
+        public Task<RespondentResults?> GetRespondentResultsAsync(Guid surveyId) =>
+            GetOrNullAsync<RespondentResults>($"api/surveys/{surveyId}/results/public");
+
         public Task<CsvExport?> ExportResponsesAsync(Guid surveyId, ResultsQuery? query = null) =>
             ApiErrors.TryAsync(async () =>
             {

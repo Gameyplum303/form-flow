@@ -188,6 +188,7 @@ namespace FormFlow.Backend
                     IsTemplate = true,
                     Status = SurveyStatuses.Draft,
                     Listed = false,
+                    ShowResultsToRespondents = template.ShowResultsToRespondents,
                 });
                 added++;
             }
@@ -208,6 +209,9 @@ namespace FormFlow.Backend
             public List<string> PageBreaks { get; set; } = [];
             public bool IsQuiz { get; set; }
             public string? QuizFeedback { get; set; }
+
+            /// <summary>Whether surveys made from the template show respondents the results after answering.</summary>
+            public bool ShowResultsToRespondents { get; set; }
         }
 
         private string SeedFilePath => Path.Combine(_env.ContentRootPath, "SeedData", "questions.json");

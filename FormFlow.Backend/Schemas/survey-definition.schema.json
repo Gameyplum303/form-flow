@@ -50,6 +50,10 @@
             "default": "score",
             "description": "What respondents see after submitting a quiz: their score only, or their score with each correct answer and explanation."
         },
+        "showResultsToRespondents": {
+            "type": "boolean",
+            "description": "Whether respondents see a summary of the results so far after they answer."
+        },
         "version": {
             "type": "integer",
             "description": "Version number of the survey definition."

@@ -88,6 +88,17 @@
                             Results
                         </MudButton>
 
+                        @if (Current.CanManage(context))
+                        {
+                            <MudTooltip Text="Present live">
+                                <MudIconButton Icon="@Icons.Material.Filled.CastForEducation"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               Href="@($"/admin/surveys/{context.Id}/present")"
+                                               aria-label="@($"Present {context.Title} live")" />
+                            </MudTooltip>
+                        }
+
                         @if (Current.CanBuild)
                         {
                             <MudTooltip Text="Duplicate">

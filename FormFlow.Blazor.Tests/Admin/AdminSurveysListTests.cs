@@ -63,7 +63,8 @@ namespace FormFlow.Blazor.Tests.Admin
 
         /// <summary>The links in the survey's row, by text, so they open like any link (also in a new tab).</summary>
         private static Dictionary<string, string?> RowLinks(IRenderedComponent<AdminSurveysList> cut, int row = 0) =>
-            cut.FindAll("tbody tr")[row].QuerySelectorAll("a").ToDictionary(a => a.TextContent.Trim(), a => a.GetAttribute("href"));
+            cut.FindAll("tbody tr")[row].QuerySelectorAll("a")
+                .ToDictionary(a => a.TextContent.Trim() is { Length: > 0 } text ? text : a.GetAttribute("aria-label")!, a => a.GetAttribute("href"));
 
         [Fact]
         public async Task SurveyList_LinksToEachSurveysPages()
@@ -81,6 +82,7 @@ namespace FormFlow.Blazor.Tests.Admin
                 ["Share"] = $"/admin/surveys/{survey.Id}/share",
                 ["Preview"] = $"/admin/surveys/{survey.Id}/preview",
                 ["Results"] = $"/admin/surveys/{survey.Id}/results",
+                ["Present Survey A live"] = $"/admin/surveys/{survey.Id}/present",
             });
         }
 

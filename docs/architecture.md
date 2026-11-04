@@ -30,16 +30,18 @@ flowchart LR
 
 - `Models/`: `QuestionDefinition`, `Option`, `VisibleIf`, `SurveyDefinition`, `SurveyResponse`, `SurveyResults`, the `NewQuestion` and `NewSurvey` request bodies, and `QuestionTypes` (the fourteen supported types and helpers such as `IsChoice`).
 - `Services/QuestionValidator`: checks that a question definition is well formed.
+- `Services/ShareCodes`: the share code alphabet, and reading a code typed by hand (`K7M2 P9QA`) or pasted as a link.
 - `Services/Validation/QuestionValidationEngine`: applies a question's `validationConfigs` rules (min/max length, min/max value, range) to an answer.
 - `Services/ResponseValidator`: checks a full submission against a survey's questions and normalizes the answers.
 - `Services/VisibilityEvaluator`: works out which questions are visible for a set of answers.
 
 **`FormFlow.Backend`** is an ASP.NET Core minimal API.
 
-- `Endpoints/`: one static class per resource (`QuestionEndpoints`, `SurveyEndpoints`, `ResponseEndpoints`), each mapping a `MapGroup` with OpenAPI metadata.
+- `Endpoints/`: one static class per resource (`QuestionEndpoints`, `SurveyEndpoints`, `ResponseEndpoints`, `LiveResultsEndpoints` and others), each mapping a `MapGroup` with OpenAPI metadata.
 - `Repositories/`: interfaces and LiteDB implementations for the `questions`, `surveys`, `responses`, `users` and `account_tokens` collections.
 - `Email/`: the verification and password reset emails, sent through SMTP or kept in an in-memory outbox.
-- `Services/`: `SurveyResultsBuilder` aggregates responses for the results page, `CsvExporter` writes the CSV download.
+- `Services/`: `SurveyResultsBuilder` aggregates responses for the results page, `RespondentResultsBuilder` makes the smaller summary respondents may see, `CsvExporter` writes the CSV download.
+- `Live/`: the live results stream. `ILiveResultsPublisher` (a singleton) tells subscribers that a survey has new responses, and `LiveResultsStream` writes them to a server-sent events response.
 - `DatabaseSeeder`: loads `SeedData/questions.json` into an empty database and creates the demo survey.
 - `Program.cs`: dependency injection, CORS, problem details, OpenAPI and Swagger UI.
 
@@ -50,7 +52,7 @@ flowchart LR
 - `Components/SurveyForm.razor`: renders a list of questions, tracks answers, hides questions whose visibility rule isn't met, and shows server errors next to each question.
 - `Components/Pages/Admin/`: question and survey management, preview and results.
 - `Components/Pages/Respond/`: survey list and the take-survey page.
-- `Services/`: typed `HttpClient` wrappers for the API (`QuestionService`, `SurveyService`).
+- `Services/`: typed `HttpClient` wrappers for the API (`QuestionService`, `SurveyService`, and `LiveResultsClient`, which reads the live results stream), and `LiveResultsConnection`, which keeps the presenter view connected.
 
 **`FormFlow.React`** is a React 19 + TypeScript client for respondents. See [react-components.md](react-components.md).
 
@@ -67,6 +69,28 @@ flowchart LR
    - runs the question's validation rules.
 5. If anything fails, the API returns `400` with RFC 7807 problem details keyed by question key, and the client shows each message under its question. Otherwise, for a quiz, `QuizScorer` grades the normalized answers. The answers (and the score) are stored and the API returns `201`, with the grade for a quiz.
 
+## Live results
+
+```mermaid
+sequenceDiagram
+    participant P as Presenter (browser)
+    participant B as FormFlow.Blazor (server)
+    participant A as FormFlow.Backend
+    participant S as Student (phone)
+    P->>B: open /admin/surveys/{id}/present (SignalR circuit)
+    B->>A: GET /api/surveys/{id}/results/live (Bearer token)
+    A-->>B: event: results (current counts)
+    S->>A: POST /api/surveys/{id}/responses
+    A->>A: ILiveResultsPublisher.Publish(id)
+    A-->>B: event: results (new counts, at most two a second)
+    B-->>P: re-render the count and bars
+```
+
+1. The presenter page runs on the Blazor server, so the server holds the stream open with the signed-in builder's token. Browsers' `EventSource` can't send that header, and the token never leaves the server.
+2. Each stream subscribes to its survey on the publisher. A subscription is a channel holding at most one "something changed" signal, so a burst of submissions becomes one update, and the stream waits at least `MinUpdateInterval` between updates.
+3. On each update the stream rebuilds the results from the database with `SurveyResultsBuilder`, so they match the results page exactly and nothing is cached between requests.
+4. `LiveResultsConnection` in the Blazor app reconnects with growing delays when the stream drops, and treats 45 seconds without even a keep-alive as a drop.
+
 ## Design decisions
 
 - **Questions are referenced by key in answers and rules.** Keys are readable in CSV exports and in `visibleIf` rules. Because stored answers depend on them, the API refuses to rename a key that a survey or rule uses, and refuses to delete a question that something depends on.
@@ -75,4 +99,6 @@ flowchart LR
 - **Answers are stored as lists of strings.** Every question type fits one shape (`Dictionary<string, List<string>>`), which keeps storage, results and CSV export simple. The validator normalizes values on the way in, such as `yes` to `true`.
 - **The API enforces sign-in, not the clients.** Changes require a JWT with the `admin` role and reading responses requires any signed-in role, so hiding pages and buttons in the Blazor app is only a convenience. The Blazor app keeps the token per browser tab in encrypted session storage and adds it to its API calls. Respondents never need an account.
 - **Answer keys stay on the server until they're needed.** The public question endpoints leave `answerKey` out unless the caller manages the question or survey, and quizzes are graded on the server, so a respondent can't read the answers in the browser before submitting. The score is stored with the response at submission, so editing a key later doesn't change grades students have already seen.
+- **Server-sent events for live results, published in process.** Updates only flow one way, so SSE over plain HTTP is enough, with no WebSocket server in the API. The publisher is an in-memory singleton behind `ILiveResultsPublisher`, which works for one API instance; running several would need a shared bus (such as Redis pub/sub) behind the same interface.
+- **Respondents see counts, never answers.** The public summary only covers questions with fixed answers and holds no ids, times or names, so turning it on can't reveal who said what or any written answer.
 - **LiteDB instead of a database server.** The app runs with `dotnet run` and nothing else. Repositories hide LiteDB behind interfaces, so moving to SQL would only touch the repository classes.

@@ -18,6 +18,8 @@ export interface SurveyDefinition {
     isQuiz?: boolean;
     /** "score" to show the score only, or "answers" to show the correct answers and explanations too. */
     quizFeedback?: string;
+    /** Whether respondents see a summary of the results after answering. */
+    showResultsToRespondents?: boolean;
 }
 
 /** Answers keyed by question key; multi-select questions hold several values. */
