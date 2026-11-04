@@ -38,6 +38,7 @@ Represents a single question in a dynamic form.
 | `Rows`              | `List<Option>` | No (default: empty) | The statements (rows) of a likert grid. JSON name `rows`. Empty for other types. |
 | `VisibleIf`         | `VisibleIf?`   | No                 | Conditional visibility rule.                          |
 | `ValidationConfigs` | `string?`      | No                 | JSON‑serialized array of validation rule objects.    |
+| `AnswerKey`         | `AnswerKey?`   | No                 | What counts as right when the question is in a quiz. Only people who can manage the question or its survey receive it. |
 
 ---
 
@@ -64,6 +65,24 @@ Defines a conditional visibility rule for a question.
 This allows questions to appear only when another question’s answer matches a specific boolean value. The controlling question must be a `yes_no` question, and a question can't depend on itself. Rules can chain (C depends on B, which depends on A); a question in a circular chain is treated as hidden.
 
 Answers to hidden questions are dropped when a response is submitted, and hidden questions are never required.
+
+---
+
+### **AnswerKey**
+
+The correct answer to a gradable question (`radio`, `dropdown`, `yes_no`, `checkbox` with options, `multiselect`, `number` or `text`), used when the question is in a quiz.
+
+| Property         | Type           | Required        | Description |
+| ---------------- | -------------- | --------------- | ----------- |
+| `CorrectAnswers` | `List<string>` | Yes             | Option values for choice questions, `"true"` or `"false"` for yes/no, one number for a number question, or every accepted answer for a text question. Radio, dropdown, yes/no and number questions take exactly one. |
+| `Points`         | `decimal`      | No (default: 1) | What the question is worth, from 0 to 1000. |
+| `Explanation`    | `string?`      | No              | Shown with the correct answer after submitting, when the quiz shows answers. Up to 2000 characters. |
+
+Text answers are matched ignoring case and surrounding spaces. Checkbox and multiselect questions earn `Points × (correct choices − wrong choices) ÷ correct answers`, never below 0, and only the exact set is marked correct. See [api.md](api.md#quizzes) for the full grading rules.
+
+```json
+"answerKey": { "correctAnswers": ["8"], "points": 1, "explanation": "A byte is 8 bits, enough for 256 different values." }
+```
 
 ---
 

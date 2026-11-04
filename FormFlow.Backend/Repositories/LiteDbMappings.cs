@@ -19,6 +19,7 @@ namespace FormFlow.Backend.Repositories
             BsonMapper.Global.Entity<QuestionDefinition>();
             BsonMapper.Global.Entity<Option>();
             BsonMapper.Global.Entity<VisibleIf>();
+            BsonMapper.Global.Entity<AnswerKey>();
             BsonMapper.Global.Entity<SurveyDefinition>();
             BsonMapper.Global.Entity<SurveyResponse>();
             BsonMapper.Global.Entity<AdminUser>();

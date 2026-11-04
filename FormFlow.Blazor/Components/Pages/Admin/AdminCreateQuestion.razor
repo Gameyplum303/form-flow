@@ -1,5 +1,6 @@
 @page "/admin/questions/create"
 @page "/admin/questions/{Id:guid}/edit"
+@using System.Globalization
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using FormFlow.Blazor.Services
@@ -230,6 +231,65 @@
             </MudGrid>
         }
 
+        @if (IsGradable)
+        {
+            <div data-answer-key>
+                <MudText Typo="Typo.subtitle1" Class="mb-1">Answer key (for quizzes)</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                    Grades the question when a survey is a quiz. Leave the correct answer empty if it isn't graded.
+                </MudText>
+
+                @if (IsChoiceAnswer)
+                {
+                    <MudSelect T="string" Variant="Variant.Outlined" Label="Correct answer" @bind-Value="_correctChoice"
+                               Clearable="true" Placeholder="Not graded" Class="mb-3" data-correct-choice>
+                        @foreach (var option in AnswerChoices)
+                        {
+                            <MudSelectItem T="string" Value="@option.Value">@option.Label</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+                else if (IsSetAnswer)
+                {
+                    <MudText Typo="Typo.body2" Class="mb-1">Correct options</MudText>
+                    <div class="d-flex flex-column mb-1" data-correct-options>
+                        @foreach (var option in AnswerChoices)
+                        {
+                            var value = option.Value;
+                            <MudCheckBox T="bool" Value="@_correctOptions.Contains(value)" ValueChanged="@(on => SetCorrectOption(value, on))"
+                                         Label="@option.Label" Color="Color.Primary" Dense="true" />
+                        }
+                    </div>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-3">
+                        The exact set is fully correct. Each correct option ticked earns a share of the points and each wrong one takes a share away, never below zero.
+                    </MudText>
+                }
+                else if (IsType(QuestionTypes.Number))
+                {
+                    <MudNumericField T="decimal?" Variant="Variant.Outlined" Label="Correct value" @bind-Value="_correctNumber"
+                                     Clearable="true" HideSpinButtons="true" Class="mb-3" data-correct-number />
+                }
+                else
+                {
+                    <MudTextField T="string" Variant="Variant.Outlined" Label="Accepted answers" @bind-Value="_acceptedAnswers"
+                                  Lines="3" Immediate="true" Class="mb-3" data-accepted-answers
+                                  HelperText="One per line. Matching ignores capital letters and spaces at either end." />
+                }
+
+                <MudGrid Class="mb-4">
+                    <MudItem xs="4">
+                        <MudNumericField T="decimal" Variant="Variant.Outlined" Label="Points" @bind-Value="_points"
+                                         Min="0" Max="@AnswerKey.MaxPoints" data-points />
+                    </MudItem>
+                    <MudItem xs="8">
+                        <MudTextField T="string" Variant="Variant.Outlined" Label="Explanation" @bind-Value="_explanation"
+                                      Lines="2" Immediate="true" MaxLength="@AnswerKey.MaxExplanationLength" data-explanation
+                                      HelperText="Shown after submitting, when the quiz shows the correct answers." />
+                    </MudItem>
+                </MudGrid>
+            </div>
+        }
+
         <MudText Typo="Typo.subtitle1" Class="mb-2">Visibility</MudText>
         @if (_bankError)
         {
@@ -315,7 +375,31 @@
     private string? _visibleIfKey;
     private bool _visibleIfEquals = true;
 
+    // The answer key, kept per kind of answer so switching type doesn't send a stale one (see BuildAnswerKey).
+    private string? _correctChoice;
+    private HashSet<string> _correctOptions = new();
+    private decimal? _correctNumber;
+    private string? _acceptedAnswers;
+    private decimal _points = AnswerKey.DefaultPoints;
+    private string? _explanation;
+
     private bool IsEdit => Id is not null;
+
+    private bool IsGradable => QuestionTypes.IsGradable(_newQuestion.Type, AnswerChoices.Count);
+
+    /// <summary>Radio, dropdown and yes/no have one correct choice.</summary>
+    private bool IsChoiceAnswer => IsType(QuestionTypes.Radio) || IsType(QuestionTypes.Dropdown) || IsType(QuestionTypes.YesNo);
+
+    /// <summary>Checkbox and multiselect are graded on the set of options picked.</summary>
+    private bool IsSetAnswer => IsType(QuestionTypes.Checkbox) || IsType(QuestionTypes.Multiselect);
+
+    private static readonly List<Option> YesNoChoices =
+        [new Option { Value = "true", Label = "Yes" }, new Option { Value = "false", Label = "No" }];
+
+    /// <summary>The answers a correct choice can be: Yes and No, or the options entered so far.</summary>
+    private List<Option> AnswerChoices => IsType(QuestionTypes.YesNo)
+        ? YesNoChoices
+        : _newQuestion.Options.Where(o => !string.IsNullOrWhiteSpace(o.Value)).ToList();
 
     private bool IsOptionBasedType => QuestionTypes.IsChoice(_newQuestion.Type);
     private bool IsLikert => IsType(QuestionTypes.Likert);
@@ -398,6 +482,56 @@
         _visibleIfKey = q.VisibleIf?.Key;
         _visibleIfEquals = q.VisibleIf?.ShouldEqual ?? true;
         ReadRules(q.ValidationConfigs);
+        ReadAnswerKey(q.AnswerKey);
+    }
+
+    private void ReadAnswerKey(AnswerKey? key)
+    {
+        var correct = key?.CorrectAnswers ?? [];
+        _correctChoice = IsChoiceAnswer ? correct.FirstOrDefault() : null;
+        _correctOptions = IsSetAnswer ? correct.ToHashSet() : new();
+        _correctNumber = IsType(QuestionTypes.Number)
+            && decimal.TryParse(correct.FirstOrDefault(), NumberStyles.Number, CultureInfo.InvariantCulture, out var number)
+                ? number : null;
+        _acceptedAnswers = IsType(QuestionTypes.Text) ? string.Join("\n", correct) : null;
+        _points = key?.Points ?? AnswerKey.DefaultPoints;
+        _explanation = key?.Explanation;
+    }
+
+    private void SetCorrectOption(string value, bool correct)
+    {
+        if (correct)
+        {
+            _correctOptions.Add(value);
+        }
+        else
+        {
+            _correctOptions.Remove(value);
+        }
+    }
+
+    /// <summary>
+    /// The answer key for the type the question has now, or null when it has no correct answer (or its
+    /// type can't be graded). Choices that are no longer options are left out.
+    /// </summary>
+    private AnswerKey? BuildAnswerKey()
+    {
+        if (!IsGradable)
+        {
+            return null;
+        }
+        var choices = AnswerChoices.Select(o => o.Value).ToList();
+        List<string> correct = IsChoiceAnswer ? (_correctChoice is { } choice && choices.Contains(choice) ? [choice] : [])
+            : IsSetAnswer ? choices.Where(_correctOptions.Contains).ToList()
+            : IsType(QuestionTypes.Number) ? (_correctNumber is { } number ? [number.ToString(CultureInfo.InvariantCulture)] : [])
+            : (_acceptedAnswers ?? string.Empty).Split('\n').Select(a => a.Trim()).Where(a => a.Length > 0).Distinct().ToList();
+
+        return correct.Count == 0 ? null : new AnswerKey
+        {
+            CorrectAnswers = correct,
+            Points = _points,
+            Explanation = string.IsNullOrWhiteSpace(_explanation) ? null : _explanation.Trim(),
+        };
     }
 
     private void ReadRules(string? json)
@@ -492,6 +626,7 @@
                 _newQuestion.Rows = new();
             }
             _newQuestion.ValidationConfigs = BuildRules();
+            _newQuestion.AnswerKey = BuildAnswerKey();
             _newQuestion.VisibleIf = _visibleIfKey is null
                 ? null
                 : new VisibleIf { Key = _visibleIfKey, ShouldEqual = _visibleIfEquals };
@@ -512,6 +647,7 @@
                 _minLength = _maxLength = _minValue = _maxValue = null;
                 _visibleIfKey = null;
                 _visibleIfEquals = true;
+                ReadAnswerKey(null);
                 _isValid = false;
                 _form = null;
                 _bank = await QuestionService.GetAllQuestionsAsync() ?? _bank;

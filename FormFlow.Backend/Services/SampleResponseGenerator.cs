@@ -7,7 +7,8 @@ namespace FormFlow.Backend.Services
     /// <summary>
     /// Makes believable answers to a survey, so a fresh demo has results, charts and a timeline to
     /// explore. Every response goes through <see cref="ResponseValidator"/>, like a real one, so
-    /// hidden questions stay unanswered and anything the rules reject is left out.
+    /// hidden questions stay unanswered and anything the rules reject is left out. A quiz's responses
+    /// are graded like real ones too.
     /// </summary>
     public static class SampleResponseGenerator
     {
@@ -45,12 +46,15 @@ namespace FormFlow.Backend.Services
                 {
                     continue;
                 }
+                var quiz = survey.IsQuiz ? QuizScorer.Score(questions, result.Answers) : null;
                 responses.Add(new SurveyResponse
                 {
                     Id = Guid.NewGuid(),
                     SurveyId = survey.Id,
                     SubmittedAt = SubmittedAt(random, now),
-                    Answers = result.Answers
+                    Answers = result.Answers,
+                    Score = quiz?.Score,
+                    MaxScore = quiz?.MaxScore
                 });
             }
             return responses.OrderBy(r => r.SubmittedAt).ToList();

@@ -182,6 +182,8 @@ namespace FormFlow.Backend
                     QuestionIds = questionIds,
                     PageBreaks = SurveyPaging.Normalize(questionIds,
                         template.PageBreaks.Where(idsByKey.ContainsKey).Select(k => idsByKey[k])),
+                    IsQuiz = template.IsQuiz,
+                    QuizFeedback = QuizFeedbackModes.IsKnown(template.QuizFeedback) ? template.QuizFeedback! : QuizFeedbackModes.Score,
                     CreatedAt = _clock.GetUtcNow().UtcDateTime,
                     IsTemplate = true,
                     Status = SurveyStatuses.Draft,
@@ -204,6 +206,8 @@ namespace FormFlow.Backend
             public string Description { get; set; } = string.Empty;
             public List<QuestionDefinition> Questions { get; set; } = [];
             public List<string> PageBreaks { get; set; } = [];
+            public bool IsQuiz { get; set; }
+            public string? QuizFeedback { get; set; }
         }
 
         private string SeedFilePath => Path.Combine(_env.ContentRootPath, "SeedData", "questions.json");

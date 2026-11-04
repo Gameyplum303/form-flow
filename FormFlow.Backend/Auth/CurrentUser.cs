@@ -56,6 +56,21 @@ namespace FormFlow.Backend.Auth
             return item;
         }
 
+        /// <summary>
+        /// Hides a question's quiz answer key (its correct answers and explanation) unless the caller can
+        /// manage the question, or the survey it is being served with. Respondents load questions through
+        /// the same endpoints, so this is what keeps the key from reaching them. Like
+        /// <see cref="ShowOwnerToBuilders{T}"/>, it changes the fresh copy the repository returned.
+        /// </summary>
+        public QuestionDefinition ShowAnswerKeyToManagers(QuestionDefinition question, SurveyDefinition? survey = null)
+        {
+            if (!CanManage(question) && (survey is null || !CanManage(survey)))
+            {
+                question.AnswerKey = null;
+            }
+            return question;
+        }
+
         /// <summary>Marks a new item as created by this account.</summary>
         public void Own(IOwned item)
         {

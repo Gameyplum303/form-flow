@@ -90,6 +90,31 @@
     "helpText": {
       "type": "string",
       "description": "Optional guidance for the user."
+    },
+    "answerKey": {
+      "type": ["object", "null"],
+      "description": "How the question is graded in a quiz. Only radio, dropdown, yes_no, checkbox (with options), multiselect, number and text questions can have one. The API only returns it to the people who manage the question or a survey that uses it.",
+      "properties": {
+        "correctAnswers": {
+          "type": "array",
+          "description": "One option value for radio and dropdown, \"true\" or \"false\" for yes_no, the exact set of option values for checkbox and multiselect, one number for number, and every accepted answer for text (matched ignoring case and spaces at either end).",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "points": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 1,
+          "description": "What a correct answer is worth. Checkbox and multiselect answers can earn part of it."
+        },
+        "explanation": {
+          "type": ["string", "null"],
+          "maxLength": 2000,
+          "description": "Shown after submitting when the survey shows the correct answers."
+        }
+      },
+      "required": ["correctAnswers"]
     }
   },
   "required": ["id", "key", "label", "type"],

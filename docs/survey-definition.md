@@ -45,6 +45,10 @@ namespace FormFlow.Data.Models
 
         // A read-only template that builders copy (never listed, answered or shared)
         public bool IsTemplate { get; set; }
+
+        // Quiz mode: grade answers on submit, and what the respondent sees then
+        public bool IsQuiz { get; set; }
+        public string QuizFeedback { get; set; } = QuizFeedbackModes.Score; // "score" or "answers"
     }
 }
 ```
@@ -54,11 +58,12 @@ namespace FormFlow.Data.Models
 * **Id** is the LiteDB primary key.
 * **QuestionIds** preserves question order — the order of GUIDs is the order questions appear in the survey.
 * All fields are **required** and enforced by C# 11 `required` properties.
-* Clients create and update surveys with the `NewSurvey` body (`title`, `description`, `questionIds`, optional `pageBreaks`). The API sets `id` and `createdAt`. See [api.md](api.md#surveys).
+* Clients create and update surveys with the `NewSurvey` body (`title`, `description`, `questionIds`, optional `pageBreaks`, `isQuiz` and `quizFeedback`). The API sets `id` and `createdAt`. See [api.md](api.md#surveys).
 * Missing required fields during JSON deserialization will throw a `JsonException`.
 * **Status**, **Listed**, **ShareCode** and **ClosesAt** are the sharing settings. The defaults (published and listed) describe surveys stored before sharing existed; the API creates new surveys as unlisted drafts. See [api.md](api.md#sharing).
 * **PageBreaks** lists the questions that start a new page. It is empty for a one-page survey, and the API keeps only questions in the survey other than the first, in survey order. See [api.md](api.md#pages).
 * **IsTemplate** marks the seeded templates. See [api.md](api.md#templates).
+* **IsQuiz** grades each response against its questions' answer keys when it's submitted. **QuizFeedback** is `score` to show the respondent only their score, or `answers` to also show each correct answer and explanation. Duplicating a survey or using a template keeps both. See [api.md](api.md#quizzes).
 
 ---
 
@@ -73,6 +78,8 @@ namespace FormFlow.Data.Models
 | `createdAt`   | `CreatedAt`   | `DateTime`   | Yes      | ISO 8601 timestamp           |
 | `pageBreaks`  | `PageBreaks`  | `List<Guid>` | No       | Questions that start a page  |
 | `isTemplate`  | `IsTemplate`  | `bool`       | No       | A seeded, read-only template |
+| `isQuiz`      | `IsQuiz`      | `bool`       | No       | Grade answers on submit      |
+| `quizFeedback` | `QuizFeedback` | `string`   | No       | `score` (default) or `answers` |
 
 ### Casing Behavior
 

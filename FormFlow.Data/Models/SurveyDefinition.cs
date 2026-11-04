@@ -41,6 +41,23 @@ namespace FormFlow.Data.Models
         /// </summary>
         public bool IsTemplate { get; set; }
 
+        // Quizzes. A quiz grades each submission against its questions' answer keys.
+
+        /// <summary>
+        /// Whether submissions are graded: each response stores its score, and the respondent sees it
+        /// straight away. Questions without an answer key aren't graded.
+        /// </summary>
+        public bool IsQuiz { get; set; }
+
+        /// <summary>
+        /// What respondents see after submitting a quiz: one of <see cref="QuizFeedbackModes"/>. Only the
+        /// score unless the builder chooses to show the correct answers and explanations too.
+        /// </summary>
+        public string QuizFeedback { get; set; } = QuizFeedbackModes.Score;
+
+        /// <summary>Whether respondents see the correct answers and explanations after submitting a quiz.</summary>
+        public bool ShowsCorrectAnswers() => IsQuiz && QuizFeedback == QuizFeedbackModes.Answers;
+
         public bool IsPublished() => Status == SurveyStatuses.Published;
 
         public bool IsClosed(DateTime utcNow) => ClosesAt is { } closesAt && closesAt <= utcNow;
@@ -59,6 +76,18 @@ namespace FormFlow.Data.Models
         public const string Published = "published";
 
         public static bool IsKnown(string? status) => status is Draft or Published;
+    }
+
+    /// <summary>The values of <see cref="SurveyDefinition.QuizFeedback"/>.</summary>
+    public static class QuizFeedbackModes
+    {
+        /// <summary>Respondents see their score only.</summary>
+        public const string Score = "score";
+
+        /// <summary>Respondents see their score, then each question marked right or wrong with the correct answer and explanation.</summary>
+        public const string Answers = "answers";
+
+        public static bool IsKnown(string? mode) => mode is Score or Answers;
     }
 
     /// <summary>Body of PUT /api/surveys/{id}/sharing.</summary>

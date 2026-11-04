@@ -34,6 +34,13 @@ namespace FormFlow.Data.Models
         /// <summary>Types whose answers can have minimum and maximum length rules.</summary>
         public static readonly IReadOnlyList<string> LengthRules = [Text, LongText];
 
+        /// <summary>
+        /// Types a quiz can grade, because their answers can be right or wrong: one correct option (radio,
+        /// dropdown, yes/no), the exact set of options (checkbox, multiselect), an exact number, or one of
+        /// several accepted text answers.
+        /// </summary>
+        public static readonly IReadOnlyList<string> Gradable = [Radio, Dropdown, YesNo, Checkbox, Multiselect, Number, Text];
+
         /// <summary>A rating runs from 1 to this many stars unless the question sets a maximum value.</summary>
         public const int DefaultRatingScale = 5;
 
@@ -94,6 +101,17 @@ namespace FormFlow.Data.Models
         public static bool IsMultiValue(string? type) => type is not null && MultiValue.Contains(type.ToLowerInvariant());
 
         public static bool HasLengthRules(string? type) => type is not null && LengthRules.Contains(type.ToLowerInvariant());
+
+        /// <summary>
+        /// Whether a question can have an answer key: a <see cref="Gradable"/> type, except a checkbox
+        /// without options, which is a single tick box with nothing to choose between.
+        /// </summary>
+        public static bool IsGradable(string? type, int optionCount) =>
+            type is not null && Gradable.Contains(type.ToLowerInvariant())
+            && (optionCount > 0 || !string.Equals(type, Checkbox, StringComparison.OrdinalIgnoreCase));
+
+        /// <inheritdoc cref="IsGradable(string?, int)"/>
+        public static bool IsGradable(QuestionDefinition question) => IsGradable(question.Type, question.Options?.Count ?? 0);
 
         /// <summary>
         /// The number of stars a rating question shows: its MaxValue rule when it has one
