@@ -71,6 +71,7 @@ A table of every question showing its label, key, type, when it is shown ("Alway
 | Options | Label and value pairs, added and removed with the buttons. Needed for dropdown, radio and multiselect; optional for checkbox. |
 | Rows and Scale | For a likert grid: the statements people rate (label and value; a value can't contain `=`), and the scale's columns. Leave the scale empty for Strongly disagree (1) to Strongly agree (5). |
 | Validation | Minimum and maximum length for text questions, minimum and maximum value for number questions, the number of stars for a rating, and a slider's range (0 to 100 when left empty). Saved as the question's `validationConfigs`. |
+| Answer key (for quizzes) | For radio, dropdown, yes/no, checkbox (with options), multiselect, number and text questions. Pick the **Correct answer** (or tick the **Correct options**, type the **Correct value**, or list the **Accepted answers** one per line), then the **Points** it's worth (1 by default) and an optional **Explanation**. Leave the correct answer empty for a question that isn't graded. Only surveys set as quizzes use it, and respondents never receive it. |
 | Only show when | Pick a yes/no question and Yes or No to make this question conditional. |
 
 The API checks the question again when it is saved and any errors are shown on the page. After an edit the page returns to the question bank.
@@ -93,13 +94,21 @@ Controls who can answer a survey:
 
 ## Create or edit a survey
 
-**Create Survey** first shows the templates: Course evaluation, Customer satisfaction, Event feedback and Research study intake, each with its description and how many questions and pages it has. **Use** makes a draft copy of the template and opens it in the editor, ready to change and then publish from **Share**. **Start blank** shows the empty form instead. Templates themselves are read-only; they don't appear in the survey list and can't be answered.
+**Create Survey** first shows the templates: Course evaluation, Customer satisfaction, Event feedback, Quiz (six graded computing questions, marked with a Quiz chip) and Research study intake, each with its description and how many questions and pages it has. **Use** makes a draft copy of the template and opens it in the editor, ready to change and then publish from **Share**. **Start blank** shows the empty form instead. Templates themselves are read-only; they don't appear in the survey list and can't be answered.
 
 Enter a title and description, then add questions from the question bank and put them in order with the up and down buttons. The page warns when a conditional question is in the survey without the question it depends on (it would never show), or appears before it. Save is enabled once the title, description and at least one question are filled in.
 
 ### Pages
 
 Every question after the first has a **New page starts here** switch. Turning one on splits the survey there, and the list shows a "Page 1", "Page 2"… heading above each page. Respondents then see one page at a time with "Page 2 of 3" and a progress bar, **Back** and **Next**, and **Submit** on the last page. **Next** checks the page's required answers first. A page whose questions are all hidden by "Only show when" is skipped, and if the server rejects the answers, the form opens the first page with an error. A survey with no switches on is one page, as before.
+
+### Quiz
+
+Turn on **Grade answers as a quiz** to score each response as it's submitted, using the questions' answer keys. Then choose what students see after submitting: **Their score only**, or **Their score, the correct answers and explanations**. The section says how many of the survey's questions are graded and how many points they're worth (for example "6 of 6 questions are graded, worth 7 points in all"), warns when none of them has an answer key, and each graded question in the list has a points chip.
+
+Respondents see "This is a quiz. You'll see your score as soon as you submit." above the form. After submitting, the thank-you screen shows their score, percentage and a bar, and, when the quiz shows answers, a card per graded question with Correct, Partly correct or Incorrect, the points earned, their answer, the correct answer when they missed it, and the explanation. Questions hidden by "Only show when" aren't graded.
+
+Scores are kept with each response, so editing an answer key later doesn't change scores already given.
 
 ### Saved answers
 
@@ -111,7 +120,7 @@ Renders the survey with the same `PagedSurveyForm` component respondents use, pa
 
 ## Results (`/admin/surveys/{id}/results`)
 
-Shows the number of responses and when the latest arrived, then a card per question:
+Shows the number of responses and when the latest arrived. A quiz then has a **Quiz scores** card: the average score and percentage, the number of graded responses, a bar per tenth of the score range (0–9% to 90–100%), and a table of each graded question with its points, how many answered it correctly, and the average points earned. It follows the filters and dates below. Then there's a card per question:
 
 - choice and yes/no questions: a bar per option with count and percentage,
 - rating questions: the average rating, then a bar per star,
@@ -129,4 +138,4 @@ Shows the number of responses and when the latest arrived, then a card per quest
 
 Above the question cards, a bar chart shows how many matching responses arrived each day (each week or month for longer ranges), in local time. Hover a bar for its date and count.
 
-**Download CSV** calls the API's export endpoint with the same filters and dates, so the file has exactly the matching responses. **Share** goes to the survey's Share page.
+**Download CSV** calls the API's export endpoint with the same filters and dates, so the file has exactly the matching responses. For a quiz it has `score` and `max_score` columns. **Share** goes to the survey's Share page.

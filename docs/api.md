@@ -124,7 +124,7 @@ Passwords are stored as salted PBKDF2 hashes (ASP.NET Core Identity's `PasswordH
 
 ### `GET /api/questions`
 
-Returns every question in the question bank.
+Returns every question in the question bank. A question's `answerKey` is `null` unless the caller can manage it (see [Quizzes](#quizzes)).
 
 ### `GET /api/questions/{id}`
 
@@ -147,7 +147,8 @@ Returns every question in the question bank.
     { "label": "TypeScript", "value": "typescript" }
   ],
   "visibleIf": { "key": "is_student", "shouldEqual": true },
-  "validationConfigs": null
+  "validationConfigs": null,
+  "answerKey": { "correctAnswers": ["csharp"], "points": 1, "explanation": "C# runs the whole stack." }
 }
 ```
 
@@ -166,6 +167,7 @@ Rules checked on create and update:
 - `dropdown`, `radio` and `multiselect` need at least one option. A `checkbox` with no options is a single tick box.
 - Option labels and values are required and must be unique within the question.
 - `visibleIf.key` must name an existing `yes_no` question other than this one.
+- `answerKey` (optional) is checked as described under [Answer keys](#answer-keys).
 - `validationConfigs`, when present, must be a JSON array of rules with a known `validationType` (`MinLength`, `MaxLength`, `MinValue`, `MaxValue`, `Range`). Each rule needs its limits as JSON numbers: `minLength`/`maxLength` whole and 0 or more, `minValue`/`maxValue` any number (a `Range` needs both). A `message`, when given, must be text. See [question-definition.md](question-definition.md).
 
 ### `PUT /api/questions/{id}` (Builder)
@@ -212,7 +214,7 @@ A survey is a title, a description, an ordered list of question ids and, optiona
 | `GET` | `/api/surveys` | Public | The public list: published, listed surveys that haven't closed |
 | `GET` | `/api/surveys/{id}` | Public | One survey; 404 if `id` is not a GUID, if it's missing, or if it's a draft the caller can't manage |
 | `GET` | `/api/share/{code}` | Public | The survey with that share code (not case sensitive); 404 if there is none or it's a draft the caller can't manage |
-| `GET` | `/api/surveys/{id}/questions` | Public | The survey's questions in survey order, so a client can render it with one call; 404 like `GET /api/surveys/{id}` |
+| `GET` | `/api/surveys/{id}/questions` | Public | The survey's questions in survey order, so a client can render it with one call; 404 like `GET /api/surveys/{id}`. Answer keys are left out unless the caller manages the survey or the question. |
 | `GET` | `/api/surveys/managed` | Builder | The surveys the caller can manage, newest first: every survey for an administrator, their own for a professor |
 | `POST` | `/api/surveys` | Builder | 201 with the stored survey, owned by the caller, or 400 `{ "error": "..." }` |
 | `PUT` | `/api/surveys/{id}` | Builder | 200 with the updated survey (keeps `createdAt` and the owner), 400, 403, or 404 |
@@ -220,7 +222,7 @@ A survey is a title, a description, an ordered list of question ids and, optiona
 | `PUT` | `/api/surveys/{id}/sharing` | Builder | 200 with the updated survey; 400 for an unknown status, 403 or 404 |
 | `POST` | `/api/surveys/{id}/duplicate` | Builder | 201 with a new draft copy (see below); 404 if the caller can't open the survey |
 
-A survey is rejected with 400 when the title or description is empty, when it has no questions, when a question appears twice, or when a question id doesn't exist.
+A survey is rejected with 400 when the title or description is empty, when it has no questions, when a question appears twice, when a question id doesn't exist, or when `quizFeedback` is neither `score` nor `answers`.
 
 ### Pages
 
@@ -228,18 +230,53 @@ A survey is rejected with 400 when the title or description is empty, when it ha
 
 ### Duplicate
 
-`POST /api/surveys/{id}/duplicate` (no body) copies a survey the caller can open, whoever owns it, into a new survey titled "Copy of {title}". The copy has the same questions and page breaks, is a `draft`, unlisted, with a new `shareCode`, no `closesAt` and no responses, and belongs to the caller.
+`POST /api/surveys/{id}/duplicate` (no body) copies a survey the caller can open, whoever owns it, into a new survey titled "Copy of {title}". The copy has the same questions, page breaks and quiz settings, is a `draft`, unlisted, with a new `shareCode`, no `closesAt` and no responses, and belongs to the caller.
 
 ### Templates
 
-Templates are ready-made surveys seeded at startup from `FormFlow.Backend/SeedData/templates.json`: Course evaluation, Customer satisfaction, Event feedback and Research study intake. They are read-only. They never appear in `GET /api/surveys` or `/managed`, and `GET /api/surveys/{id}`, the share, sharing, edit, delete and response endpoints treat them as missing (404). Their questions are ordinary questions (keys start with the template's prefix, such as `course_eval_`), so builders can reuse them, and they can't be deleted while a template uses them.
+Templates are ready-made surveys seeded at startup from `FormFlow.Backend/SeedData/templates.json`: Course evaluation, Customer satisfaction, Event feedback, Quiz and Research study intake. They are read-only. They never appear in `GET /api/surveys` or `/managed`, and `GET /api/surveys/{id}`, the share, sharing, edit, delete and response endpoints treat them as missing (404). Their questions are ordinary questions (keys start with the template's prefix, such as `course_eval_`), so builders can reuse them, and they can't be deleted while a template uses them.
 
 | Method | Path | Access | Result |
 |---|---|---|---|
-| `GET` | `/api/templates` | Builder | The templates by title, each `{ "id", "title", "description", "questionCount", "pageCount" }` |
-| `POST` | `/api/templates/{id}/use` | Builder | 201 with a new draft survey titled like the template, with its questions and page breaks, owned by the caller; 404 for an unknown template |
+| `GET` | `/api/templates` | Builder | The templates by title, each `{ "id", "title", "description", "questionCount", "pageCount", "isQuiz" }` |
+| `POST` | `/api/templates/{id}/use` | Builder | 201 with a new draft survey titled like the template, with its questions, page breaks and quiz settings, owned by the caller; 404 for an unknown template |
 
 Seeding skips a template whose id is already stored and reuses questions whose key already exists, so restarting never adds copies. Set `SeedData:Templates` to `false` to seed none.
+
+### Quizzes
+
+A survey with `isQuiz: true` is graded as soon as a respondent submits it. `quizFeedback` says what the respondent sees then: `score` (the default) for their score only, or `answers` for their score plus each graded question with the correct answer and its explanation. Both are set with `POST` and `PUT /api/surveys/{id}`, not on the sharing endpoint.
+
+```json
+{ "title": "Computing basics", "description": "Six questions.", "questionIds": ["…"], "isQuiz": true, "quizFeedback": "answers" }
+```
+
+#### Answer keys
+
+A question's `answerKey` holds what counts as right:
+
+```json
+{ "correctAnswers": ["python", "java", "csharp"], "points": 2, "explanation": "HTML and JSON aren't programming languages." }
+```
+
+- Only `radio`, `dropdown`, `yes_no`, `checkbox` (with options), `multiselect`, `number` and `text` questions can have one.
+- `correctAnswers` needs at least one non-empty entry. Radio, dropdown, yes/no and number questions take exactly one. Choice answers must be option values, listed once each; a yes/no answer is `true` or `false`; a number answer must be a number. A text question can list several accepted answers.
+- `points` runs from 0 to 1000 and defaults to 1. `explanation` is optional, up to 2000 characters; a blank one is stored as `null`.
+
+Errors use the same `{ "errors": [...] }` body as the other question rules, for example "The correct answer 'z' is not one of the options".
+
+#### Grading
+
+- Radio, dropdown and yes/no answers must match the key. Number answers must be equal as numbers. Text answers are compared without surrounding spaces and ignoring case, against each accepted answer.
+- Checkbox and multiselect questions give partial credit: the question's points times (correct choices − wrong choices) ÷ number of correct answers, never below 0. Only the exact set counts as correct.
+- Questions without a key, and questions hidden by `visibleIf`, aren't graded and don't count toward the maximum. A visible graded question left blank scores 0.
+- Scores are rounded to two decimals and the percentage to a whole number (0 when nothing is graded).
+
+The score is stored with the response when it's submitted. Changing an answer key later doesn't regrade stored responses.
+
+#### Who sees the answer key
+
+`GET /api/questions`, `GET /api/questions/{id}` and `GET /api/surveys/{id}/questions` return `answerKey: null` unless the caller can manage the question, or (for a survey's questions) the survey. Respondents, students and anonymous callers never receive it, so a client can't read the answers before submitting.
 
 ### Sharing
 
@@ -291,11 +328,33 @@ The server validates the whole submission against the survey's questions:
 
 | Status | When |
 |---|---|
-| 201 | Stored. Body is the saved response with normalized answers. Taking a survey needs no account; when the request carries a token, `submittedBy` records the username. |
+| 201 | Stored. Body is the saved response with normalized answers, plus `score`, `maxScore` and `quiz` for a quiz (see below). Taking a survey needs no account; when the request carries a token, `submittedBy` records the username. |
 | 400 | RFC 7807 validation problem, with one entry per question key |
 | 404 | No survey with that id, or a draft the caller can't manage |
 | 409 | `{ "error": "..." }` when the survey has closed or this `respondentId` already answered |
 | 429 | More than `RateLimits:SubmissionsPerMinute` submissions from one IP address in a minute |
+
+For a quiz, the 201 body also carries the grade. `quiz.questions` lists each graded question, with answers shown as option labels, when `quizFeedback` is `answers`, and is empty when it's `score`. For other surveys `score`, `maxScore` and `quiz` are `null`.
+
+```json
+{
+  "id": "…",
+  "answers": { "quiz_cpu": ["cpu"], "quiz_languages": ["python", "java"] },
+  "score": 5.33,
+  "maxScore": 7,
+  "quiz": {
+    "score": 5.33, "maxScore": 7, "percent": 76,
+    "questions": [
+      {
+        "key": "quiz_languages", "label": "Which of these are programming languages?",
+        "points": 1.33, "maxPoints": 2, "correct": false,
+        "givenAnswers": ["Python", "Java"], "correctAnswers": ["Python", "Java", "C#"],
+        "explanation": "HTML marks up web pages and JSON stores data; neither is a programming language."
+      }
+    ]
+  }
+}
+```
 
 Example 400 body:
 
@@ -345,6 +404,23 @@ Aggregated results for the admin results page:
 
 Choice, yes/no, rating and NPS questions get a count per option (ratings also get `numbers`), number and slider questions get min, max and average, and text questions get the five most recent answers. NPS questions also get `nps`: `{ "score": 25, "promoters": 2, "passives": 1, "detractors": 1 }`, where the score is the percentage of promoters (9 or 10) minus the percentage of detractors (0 to 6), rounded. Likert grids get `rows`, one per statement: `{ "value": "library", "label": "…", "answeredCount": 4, "options": [ { "value": "1", "label": "Strongly disagree", "count": 1 }, … ], "average": 3.25 }`, where `average` is null unless every scale value is a number. `lastSubmittedAt` is the newest response of all, whatever the filters.
 
+For a quiz the results also have `quiz` (otherwise `null`), built from the matching responses that have a stored score:
+
+```json
+{
+  "quiz": {
+    "gradedResponses": 2, "averageScore": 6.17, "averageMaxScore": 7, "averagePercent": 88.1,
+    "distribution": [ { "label": "0–9%", "minPercent": 0, "maxPercent": 9, "count": 0 }, … ],
+    "questions": [
+      { "questionId": "…", "key": "quiz_byte", "label": "How many bits are in a byte?", "points": 1,
+        "graded": 2, "correct": 1, "percentCorrect": 50, "averagePoints": 0.5 }
+    ]
+  }
+}
+```
+
+`distribution` has ten bands, the last one 90–100%. The per-question figures grade the stored answers with the current answer keys, so they follow a key that was edited; the scores and averages are the ones stored at submission.
+
 #### Filters, dates and comparisons
 
 Optional query parameters narrow or split the results:
@@ -378,4 +454,4 @@ The response then also has:
 
 ### `GET /api/surveys/{id}/responses/export` (Builder)
 
-Downloads every response as `<survey-title>-responses.csv`, or only those matching `filter`, `from` and `to` when given (the same parameters as the results, with the same 400 for bad ones). Columns are `response_id`, `submitted_at`, `submitted_by`, then one column per question key in survey order. A likert grid gets a column per row instead, named `key[rowValue]`, holding the option picked for that row. Multiple values are joined with `; `. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return (and aren't numbers) are prefixed with `'` so spreadsheets don't run them as formulas.
+Downloads every response as `<survey-title>-responses.csv`, or only those matching `filter`, `from` and `to` when given (the same parameters as the results, with the same 400 for bad ones). Columns are `response_id`, `submitted_at`, `submitted_by`, then for a quiz `score` and `max_score` (empty for responses sent before it became a quiz), then one column per question key in survey order. A likert grid gets a column per row instead, named `key[rowValue]`, holding the option picked for that row. Multiple values are joined with `; `. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return (and aren't numbers) are prefixed with `'` so spreadsheets don't run them as formulas.

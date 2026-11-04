@@ -65,7 +65,7 @@ flowchart LR
    - requires answers for visible required questions,
    - checks types (numbers, yes/no, option values, single vs multiple answers),
    - runs the question's validation rules.
-5. If anything fails, the API returns `400` with RFC 7807 problem details keyed by question key, and the client shows each message under its question. Otherwise the normalized answers are stored and the API returns `201`.
+5. If anything fails, the API returns `400` with RFC 7807 problem details keyed by question key, and the client shows each message under its question. Otherwise, for a quiz, `QuizScorer` grades the normalized answers. The answers (and the score) are stored and the API returns `201`, with the grade for a quiz.
 
 ## Design decisions
 
@@ -74,4 +74,5 @@ flowchart LR
 - **The server is the source of truth for validation.** The clients show server errors instead of re-implementing every rule, which keeps the Blazor and React apps consistent. Visibility is evaluated on both sides because it affects what the respondent sees while typing.
 - **Answers are stored as lists of strings.** Every question type fits one shape (`Dictionary<string, List<string>>`), which keeps storage, results and CSV export simple. The validator normalizes values on the way in, such as `yes` to `true`.
 - **The API enforces sign-in, not the clients.** Changes require a JWT with the `admin` role and reading responses requires any signed-in role, so hiding pages and buttons in the Blazor app is only a convenience. The Blazor app keeps the token per browser tab in encrypted session storage and adds it to its API calls. Respondents never need an account.
+- **Answer keys stay on the server until they're needed.** The public question endpoints leave `answerKey` out unless the caller manages the question or survey, and quizzes are graded on the server, so a respondent can't read the answers in the browser before submitting. The score is stored with the response at submission, so editing a key later doesn't change grades students have already seen.
 - **LiteDB instead of a database server.** The app runs with `dotnet run` and nothing else. Repositories hide LiteDB behind interfaces, so moving to SQL would only touch the repository classes.
