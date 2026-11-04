@@ -31,11 +31,16 @@ test.describe.serial("Quizzes", () => {
         await page.getByLabel("Label", { exact: true }).first().fill(questionLabel);
         await page.getByLabel("Key", { exact: true }).fill(questionKey);
         await choose(page, page.locator(".mud-select", { has: page.locator("label", { hasText: /^Type/ }) }), "Radio");
+        const optionRows = page.locator("[data-option-row]");
         for (const [optionLabel, value] of [["Paris", "paris"], ["Lyon", "lyon"]]) {
+            const count = await optionRows.count();
             await page.getByRole("button", { name: "Add Option" }).click();
-            await page.locator("[data-option-row]").last().getByLabel("Label").fill(optionLabel);
-            await page.locator("[data-option-row]").last().getByLabel("Value").fill(value);
-            await page.locator("[data-option-row]").last().getByLabel("Value").press("Tab");
+            // Wait for the new row, or the next fill lands in the previous one.
+            await expect(optionRows).toHaveCount(count + 1);
+            const row = optionRows.nth(count);
+            await row.getByLabel("Label").fill(optionLabel);
+            await row.getByLabel("Value").fill(value);
+            await row.getByLabel("Value").press("Tab");
         }
 
         const answerKey = page.locator("[data-answer-key]");
