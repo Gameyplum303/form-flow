@@ -12,7 +12,11 @@
 
         <PageHeading>@(IsEdit ? "Edit Survey" : "Create Survey")</PageHeading>
 
-        @if (_notFound)
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else if (_notFound)
         {
             <MudAlert Severity="Severity.Warning">Survey not found.</MudAlert>
         }
@@ -20,6 +24,49 @@
         {
             <MudAlert Severity="Severity.Warning" Class="mb-4">You can only edit surveys you created.</MudAlert>
             <MudButton Variant="Variant.Outlined" Href="/admin/surveys">Back to surveys</MudButton>
+        }
+        else if (ShowTemplates)
+        {
+            <MudText Typo="Typo.h6" HtmlTag="h2">Start from a template</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+                Pick a ready-made survey to edit, or start with a blank one. A template becomes a draft of your own.
+            </MudText>
+
+            <MudGrid Spacing="3" data-template-gallery>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Outlined="true" Class="template-card" data-template="blank">
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" HtmlTag="h3" Class="mb-1">Blank survey</MudText>
+                            <MudText Typo="Typo.body2">Start from scratch and pick questions from the question bank.</MudText>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="StartBlank">Start blank</MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+
+                @foreach (var template in _templates!)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudCard Outlined="true" Class="template-card" data-template="@template.Title">
+                            <MudCardContent>
+                                <MudText Typo="Typo.h6" HtmlTag="h3" Class="mb-1">@template.Title</MudText>
+                                <MudText Typo="Typo.body2" Class="mb-2">@template.Description</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary" data-template-size>@SizeOf(template)</MudText>
+                            </MudCardContent>
+                            <MudCardActions>
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           Disabled="@(_usingTemplate is not null)"
+                                           aria-label="@($"Use the {template.Title} template")"
+                                           OnClick="@(() => UseTemplateAsync(template))">
+                                    @(_usingTemplate == template.Id ? "Creating..." : "Use")
+                                </MudButton>
+                            </MudCardActions>
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
         }
         else
         {
@@ -75,7 +122,7 @@
                                             Color="Color.Primary"
                                             Disabled="@IsSelected(q)"
                                             OnClick="@(() => AddQuestionAsync(q))">
-                                        @(IsSelected(q) ? "Added" : "Add")        
+                                        @(IsSelected(q) ? "Added" : "Add")
                                     </MudButton>
                                 </MudStack>
                             </MudListItem>
@@ -109,10 +156,31 @@
                     {
                         var index = i;
                         var q = _selectedQuestions[index];
+                        var pageNumber = PageNumberOf(index);
+
+                        @* With page breaks, each page is labelled where it starts. *@
+                        @if (HasPageBreaks && (index == 0 || StartsPage(index)))
+                        {
+                            <div class="page-separator" data-page-separator="@pageNumber">Page @pageNumber</div>
+                        }
+
                         <MudListItem>
 
                             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mud-width-full">
-                                <MudText>@(index + 1). @q.Label</MudText>
+                                <div>
+                                    <MudText>@(index + 1). @q.Label</MudText>
+                                    @if (index > 0)
+                                    {
+                                        <MudSwitch T="bool"
+                                                   Value="@StartsPage(index)"
+                                                   ValueChanged="@(on => SetPageBreak(q, on))"
+                                                   Label="New page starts here"
+                                                   Color="Color.Primary"
+                                                   Size="Size.Small"
+                                                   Class="page-break-switch"
+                                                   data-page-break="@q.Key" />
+                                    }
+                                </div>
 
                                 <MudStack Row="true" Spacing="1">
                                     <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward"
@@ -156,6 +224,7 @@
 
     private MudForm? _form;
     private bool _isValid;
+    private bool _loading = true;
     private bool _notFound;
     private bool _notYours;
     private bool _saving;
@@ -168,10 +237,44 @@
     private bool _questionBankError;
     private List<QuestionDefinition> _selectedQuestions = new();
 
+    /// <summary>The templates a new survey can start from; null when they could not be loaded.</summary>
+    private List<SurveyTemplate>? _templates;
+
+    /// <summary>A new survey starts on the template gallery until the builder picks a template or a blank survey.</summary>
+    private bool _choosingTemplate;
+
+    private Guid? _usingTemplate;
+
+    /// <summary>The survey the page has loaded, so a new route (such as a template's new draft) loads again.</summary>
+    private (bool Loaded, Guid? Id) _loadedFor;
+
     private bool IsEdit => Id is not null;
 
-    protected override async Task OnInitializedAsync()
+    /// <summary>Without templates to offer, a new survey goes straight to the form.</summary>
+    private bool ShowTemplates => !IsEdit && _choosingTemplate && _templates is { Count: > 0 };
+
+    // Loads on parameter changes rather than once: using a template moves from /create to the new
+    // draft's /edit page, which Blazor serves with this same component.
+    protected override async Task OnParametersSetAsync()
     {
+        if (_loadedFor == (true, Id))
+        {
+            return;
+        }
+        _loadedFor = (true, Id);
+
+        _loading = true;
+        _notFound = false;
+        _notYours = false;
+        _newSurvey = new();
+        _selectedQuestions = new();
+        _choosingTemplate = !IsEdit;
+
+        if (!IsEdit)
+        {
+            _templates = await SurveyService.GetTemplatesAsync();
+        }
+
         _questionBank = await QuestionService.GetAllQuestionsAsync();
         _questionBankError = _questionBank is null;
 
@@ -181,29 +284,72 @@
             if (survey is null)
             {
                 _notFound = true;
-                return;
             }
-            if (!(Access ?? AdminAccess.Administrator).CanManage(survey))
+            else if (!(Access ?? AdminAccess.Administrator).CanManage(survey))
             {
                 _notYours = true;
-                return;
             }
-
-            _newSurvey = new NewSurvey { Title = survey.Title, Description = survey.Description };
-            var byId = (_questionBank ?? new()).ToDictionary(q => q.Id);
-            foreach (var qid in survey.QuestionIds)
+            else
             {
-                if (byId.TryGetValue(qid, out var q))
+                _newSurvey = new NewSurvey { Title = survey.Title, Description = survey.Description };
+                var byId = (_questionBank ?? new()).ToDictionary(q => q.Id);
+                foreach (var qid in survey.QuestionIds)
                 {
-                    _newSurvey.QuestionIds.Add(q.Id);
-                    _selectedQuestions.Add(q);
+                    if (byId.TryGetValue(qid, out var q))
+                    {
+                        _newSurvey.QuestionIds.Add(q.Id);
+                        _selectedQuestions.Add(q);
+                    }
                 }
+                _newSurvey.PageBreaks = SurveyPaging.Normalize(_newSurvey.QuestionIds, survey.PageBreaks);
             }
         }
+
+        _loading = false;
+    }
+
+    private static string SizeOf(SurveyTemplate template)
+    {
+        var questions = template.QuestionCount == 1 ? "1 question" : $"{template.QuestionCount} questions";
+        return template.PageCount > 1 ? $"{questions} on {template.PageCount} pages" : questions;
+    }
+
+    private void StartBlank() => _choosingTemplate = false;
+
+    /// <summary>Makes a draft from the template and opens it for editing.</summary>
+    private async Task UseTemplateAsync(SurveyTemplate template)
+    {
+        _usingTemplate = template.Id;
+        var (survey, error) = await SurveyService.UseTemplateAsync(template.Id);
+        _usingTemplate = null;
+        if (survey is null)
+        {
+            Snackbar.Add($"The template could not be used: {error}", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add($"Created \"{survey.Title}\" from the template as a draft. Edit it, then use Share to publish it.", Severity.Success);
+        Nav.NavigateTo($"/admin/surveys/{survey.Id}/edit");
     }
 
     private bool IsSelected(QuestionDefinition q)
         => _selectedQuestions.Any(x => x.Id == q.Id);
+
+    private bool HasPageBreaks => _selectedQuestions.Skip(1).Any(q => _newSurvey.PageBreaks.Contains(q.Id));
+
+    /// <summary>Whether the question at this position starts a new page. The first question always starts page 1.</summary>
+    private bool StartsPage(int index) => index > 0 && _newSurvey.PageBreaks.Contains(_selectedQuestions[index].Id);
+
+    private int PageNumberOf(int index) => 1 + Enumerable.Range(1, index).Count(StartsPage);
+
+    private void SetPageBreak(QuestionDefinition q, bool startsPage)
+    {
+        _newSurvey.PageBreaks.Remove(q.Id);
+        if (startsPage)
+        {
+            _newSurvey.PageBreaks.Add(q.Id);
+        }
+    }
 
     /// <summary>
     /// Conditional questions only make sense after the yes/no question they depend on.
@@ -246,6 +392,7 @@
     private async Task RemoveQuestionAsync(QuestionDefinition q)
     {
         _newSurvey.QuestionIds.Remove(q.Id);
+        _newSurvey.PageBreaks.Remove(q.Id);
         _selectedQuestions.RemoveAll(x => x.Id == q.Id);
         await ValidateAsync();
     }
@@ -285,6 +432,9 @@
                 Snackbar.Add("Please complete all required fields before saving.", Severity.Warning);
                 return;
             }
+
+            // A break on what is now the first question starts no page, so it isn't sent.
+            _newSurvey.PageBreaks = SurveyPaging.Normalize(_newSurvey.QuestionIds, _newSurvey.PageBreaks);
 
             var (success, error) = Id is { } id
                 ? await SurveyService.UpdateSurveyAsync(id, _newSurvey)

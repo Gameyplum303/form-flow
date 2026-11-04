@@ -40,18 +40,24 @@ namespace FormFlow.Backend
         /// Seeds sample questions into an empty database and, unless disabled with
         /// SeedData:DemoSurvey=false, a demo survey that uses them. With SeedData:SampleResponses
         /// set, the demo survey also gets that many made-up responses, so a public demo has results
-        /// to explore.
+        /// to explore. Then adds any survey templates from SeedData/templates.json that are missing,
+        /// unless disabled with SeedData:Templates=false.
         /// </summary>
         public void Seed()
         {
             var questions = _dbContext.GetCollection<QuestionDefinition>(QuestionRepository.CollectionName);
+            var surveys = _dbContext.GetCollection<SurveyDefinition>(SurveyRepository.CollectionName);
             SeedFromJson(questions);
 
             if (_config?.GetValue("SeedData:DemoSurvey", true) ?? true)
             {
-                var surveys = _dbContext.GetCollection<SurveyDefinition>(SurveyRepository.CollectionName);
                 SeedDemoSurvey(questions, surveys);
                 SeedSampleResponses(questions, surveys, _config?.GetValue("SeedData:SampleResponses", 0) ?? 0);
+            }
+
+            if (_config?.GetValue("SeedData:Templates", true) ?? true)
+            {
+                SeedTemplates(questions, surveys);
             }
         }
 
@@ -78,14 +84,17 @@ namespace FormFlow.Backend
 
         public void SeedDemoSurvey(ILiteCollection<QuestionDefinition> questions, ILiteCollection<SurveyDefinition> surveys)
         {
-            if (surveys.Count() > 0)
+            // Templates are stored with the surveys but don't count: the demo survey is seeded until there is a real one.
+            if (surveys.FindAll().Any(s => !s.IsTemplate))
             {
                 return;
             }
 
             // Keep the order of the seed file so the conditional question follows the one it depends on.
+            // Only the sample questions go in; the templates' questions are in the bank too.
             var seedOrder = ReadSeedFile()?.Select(q => q.Key).ToList() ?? [];
             var questionIds = questions.FindAll()
+                .Where(q => seedOrder.Count == 0 || seedOrder.Contains(q.Key))
                 .OrderBy(q => seedOrder.IndexOf(q.Key) is var i && i >= 0 ? i : int.MaxValue)
                 .Select(q => q.Id)
                 .ToList();
@@ -131,7 +140,75 @@ namespace FormFlow.Backend
             }
         }
 
+        /// <summary>
+        /// Adds the survey templates from SeedData/templates.json that aren't stored yet, with their
+        /// questions. Templates keep the ids in the file, so seeding again on the next start adds nothing.
+        /// A template question whose key is already in the bank reuses that question.
+        /// </summary>
+        public void SeedTemplates(ILiteCollection<QuestionDefinition> questions, ILiteCollection<SurveyDefinition> surveys)
+        {
+            if (!File.Exists(TemplatesFilePath))
+            {
+                return;
+            }
+            var templates = JsonSerializer.Deserialize<List<TemplateSeed>>(File.ReadAllText(TemplatesFilePath),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+
+            var added = 0;
+            foreach (var template in templates.Where(t => surveys.FindById(t.Id) is null))
+            {
+                var idsByKey = new Dictionary<string, Guid>(StringComparer.Ordinal);
+                foreach (var question in template.Questions)
+                {
+                    var stored = questions.FindOne(q => q.Key == question.Key);
+                    if (stored is null)
+                    {
+                        if (question.Id == Guid.Empty)
+                        {
+                            question.Id = Guid.NewGuid();
+                        }
+                        questions.Insert(question);
+                        stored = question;
+                    }
+                    idsByKey[question.Key] = stored.Id;
+                }
+
+                var questionIds = template.Questions.Select(q => idsByKey[q.Key]).Distinct().ToList();
+                surveys.Insert(new SurveyDefinition
+                {
+                    Id = template.Id,
+                    Title = template.Title,
+                    Description = template.Description,
+                    QuestionIds = questionIds,
+                    PageBreaks = SurveyPaging.Normalize(questionIds,
+                        template.PageBreaks.Where(idsByKey.ContainsKey).Select(k => idsByKey[k])),
+                    CreatedAt = _clock.GetUtcNow().UtcDateTime,
+                    IsTemplate = true,
+                    Status = SurveyStatuses.Draft,
+                    Listed = false,
+                });
+                added++;
+            }
+
+            if (added > 0)
+            {
+                _logger.LogInformation("Seeded {Count} survey templates.", added);
+            }
+        }
+
+        /// <summary>A template in SeedData/templates.json. Its page breaks name the questions that start a page by key.</summary>
+        private sealed class TemplateSeed
+        {
+            public Guid Id { get; set; }
+            public string Title { get; set; } = string.Empty;
+            public string Description { get; set; } = string.Empty;
+            public List<QuestionDefinition> Questions { get; set; } = [];
+            public List<string> PageBreaks { get; set; } = [];
+        }
+
         private string SeedFilePath => Path.Combine(_env.ContentRootPath, "SeedData", "questions.json");
+
+        private string TemplatesFilePath => Path.Combine(_env.ContentRootPath, "SeedData", "templates.json");
 
         /// <summary>The sample questions in SeedData/questions.json, or null when the file is missing.</summary>
         private List<QuestionDefinition>? ReadSeedFile()

@@ -12,6 +12,8 @@ export interface QuestionDefinition {
     defaultValue?: string | number | null;
 
     options?: Option[];
+    /** The statements of a likert grid, each rated on the scale in `options`. */
+    rows?: Option[];
     visibleIf?: VisibleIf;
 
     validationConfigs?: string | null;

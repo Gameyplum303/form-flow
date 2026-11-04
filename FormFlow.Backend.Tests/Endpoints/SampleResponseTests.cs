@@ -34,6 +34,19 @@ namespace FormFlow.Backend.Tests.Endpoints
         }
 
         [Fact]
+        public async Task SampleResponses_AnswerTheGridNpsAndSliderQuestions()
+        {
+            var (results, _) = await SeededAsync("40");
+            var byKey = results.Questions.ToDictionary(q => q.Key);
+
+            byKey["campus_services"].Rows.Should().OnlyContain(r => r.AnsweredCount > 0 && r.Average >= 1 && r.Average <= 5);
+            byKey["recommend_score"].Nps.Should().NotBeNull();
+            byKey["recommend_score"].AnsweredCount.Should().Be(40);
+            byKey["study_hours"].Numbers!.Min.Should().BeGreaterThanOrEqualTo(0);
+            byKey["study_hours"].Numbers!.Max.Should().BeLessThanOrEqualTo(40);
+        }
+
+        [Fact]
         public async Task WithoutTheSetting_TheDemoSurveyStartsEmpty()
         {
             var (results, _) = await SeededAsync("0");

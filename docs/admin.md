@@ -44,8 +44,8 @@ The API issues the token (see [api.md](api.md#authentication)). `AdminSession` k
 | `/verify-email?token=…` | `VerifyEmail` | Verify an email address from an emailed link |
 | `/account` | `AccountSettings` | Change your password (signed in) |
 | `/admin/outbox` | `AdminOutbox` | Emails the API would have sent, when no SMTP server is set (administrators only) |
-| `/admin/surveys` | `AdminSurveysList` | The surveys you manage (every survey for an administrator), with Edit, Preview, Results and Delete |
-| `/admin/surveys/create` | `AdminCreateSurvey` | Build a new survey |
+| `/admin/surveys` | `AdminSurveysList` | The surveys you manage (every survey for an administrator), with Edit, Preview, Results, Duplicate and Delete |
+| `/admin/surveys/create` | `AdminCreateSurvey` | Pick a template or start blank, then build a new survey |
 | `/admin/surveys/{id}/edit` | `AdminCreateSurvey` | Edit an existing survey |
 | `/admin/surveys/{id}/preview` | `AdminSurveyPreview` | See the survey as a respondent would, with conditional questions working |
 | `/admin/surveys/{id}/results` | `AdminSurveyResults` | Response counts, charts per question, and CSV download |
@@ -65,18 +65,19 @@ A table of every question showing its label, key, type, when it is shown ("Alway
 |---|---|
 | Label | Required. The question text respondents see. |
 | Key | Required, unique. Used in answers, visibility rules and CSV columns, for example `favorite_language`. A key can't be changed once a survey or rule uses it. |
-| Type | One of the seven types. Choosing dropdown, radio, checkbox or multiselect shows the options editor. |
+| Type | One of the fourteen types. Choosing dropdown, radio, checkbox or multiselect shows the options editor; a likert grid shows a rows editor and a scale editor. |
 | Required | Whether respondents must answer. |
 | Placeholder, Default Value, Help Text | Optional. |
 | Options | Label and value pairs, added and removed with the buttons. Needed for dropdown, radio and multiselect; optional for checkbox. |
-| Validation | Minimum and maximum length for text questions, minimum and maximum value for number questions. Saved as the question's `validationConfigs`. |
+| Rows and Scale | For a likert grid: the statements people rate (label and value; a value can't contain `=`), and the scale's columns. Leave the scale empty for Strongly disagree (1) to Strongly agree (5). |
+| Validation | Minimum and maximum length for text questions, minimum and maximum value for number questions, the number of stars for a rating, and a slider's range (0 to 100 when left empty). Saved as the question's `validationConfigs`. |
 | Only show when | Pick a yes/no question and Yes or No to make this question conditional. |
 
 The API checks the question again when it is saved and any errors are shown on the page. After an edit the page returns to the question bank.
 
 ## Surveys (`/admin/surveys`)
 
-A table of surveys with their question counts and sharing status: **Draft**, **Published** (on the public list), **Published, link only**, or **Closed**. **Share** opens the survey's Share page. Delete asks for confirmation and also deletes the survey's responses.
+A table of surveys with their question counts and sharing status: **Draft**, **Published** (on the public list), **Published, link only**, or **Closed**. **Share** opens the survey's Share page. **Duplicate** copies the survey into a new draft called "Copy of …", with the same questions and pages but a new share link and no responses or close date, and opens it for editing. Delete asks for confirmation and also deletes the survey's responses.
 
 New surveys are drafts, so nobody else can open them until they're published.
 
@@ -92,25 +93,38 @@ Controls who can answer a survey:
 
 ## Create or edit a survey
 
+**Create Survey** first shows the templates: Course evaluation, Customer satisfaction, Event feedback and Research study intake, each with its description and how many questions and pages it has. **Use** makes a draft copy of the template and opens it in the editor, ready to change and then publish from **Share**. **Start blank** shows the empty form instead. Templates themselves are read-only; they don't appear in the survey list and can't be answered.
+
 Enter a title and description, then add questions from the question bank and put them in order with the up and down buttons. The page warns when a conditional question is in the survey without the question it depends on (it would never show), or appears before it. Save is enabled once the title, description and at least one question are filled in.
+
+### Pages
+
+Every question after the first has a **New page starts here** switch. Turning one on splits the survey there, and the list shows a "Page 1", "Page 2"… heading above each page. Respondents then see one page at a time with "Page 2 of 3" and a progress bar, **Back** and **Next**, and **Submit** on the last page. **Next** checks the page's required answers first. A page whose questions are all hidden by "Only show when" is skipped, and if the server rejects the answers, the form opens the first page with an error. A survey with no switches on is one page, as before.
+
+### Saved answers
+
+The take-survey page keeps a respondent's answers in the browser as they go, so closing the tab or reloading doesn't lose them. Coming back shows "We saved your answers on this device." with a **Start over** link that clears them. They are deleted once the answers are sent. The React app does the same.
 
 ## Preview (`/admin/surveys/{id}/preview`)
 
-Renders the survey with the same `SurveyForm` component respondents use, so conditional questions can be tried out. Nothing is submitted.
+Renders the survey with the same `PagedSurveyForm` component respondents use, page by page, so conditional questions and pages can be tried out. Nothing is submitted.
 
 ## Results (`/admin/surveys/{id}/results`)
 
 Shows the number of responses and when the latest arrived, then a card per question:
 
 - choice and yes/no questions: a bar per option with count and percentage,
-- number questions: average, minimum and maximum,
+- rating questions: the average rating, then a bar per star,
+- NPS questions: the Net Promoter Score (the percentage of promoters, 9 or 10, minus the percentage of detractors, 0 to 6) with the number of promoters, passives and detractors, then a bar per score,
+- likert grids: a table with a row per statement, the count and percentage for each point of the scale, and each statement's average when the scale's values are numbers,
+- number and slider questions: average, minimum and maximum,
 - text questions: the five most recent answers.
 
 **Explore the responses** narrows and splits them:
 
-- **Add a filter** lists every yes/no, choice and rating question with its answers. Picking one keeps only the responses that gave that answer; each filter shows as a chip with a remove button, and several filters must all match. The page then says how many of the responses match.
+- **Add a filter** lists every yes/no, choice, rating and NPS question with its answers. Picking one keeps only the responses that gave that answer; each filter shows as a chip with a remove button, and several filters must all match. The page then says how many of the responses match.
 - **Sent from** and **to** keep responses sent between those days, in the browser's time zone, including the whole of the last day.
-- **Compare groups by** picks a question to split by. Each choice, rating and number question then gets a table with a column per answer (and "No answer" when some skipped it), giving counts with the percentage of that group who answered, averages, and how many answered.
+- **Compare groups by** picks a question to split by. Each choice, rating, NPS, number, slider and likert question then gets a table with a column per answer (and "No answer" when some skipped it), giving counts with the percentage of that group who answered, averages, each group's NPS, each statement's average, and how many answered.
 - **Clear all** removes filters, dates and the comparison.
 
 Above the question cards, a bar chart shows how many matching responses arrived each day (each week or month for longer ranges), in local time. Hover a bar for its date and count.

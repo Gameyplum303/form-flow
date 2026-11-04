@@ -18,7 +18,9 @@ public class QuestionTypesTests
     [Theory]
     [InlineData("yes_no", "Yes/No")]
     [InlineData("LONG_TEXT", "Long text")]
-    [InlineData("slider", "slider")]
+    [InlineData("likert", "Likert grid")]
+    [InlineData("NPS", "NPS (0–10)")]
+    [InlineData("matrix", "matrix")]
     [InlineData(null, "")]
     public void DisplayName_NamesKnownTypes_AndLeavesOthersAlone(string? type, string expected)
     {

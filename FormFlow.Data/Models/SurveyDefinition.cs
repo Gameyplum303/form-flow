@@ -29,6 +29,18 @@ namespace FormFlow.Data.Models
         /// <summary>When the survey stops taking answers (UTC), or null to stay open.</summary>
         public DateTime? ClosesAt { get; set; }
 
+        /// <summary>
+        /// The ids of the questions that start a new page. The first page needs none, and a survey
+        /// without any is one page. See <see cref="Services.SurveyPaging"/>.
+        /// </summary>
+        public List<Guid> PageBreaks { get; set; } = [];
+
+        /// <summary>
+        /// A ready-made survey that builders start from. Templates are never on the public or managed
+        /// lists, and can't be opened, answered or shared; using one makes a draft copy.
+        /// </summary>
+        public bool IsTemplate { get; set; }
+
         public bool IsPublished() => Status == SurveyStatuses.Published;
 
         public bool IsClosed(DateTime utcNow) => ClosesAt is { } closesAt && closesAt <= utcNow;

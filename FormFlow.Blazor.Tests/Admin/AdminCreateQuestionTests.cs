@@ -86,6 +86,7 @@ public class AdminCreateQuestionTests
     [InlineData("radio")]
     [InlineData("checkbox")]
     [InlineData("multiselect")]
+    [InlineData("likert")]
     public async Task OptionsEditor_Appears_For_OptionBasedTypes(string type)
     {
         await using var ctx = CreateContext();
@@ -105,6 +106,8 @@ public class AdminCreateQuestionTests
     [InlineData("email")]
     [InlineData("date")]
     [InlineData("rating")]
+    [InlineData("nps")]
+    [InlineData("slider")]
     public async Task OptionsEditor_Hidden_For_NonOptionTypes(string type)
     {
         await using var ctx = CreateContext();
@@ -262,6 +265,7 @@ public class AdminCreateQuestionTests
     [InlineData("long_text", "Minimum length")]
     [InlineData("number", "Minimum value")]
     [InlineData("rating", "Number of stars")]
+    [InlineData("slider", "Leave empty for 100.")]
     public async Task AnswerRules_MatchTheType(string type, string field)
     {
         await using var ctx = CreateContext();
@@ -275,6 +279,8 @@ public class AdminCreateQuestionTests
     [Theory]
     [InlineData("email")]
     [InlineData("date")]
+    [InlineData("nps")]
+    [InlineData("likert")]
     public async Task AnswerRules_AreHiddenForTypesWithoutThem(string type)
     {
         await using var ctx = CreateContext();
@@ -307,6 +313,90 @@ public class AdminCreateQuestionTests
         await cut.InvokeAsync(() => save().Find("button").Click());
 
         fake.LastUpdate!.ValidationConfigs.Should().Be("""[{"validationType":"MaxValue","maxValue":10}]""");
+    }
+
+    [Theory]
+    [InlineData("likert", true)]
+    [InlineData("radio", false)]
+    [InlineData("nps", false)]
+    public async Task RowsEditor_IsOnlyForLikertGrids(string type, bool shown)
+    {
+        await using var ctx = CreateContext();
+        var cut = ctx.Render<AdminCreateQuestion>();
+
+        await SetTypeAsync(cut, type);
+
+        cut.WaitForAssertion(() => cut.Markup.Contains("Add Row").Should().Be(shown));
+        if (shown)
+        {
+            cut.Markup.Should().Contain("Leave empty for Strongly disagree (1) to Strongly agree (5).");
+            await cut.InvokeAsync(() => cut.FindComponents<MudButton>().Single(b => b.Markup.Contains("Add Row")).Find("button").Click());
+            cut.WaitForAssertion(() => cut.FindAll("[data-row-editor]").Should().HaveCount(1));
+            await cut.InvokeAsync(() => cut.Find("[data-row-editor] button[aria-label='Remove row']").Click());
+            cut.WaitForAssertion(() => cut.FindAll("[data-row-editor]").Should().BeEmpty());
+        }
+    }
+
+    [Fact]
+    public async Task EditMode_SavesALikertGridsRows_WithTheDefaultScale()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = new QuestionDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = "services",
+            Label = "How much do you agree?",
+            Type = "likert",
+            Rows = [new Option { Label = "The library is great", Value = "library" }, new Option { Label = "The labs are new", Value = "labs" }]
+        };
+
+        var cut = ctx.Render<AdminCreateQuestion>(p => p.Add(x => x.Id, fake.Existing.Id));
+        var save = () => cut.FindComponents<MudButton>().Single(b => b.Markup.Contains("Save Changes"));
+        cut.WaitForAssertion(() => save().Instance.Disabled.Should().BeFalse("a grid without options uses the default scale"));
+        cut.FindAll("[data-row-editor]").Should().HaveCount(2);
+
+        await cut.InvokeAsync(() => save().Find("button").Click());
+
+        fake.LastUpdate!.Rows.Select(r => (r.Value, r.Label)).Should().Equal(("library", "The library is great"), ("labs", "The labs are new"));
+        fake.LastUpdate.Options.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task EditMode_ALikertGridWithoutRows_CannotBeSaved()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = new QuestionDefinition { Id = Guid.NewGuid(), Key = "services", Label = "Agree?", Type = "likert" };
+
+        var cut = ctx.Render<AdminCreateQuestion>(p => p.Add(x => x.Id, fake.Existing.Id));
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Add at least one row."));
+        cut.FindComponents<MudButton>().Single(b => b.Markup.Contains("Save Changes")).Instance.Disabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task EditMode_KeepsASlidersRange()
+    {
+        await using var ctx = CreateContext();
+        var fake = ctx.Services.GetRequiredService<FakeQuestionService>();
+        fake.Existing = new QuestionDefinition
+        {
+            Id = Guid.NewGuid(),
+            Key = "hours",
+            Label = "Hours",
+            Type = "slider",
+            ValidationConfigs = """[{"validationType":"MinValue","minValue":0},{"validationType":"MaxValue","maxValue":40}]"""
+        };
+
+        var cut = ctx.Render<AdminCreateQuestion>(p => p.Add(x => x.Id, fake.Existing.Id));
+        var save = () => cut.FindComponents<MudButton>().Single(b => b.Markup.Contains("Save Changes"));
+        cut.WaitForAssertion(() => save().Instance.Disabled.Should().BeFalse());
+
+        await cut.InvokeAsync(() => save().Find("button").Click());
+
+        fake.LastUpdate!.ValidationConfigs.Should().Be(fake.Existing.ValidationConfigs);
+        fake.LastUpdate.Rows.Should().BeEmpty();
     }
 
     [Fact]

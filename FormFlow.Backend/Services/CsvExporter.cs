@@ -5,7 +5,8 @@ using FormFlow.Data.Models;
 namespace FormFlow.Backend.Services
 {
     /// <summary>
-    /// Writes survey responses as CSV: one row per response, one column per question.
+    /// Writes survey responses as CSV: one row per response, one column per question, except a
+    /// likert grid, which gets a column per statement named <c>key[rowValue]</c>.
     /// Multiple selections are joined with "; ".
     /// </summary>
     public static class CsvExporter
@@ -15,7 +16,9 @@ namespace FormFlow.Backend.Services
             var sb = new StringBuilder();
 
             var header = new List<string> { "response_id", "submitted_at", "submitted_by" };
-            header.AddRange(questions.Select(q => q.Key));
+            header.AddRange(questions.SelectMany(q => IsLikert(q)
+                ? q.Rows.Select(r => $"{q.Key}[{r.Value}]")
+                : [q.Key]));
             AppendRow(sb, header);
 
             foreach (var response in responses)
@@ -26,12 +29,38 @@ namespace FormFlow.Backend.Services
                     response.SubmittedAt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"),
                     response.SubmittedBy ?? string.Empty
                 };
-                row.AddRange(questions.Select(q =>
-                    response.Answers.TryGetValue(q.Key, out var values) ? string.Join("; ", values) : string.Empty));
+                foreach (var question in questions)
+                {
+                    response.Answers.TryGetValue(question.Key, out var values);
+                    if (IsLikert(question))
+                    {
+                        row.AddRange(question.Rows.Select(r => LikertCell(values, r.Value)));
+                    }
+                    else
+                    {
+                        row.Add(values is null ? string.Empty : string.Join("; ", values));
+                    }
+                }
                 AppendRow(sb, row);
             }
 
             return sb.ToString();
+        }
+
+        private static bool IsLikert(QuestionDefinition question) =>
+            string.Equals(question.Type, QuestionTypes.Likert, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>The option picked for one statement of a likert grid, or empty when it wasn't rated.</summary>
+        private static string LikertCell(List<string>? values, string row)
+        {
+            foreach (var value in values ?? [])
+            {
+                if (QuestionTypes.TryParseLikertAnswer(value, out var answeredRow, out var option) && answeredRow == row)
+                {
+                    return option;
+                }
+            }
+            return string.Empty;
         }
 
         private static void AppendRow(StringBuilder sb, IEnumerable<string> cells)

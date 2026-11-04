@@ -52,6 +52,56 @@ button.link {
   padding: 0;
 }
 
+button.secondary {
+  background: #fff;
+  color: #594ae2;
+  border: 1px solid #594ae2;
+  padding: 7px 15px;
+}
+
+/* "Page 2 of 3" and its bar above a paged survey, and the Back / Next buttons below it. */
+.progress {
+  margin: 0 0 16px;
+}
+
+.progress-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  color: #5b6070;
+}
+
+.progress progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border: none;
+  border-radius: 3px;
+  background: #e1e3ea;
+  overflow: hidden;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.progress progress::-webkit-progress-bar {
+  background: #e1e3ea;
+}
+
+.progress progress::-webkit-progress-value {
+  background: #594ae2;
+  transition: width 0.2s ease;
+}
+
+.progress progress::-moz-progress-bar {
+  background: #594ae2;
+}
+
+.survey-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .question {
   border: 1px solid #e1e3ea;
   border-radius: 8px;
@@ -116,6 +166,117 @@ button.link {
   outline: 2px solid #3f51b5;
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* The words or numbers at the two ends of an NPS scale or a slider, with an optional hint between. */
+.scale-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: #5b6070;
+}
+
+/* A likert grid scrolls sideways inside the question when the screen is too narrow. */
+.likert-scroll {
+  overflow-x: auto;
+}
+
+.likert-grid {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.likert-row {
+  display: table-row;
+}
+
+.likert-statement,
+.likert-column {
+  display: table-cell;
+  vertical-align: middle;
+  padding: 8px 0;
+}
+
+.likert-statement {
+  position: sticky;
+  left: 0;
+  width: 100%;
+  min-width: 140px;
+  padding-right: 12px;
+  background: #fff;
+}
+
+.likert-column {
+  min-width: 76px;
+  text-align: center;
+}
+
+.likert-head .likert-column {
+  padding: 0 4px 6px;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  color: #5b6070;
+}
+
+.likert-row:not(.likert-head) > * {
+  border-top: 1px solid #e1e3ea;
+}
+
+.likert-column input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.nps-scale {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  gap: 4px;
+}
+
+button.nps-button {
+  padding: 8px 0;
+  border: 1px solid #594ae2;
+  background: #fff;
+  color: #594ae2;
+}
+
+button.nps-button.selected {
+  background: #594ae2;
+  color: #fff;
+}
+
+.slider-field {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.slider-track {
+  flex: 1 1 auto;
+}
+
+.slider-field input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: #594ae2;
+}
+
+/* Before the slider is moved its handle is faded, since it isn't an answer yet. */
+.slider-field input[type="range"].unanswered {
+  opacity: 0.6;
+}
+
+.slider-value {
+  min-width: 3ch;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .choices {

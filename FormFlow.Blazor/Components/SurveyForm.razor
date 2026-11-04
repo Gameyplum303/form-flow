@@ -30,12 +30,19 @@
     [Parameter]
     public EventCallback AnswersChanged { get; set; }
 
+    /// <summary>
+    /// The questions of the page being shown, or null for all of them. Conditions still look at every
+    /// question in the survey, so an answer on one page can show or hide questions on another.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyCollection<QuestionDefinition>? Page { get; set; }
+
     private IEnumerable<QuestionDefinition> VisibleQuestions
     {
         get
         {
             var visible = VisibilityEvaluator.VisibleKeys(Questions, Answers);
-            return Questions.Where(q => visible.Contains(q.Key));
+            return (Page ?? Questions).Where(q => visible.Contains(q.Key));
         }
     }
 
