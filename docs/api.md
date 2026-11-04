@@ -193,7 +193,7 @@ Same body and rules as `POST`.
 
 ## Surveys
 
-A survey is a title, a description, an ordered list of question ids and, optionally, the page breaks. The API adds its sharing settings: `status` (`draft` or `published`), `listed`, `shareCode` and `closesAt`.
+A survey is a title, a description, an ordered list of question ids and, optionally, the page breaks. The API adds its sharing settings: `status` (`draft` or `published`), `listed`, `shareCode`, `closesAt` and `showResultsToRespondents`.
 
 ```json
 {
@@ -211,7 +211,7 @@ A survey is a title, a description, an ordered list of question ids and, optiona
 |---|---|---|---|
 | `GET` | `/api/surveys` | Public | The public list: published, listed surveys that haven't closed |
 | `GET` | `/api/surveys/{id}` | Public | One survey; 404 if `id` is not a GUID, if it's missing, or if it's a draft the caller can't manage |
-| `GET` | `/api/share/{code}` | Public | The survey with that share code (not case sensitive); 404 if there is none or it's a draft the caller can't manage |
+| `GET` | `/api/share/{code}` | Public | The survey with that share code (capitals, spaces and dashes don't matter, so `K7M2 P9QA` finds `k7m2p9qa`); 404 if there is none or it's a draft the caller can't manage |
 | `GET` | `/api/surveys/{id}/questions` | Public | The survey's questions in survey order, so a client can render it with one call; 404 like `GET /api/surveys/{id}` |
 | `GET` | `/api/surveys/managed` | Builder | The surveys the caller can manage, newest first: every survey for an administrator, their own for a professor |
 | `POST` | `/api/surveys` | Builder | 201 with the stored survey, owned by the caller, or 400 `{ "error": "..." }` |
@@ -228,7 +228,7 @@ A survey is rejected with 400 when the title or description is empty, when it ha
 
 ### Duplicate
 
-`POST /api/surveys/{id}/duplicate` (no body) copies a survey the caller can open, whoever owns it, into a new survey titled "Copy of {title}". The copy has the same questions and page breaks, is a `draft`, unlisted, with a new `shareCode`, no `closesAt` and no responses, and belongs to the caller.
+`POST /api/surveys/{id}/duplicate` (no body) copies a survey the caller can open, whoever owns it, into a new survey titled "Copy of {title}". The copy has the same questions, page breaks and `showResultsToRespondents` setting, is a `draft`, unlisted, with a new `shareCode`, no `closesAt` and no responses, and belongs to the caller.
 
 ### Templates
 
@@ -243,15 +243,16 @@ Seeding skips a template whose id is already stored and reuses questions whose k
 
 ### Sharing
 
-A new survey is a `draft` with `listed: false` and a random 8-character `shareCode`. Only the people who manage a draft (its owner and administrators) can open or answer it. Its share link is `/s/{shareCode}` in the Blazor app and `#/s/{shareCode}` in the React app. Editing a survey keeps its sharing settings, which change only through `PUT /api/surveys/{id}/sharing`:
+A new survey is a `draft` with `listed: false` and a random 8-character `shareCode`, made of lowercase letters and digits without the ones that are easy to mix up (`0`, `1`, `i`, `l`, `o`), so it can be read off a projector and typed on a phone. Only the people who manage a draft (its owner and administrators) can open or answer it. Its share link is `/s/{shareCode}` in the Blazor app and `#/s/{shareCode}` in the React app. Editing a survey keeps its sharing settings, which change only through `PUT /api/surveys/{id}/sharing`:
 
 ```json
-{ "status": "published", "listed": false, "closesAt": "2026-10-15T17:00:00Z" }
+{ "status": "published", "listed": false, "closesAt": "2026-10-15T17:00:00Z", "showResultsToRespondents": true }
 ```
 
 - `published` surveys can be opened and answered by anyone with the link, without an account.
 - `listed` surveys also appear in `GET /api/surveys`. A draft is never listed.
 - `closesAt` (UTC, optional) is when the survey stops taking answers. It drops off the public list then, and submissions get 409.
+- `showResultsToRespondents` (optional, default `false`) shows respondents a summary of the results so far after they answer (see [Results for respondents](#get-apisurveysidresultspublic)). Leaving it out turns it off.
 
 Surveys stored before sharing existed have no status and are treated as published and listed.
 
@@ -375,6 +376,53 @@ The response then also has:
 ```
 
 `totalResponses` counts every response and `matchingResponses` the ones the filters and dates kept; `questions` summarizes only the matching ones. The `timeline` counts matching responses per day, with empty days included, from the first response (or `from`) to the last (or `to`, or today when the range hasn't ended). Ranges over 90 days count weeks starting on Monday, and over two years, months; `timelineInterval` says which. Bad parameters return 400 validation problem details keyed by parameter, for example `filter`: "'maybe' isn't one of the answers to 'is_student'."
+
+### `GET /api/surveys/{id}/results/live` (Builder)
+
+The survey's results as a [server-sent events](https://html.spec.whatwg.org/multipage/server-sent-events.html) stream, for the presenter view. It needs the same access as `GET /api/surveys/{id}/results` (the survey's owner or an administrator, with the usual `Authorization: Bearer` header) and answers 401, 403 or 404 like it before the stream starts.
+
+```text
+retry: 3000
+
+event: results
+data: {"surveyId":"…","title":"Lecture poll","totalResponses":3,"questions":[…]}
+
+: keep-alive
+
+event: results
+data: {"surveyId":"…","title":"Lecture poll","totalResponses":4,"questions":[…]}
+```
+
+- The first `results` event comes straight away, with the same JSON as the results endpoint (without filters). Another follows whenever a response arrives.
+- Updates are at least `LiveResults:MinUpdateInterval` apart (500 ms by default). Responses that arrive closer together, such as a room answering at once, are sent as one update.
+- When nothing happens for `LiveResults:KeepAliveInterval` (15 seconds), the stream sends a `: keep-alive` comment, so proxies keep it open and clients can tell a quiet room from a dropped connection.
+- `retry` tells clients how long to wait before reconnecting (`LiveResults:ReconnectDelay`, 3 seconds).
+- The stream ends when the client disconnects, the survey is deleted or the server stops.
+
+The response has `Cache-Control: no-cache, no-store` and `X-Accel-Buffering: no`, and is flushed after each event. Browsers' `EventSource` can't send an `Authorization` header, so the Blazor app reads the stream from its server; see [deployment.md](deployment.md#live-results-behind-a-proxy) for proxies.
+
+Updates come from an in-process publisher (`ILiveResultsPublisher`) that the submit endpoint notifies, so they reach the presenters connected to the same API instance. Running several instances would need a shared message bus instead.
+
+### `GET /api/surveys/{id}/results/public`
+
+The summary respondents see after answering, for anyone, without an account. It is 404 unless the survey exists, is published (not a draft, and not a template) and has `showResultsToRespondents` on. A survey that has closed still shares it.
+
+```json
+{
+  "surveyId": "…",
+  "title": "Lecture poll",
+  "totalResponses": 3,
+  "questions": [
+    {
+      "key": "contact_method", "label": "Preferred contact method", "type": "radio",
+      "answeredCount": 3, "multipleAnswers": false,
+      "options": [ { "value": "email", "label": "Email", "count": 2, "percent": 67 }, { "value": "phone", "label": "Phone", "count": 1, "percent": 33 } ]
+    }
+  ]
+}
+```
+
+To keep respondents private, it holds only counts for the questions with fixed answers: yes/no, dropdown, radio, checkbox, multiselect, rating and NPS. Text, number, date, email, slider and likert questions are left out, and so are response ids, respondent ids, submission times and account names. `percent` is the share of the people who answered that question, rounded to a whole number; `multipleAnswers` is `true` for checkbox and multiselect questions, whose percentages can add up to more than 100.
 
 ### `GET /api/surveys/{id}/responses/export` (Builder)
 

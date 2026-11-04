@@ -39,6 +39,10 @@
             "type": "boolean",
             "description": "Whether this is a read-only template that builders copy into a new survey."
         },
+        "showResultsToRespondents": {
+            "type": "boolean",
+            "description": "Whether respondents see a summary of the results so far after they answer."
+        },
         "version": {
             "type": "integer",
             "description": "Version number of the survey definition."

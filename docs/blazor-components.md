@@ -65,11 +65,18 @@ After every change it runs `VisibilityEvaluator.VisibleKeys` from `FormFlow.Data
 
 ## Pages
 
-- `Pages/Home.razor`: landing page with a link to the surveys.
+- `Pages/Home.razor`: landing page with links to the surveys and to joining with a code.
+- `Pages/Respond/JoinSurvey.razor` (`/join`): a field for the code a professor shows, set up for phones (no autocorrect or spellcheck, capitals on, a **Go** key). It checks the code with `ShareCodes.LooksValid` from `FormFlow.Data`, then looks it up and opens `/s/{code}`.
 - `Pages/Respond/SurveyList.razor` (`/surveys`): the published surveys.
-- `Pages/Respond/TakeSurvey.razor` (`/surveys/{id}` and share links, `/s/{code}`): loads the survey, renders `PagedSurveyForm`, submits to the API with the browser's respondent id, shows errors per question, and shows a thank-you screen on success. After the first render it restores answers saved in the browser by `SurveyDrafts` (encrypted local storage, one entry per survey), shows "We saved your answers on this device." with **Start over**, saves answers as they change, and clears them once they are sent. A closed survey, or one this browser already answered, shows a message instead of the form; a draft shows a notice to the people who can open it.
+- `Pages/Respond/TakeSurvey.razor` (`/surveys/{id}` and share links, `/s/{code}`): loads the survey, renders `PagedSurveyForm`, submits to the API with the browser's respondent id, shows errors per question, and shows a thank-you screen on success. When the survey shares its results, the thank-you screen (and the closed and already-answered messages) adds `RespondentResultsSummary`. After the first render it restores answers saved in the browser by `SurveyDrafts` (encrypted local storage, one entry per survey), shows "We saved your answers on this device." with **Start over**, saves answers as they change, and clears them once they are sent. A closed survey, or one this browser already answered, shows a message instead of the form; a draft shows a notice to the people who can open it.
 - `Pages/Login.razor`, `SignUp.razor`, `ForgotPassword.razor`, `ResetPassword.razor`, `VerifyEmail.razor` and `AccountSettings.razor`: signing in and managing an account, see [admin.md](admin.md#signing-in). The pages that open an emailed link redeem its token after the first interactive render, not during prerendering, so the one-time link isn't used up by a page load the visitor never sees.
-- `Pages/Admin/*`: see [admin.md](admin.md).
+- `Pages/Admin/*`: see [admin.md](admin.md). `AdminSurveyPresent.razor` (`/admin/surveys/{id}/present`) uses `Layout/PresenterLayout.razor`, which has the providers and the admin guard but no menu or app bar, so it fills a projector.
+
+## Shared pieces
+
+- `Shared/ShareQrCode.razor`: the QR code of a share link, drawn as an inline SVG and cached per link. The Share page and the presenter view use it.
+- `Shared/OptionBars.razor`: a bar per answer with its count and percentage, from a list of `OptionBar`s (`OptionBar.Of` makes them from results or a respondent summary). `Large` stacks each label over its bar in bigger type for the presenter view. The results page, the presenter view and the respondent summary use it.
+- `RespondentResultsSummary.razor`: "Results so far" for a survey id, loaded from the public summary endpoint, with "Based on N responses", the bars of each question, and **Show the latest**. It draws nothing when the survey doesn't share its results.
 
 ## Services
 
@@ -78,9 +85,11 @@ The pages talk to the API through typed `HttpClient` services registered in `Pro
 | Service | Methods |
 |---|---|
 | `IQuestionService` | `GetAllQuestionsAsync`, `GetQuestionAsync`, `CreateQuestionAsync`, `UpdateQuestionAsync`, `DeleteQuestionAsync` |
-| `ISurveyService` | `GetSurveysAsync`, `GetSurveyAsync`, `GetSurveyByShareCodeAsync`, `GetManagedSurveysAsync`, `GetSurveyQuestionsAsync`, `CreateSurveyAsync`, `UpdateSurveyAsync`, `DeleteSurveyAsync`, `DuplicateSurveyAsync`, `GetTemplatesAsync`, `UseTemplateAsync`, `UpdateSharingAsync`, `SubmitResponseAsync`, `HasAnsweredAsync`, `GetResultsAsync` and `ExportResponsesAsync` (both take an optional `ResultsQuery` of filters, dates and comparison) |
+| `ISurveyService` | `GetSurveysAsync`, `GetSurveyAsync`, `GetSurveyByShareCodeAsync`, `GetManagedSurveysAsync`, `GetSurveyQuestionsAsync`, `CreateSurveyAsync`, `UpdateSurveyAsync`, `DeleteSurveyAsync`, `DuplicateSurveyAsync`, `GetTemplatesAsync`, `UseTemplateAsync`, `UpdateSharingAsync`, `SubmitResponseAsync`, `HasAnsweredAsync`, `GetRespondentResultsAsync` (the public summary, or null), `GetResultsAsync` and `ExportResponsesAsync` (both take an optional `ResultsQuery` of filters, dates and comparison) |
 | `IAuthService` | `LoginAsync`, `SignUpAsync`, `RequestPasswordResetAsync`, `ResendVerificationAsync`, `VerifyEmailAsync`, `ResetPasswordAsync`, `ChangePasswordAsync` |
 | `IAccountService` | `GetPendingAsync`, `ApproveAsync`, `DeclineAsync`, `GetOutboxAsync` (administrators) |
+| `ILiveResultsClient` | `WatchAsync(surveyId, cancellationToken)`: an `IAsyncEnumerable<SurveyResults>` read from the live results stream with the signed-in builder's token. It throws `LiveResultsRefusedException` for 401, 403 and 404, and `TimeoutException` when the stream is silent for `IdleTimeout` (45 seconds). Registered with no `HttpClient` timeout, since the stream stays open. |
+| `LiveResultsConnection` | Not a service: the presenter view makes one per survey. `RunAsync` watches the stream until cancelled, raising `ResultsReceived` and `StateChanged` (`Connecting`, `Live`, `Reconnecting`, `Stopped`), and reconnects after 1, 2, 4… seconds, up to 15. A refusal stops it with a `StopReason`. |
 | `IRespondentIdentity` | `GetIdAsync`: the browser's random respondent id, kept in encrypted local storage |
 | `ISurveyDrafts` | `LoadAsync`, `SaveAsync`, `ClearAsync`: a survey's unsent answers, kept in encrypted local storage |
 

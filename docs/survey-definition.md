@@ -45,6 +45,9 @@ namespace FormFlow.Data.Models
 
         // A read-only template that builders copy (never listed, answered or shared)
         public bool IsTemplate { get; set; }
+
+        // Show respondents a summary of the results after they answer
+        public bool ShowResultsToRespondents { get; set; }
     }
 }
 ```
@@ -59,6 +62,8 @@ namespace FormFlow.Data.Models
 * **Status**, **Listed**, **ShareCode** and **ClosesAt** are the sharing settings. The defaults (published and listed) describe surveys stored before sharing existed; the API creates new surveys as unlisted drafts. See [api.md](api.md#sharing).
 * **PageBreaks** lists the questions that start a new page. It is empty for a one-page survey, and the API keeps only questions in the survey other than the first, in survey order. See [api.md](api.md#pages).
 * **IsTemplate** marks the seeded templates. See [api.md](api.md#templates).
+* **ShowResultsToRespondents** is set with the other sharing settings and is `false` for new surveys and for surveys stored before it existed. When it's on and the survey is published, `GET /api/surveys/{id}/results/public` returns counts for its fixed-answer questions, which the thank-you screens show. Duplicating a survey or using a template keeps it. See [api.md](api.md#get-apisurveysidresultspublic).
+* **ShareCode** is 8 characters from `23456789abcdefghjkmnpqrstuvwxyz`, and lookups ignore capitals, spaces and dashes (`ShareCodes.Normalize` in FormFlow.Data, shared by the API and the Blazor app).
 
 ---
 

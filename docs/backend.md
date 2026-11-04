@@ -25,6 +25,9 @@
 | `RateLimits:AccountPerMinute` | `20` | Sign-up, email link and password requests allowed per IP address per minute |
 | `RateLimits:SubmissionsPerMinute` | `60` | Survey submissions allowed per IP address per minute |
 | `Cors:AllowedOrigins` | Not set | The browser origins allowed to call the API, such as `https://gameyplum-formflow-react.onrender.com` for the React app (no trailing slash). Development allows any origin and ignores this list; elsewhere, an origin that isn't listed is refused. The Blazor app calls the API from its server, so it needs no entry. As environment variables: `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins__1`, and so on. |
+| `LiveResults:MinUpdateInterval` | `00:00:00.5` | The shortest time between two updates on a live results stream; responses closer together are sent as one |
+| `LiveResults:KeepAliveInterval` | `00:00:15` | How long a live results stream stays quiet before it sends a keep-alive comment |
+| `LiveResults:ReconnectDelay` | `00:00:03` | The `retry` a live results stream tells clients to wait before reconnecting |
 | `DisableHttpsRedirection` | `true` in Development, otherwise not set | Serve plain HTTP without redirecting to HTTPS. On in Development so the React app can call `http://localhost:5164`; also useful behind a proxy that terminates TLS |
 
 Any setting can be overridden on the command line (`dotnet run --SeedData:DemoSurvey=false`) or with environment variables (`SeedData__DemoSurvey=false`).
@@ -53,6 +56,8 @@ The policy only checks the role. Ownership is checked inside each endpoint: ques
 ## Services
 
 - **`SurveyResultsBuilder`** turns a survey's responses into `SurveyResults`: per-option counts for choice, yes/no and single checkbox questions, min/max/average for number questions, and the five most recent answers for text questions. Answers to questions that were hidden count as unanswered. Given a `ResultsQuery` (from `FormFlow.Data`, read from query parameters by `ResultsQueryParser`), it first keeps only the responses with the filtered answers in the date range, then adds a timeline of them per local day, week or month, and a summary per answer group for `compareBy`. `FixedAnswers` lists the answers of the questions that can filter or split results.
+- **`RespondentResultsBuilder`** makes the `RespondentResults` that `GET /api/surveys/{id}/results/public` returns: for each question with fixed answers (`SurveyResultsBuilder.FixedAnswers`), a count and whole-number percentage per answer, and nothing about who answered or what they wrote.
+- **`LiveResultsPublisher`** (`Live/`, registered as `ILiveResultsPublisher`) keeps the live results subscribers of each survey. The submit endpoint calls `Publish` after storing a response, and deleting a survey does too, which ends its streams. Each subscription holds at most one pending signal, so it never grows, and disposing it removes it.
 - **`CsvExporter`** writes one row per response (the export endpoint passes it only the filtered responses) with a column per question key. Values with commas, quotes or line breaks are quoted, and values that a spreadsheet would treat as a formula are prefixed with `'`.
 
 ## Error responses
