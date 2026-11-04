@@ -3,7 +3,9 @@ import "./App.css";
 import {
     API_BASE, getSurvey, getSurveyByShareCode, getSurveyQuestions, getSurveys, hasAnswered, respondentId, submitResponse,
 } from "./api";
+import { JoinByCode } from "./components/JoinByCode";
 import { initialValue } from "./components/QuestionRenderer";
+import { ResultsSummary } from "./components/ResultsSummary";
 import { SurveyForm } from "./components/SurveyForm";
 import { clearDraft, loadDraft, saveDraft } from "./logic/drafts";
 import { firstPageWithError, missingAnswers, shownPages, splitPages } from "./logic/pages";
@@ -21,6 +23,11 @@ function targetFromHash(): SurveyTarget | undefined {
     }
     const byCode = window.location.hash.match(/^#\/s\/([0-9A-Za-z]{1,32})$/);
     return byCode ? { code: byCode[1] } : undefined;
+}
+
+/** Whether the address is the Join screen, #/join. */
+function joiningFromHash(): boolean {
+    return window.location.hash === "#/join";
 }
 
 function loadSurvey(target: SurveyTarget): Promise<SurveyDefinition> {
@@ -235,6 +242,7 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
             <div className="card" data-survey-closed>
                 <h2>{survey.title}</h2>
                 <p>{message}</p>
+                {survey.showResultsToRespondents && survey.status !== "draft" && <ResultsSummary surveyId={survey.id} />}
                 <button type="button" onClick={onBack}>Back to surveys</button>
             </div>
         );
@@ -244,6 +252,7 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
             <div className="card">
                 <h2>Thank you!</h2>
                 <p>Your answers to "{survey.title}" were recorded.</p>
+                {survey.showResultsToRespondents && <ResultsSummary surveyId={survey.id} />}
                 <button type="button" onClick={onBack}>Back to surveys</button>
             </div>
         );
@@ -288,9 +297,13 @@ function TakeSurvey({ target, onBack }: { target: SurveyTarget; onBack: () => vo
 
 function App() {
     const [target, setTarget] = useState<SurveyTarget | undefined>(targetFromHash);
+    const [joining, setJoining] = useState(joiningFromHash);
 
     useEffect(() => {
-        const onHashChange = () => setTarget(targetFromHash());
+        const onHashChange = () => {
+            setTarget(targetFromHash());
+            setJoining(joiningFromHash());
+        };
         window.addEventListener("hashchange", onHashChange);
         return () => window.removeEventListener("hashchange", onHashChange);
     }, []);
@@ -303,6 +316,18 @@ function App() {
     const back = useCallback(() => {
         window.location.hash = "";
         setTarget(undefined);
+        setJoining(false);
+    }, []);
+
+    const startJoining = useCallback(() => {
+        window.location.hash = "#/join";
+        setJoining(true);
+    }, []);
+
+    const join = useCallback((code: string) => {
+        window.location.hash = `#/s/${code}`;
+        setJoining(false);
+        setTarget({ code });
     }, []);
 
     return (
@@ -314,8 +339,16 @@ function App() {
             {/* The key gives each survey a fresh form, so errors from one survey never show on the next. */}
             {target ? (
                 <TakeSurvey key={"id" in target ? `id:${target.id}` : `code:${target.code}`} target={target} onBack={back} />
+            ) : joining ? (
+                <JoinByCode onJoin={join} onBack={back} />
             ) : (
-                <SurveyList onOpen={open} />
+                <>
+                    <p className="join-prompt">
+                        Got a code from your professor?{" "}
+                        <button type="button" className="link" onClick={startJoining}>Join with a code</button>
+                    </p>
+                    <SurveyList onOpen={open} />
+                </>
             )}
         </main>
     );

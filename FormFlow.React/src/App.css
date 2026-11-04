@@ -320,3 +320,82 @@ button.nps-button.selected {
 .notice.error {
   background: #fdecea;
 }
+
+/* The Join screen's code box: big, spaced capitals that are easy to check on a phone. */
+.join-code {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #c5c8d3;
+  border-radius: 6px;
+  font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.6rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.join-code:focus {
+  outline: 2px solid #594ae2;
+  outline-offset: 1px;
+}
+
+.join .survey-nav {
+  margin-top: 12px;
+}
+
+.join-prompt {
+  margin: 0 0 16px;
+}
+
+/* The results summary under the thank-you message. */
+.results-summary {
+  margin: 16px 0;
+  padding-top: 16px;
+  border-top: 1px solid #e1e3ea;
+}
+
+.results-summary h3 {
+  margin: 0 0 4px;
+}
+
+.results-total {
+  margin: 0 0 12px;
+  color: #5b6070;
+}
+
+.results-question {
+  margin-bottom: 16px;
+}
+
+.results-question h4 {
+  margin: 0 0 6px;
+}
+
+.result-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) 2fr auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.result-bar {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: #e1e3ea;
+  overflow: hidden;
+}
+
+.result-fill {
+  display: block;
+  height: 100%;
+  background: #594ae2;
+}
+
+.result-count {
+  min-width: 70px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
