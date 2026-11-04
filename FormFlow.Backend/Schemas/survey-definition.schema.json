@@ -39,6 +39,17 @@
             "type": "boolean",
             "description": "Whether this is a read-only template that builders copy into a new survey."
         },
+        "isQuiz": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether submissions are graded against the questions' answer keys."
+        },
+        "quizFeedback": {
+            "type": "string",
+            "enum": ["score", "answers"],
+            "default": "score",
+            "description": "What respondents see after submitting a quiz: their score only, or their score with each correct answer and explanation."
+        },
         "version": {
             "type": "integer",
             "description": "Version number of the survey definition."

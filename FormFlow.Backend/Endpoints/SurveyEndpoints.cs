@@ -60,7 +60,10 @@ namespace FormFlow.Backend.Endpoints
                 {
                     return Results.NotFound();
                 }
-                return Results.Ok(LoadQuestions(survey, questions).Select(user.ShowOwnerToBuilders).ToList());
+                // Respondents load the form from here, so answer keys only go to the survey's managers.
+                return Results.Ok(LoadQuestions(survey, questions)
+                    .Select(q => user.ShowAnswerKeyToManagers(user.ShowOwnerToBuilders(q), survey))
+                    .ToList());
             })
             .WithName("GetSurveyQuestions")
             .Produces<List<QuestionDefinition>>(StatusCodes.Status200OK)
@@ -82,6 +85,8 @@ namespace FormFlow.Backend.Endpoints
                     Description = dto.Description.Trim(),
                     QuestionIds = dto.QuestionIds,
                     PageBreaks = SurveyPaging.Normalize(dto.QuestionIds, dto.PageBreaks),
+                    IsQuiz = dto.IsQuiz,
+                    QuizFeedback = QuizFeedbackOf(dto),
                     CreatedAt = clock.GetUtcNow().UtcDateTime,
                     // New surveys stay private until their owner publishes them.
                     Status = SurveyStatuses.Draft,
@@ -120,6 +125,8 @@ namespace FormFlow.Backend.Endpoints
                 existing.Description = dto.Description.Trim();
                 existing.QuestionIds = dto.QuestionIds;
                 existing.PageBreaks = SurveyPaging.Normalize(dto.QuestionIds, dto.PageBreaks);
+                existing.IsQuiz = dto.IsQuiz;
+                existing.QuizFeedback = QuizFeedbackOf(dto);
                 repo.Update(existing);
 
                 return Results.Ok(existing);
@@ -217,7 +224,7 @@ namespace FormFlow.Backend.Endpoints
 
         /// <summary>
         /// Stores a copy of a survey or template as a new draft owned by the caller: the same questions and
-        /// pages, with a new share code, no responses, and no close date.
+        /// pages and quiz settings, with a new share code, no responses, and no close date.
         /// </summary>
         public static SurveyDefinition DraftCopy(SurveyDefinition source, string title, CurrentUser user,
             ISurveyRepository repo, TimeProvider clock)
@@ -229,6 +236,8 @@ namespace FormFlow.Backend.Endpoints
                 Description = source.Description,
                 QuestionIds = source.QuestionIds.ToList(),
                 PageBreaks = SurveyPaging.Normalize(source.QuestionIds, source.PageBreaks),
+                IsQuiz = source.IsQuiz,
+                QuizFeedback = source.QuizFeedback,
                 CreatedAt = clock.GetUtcNow().UtcDateTime,
                 Status = SurveyStatuses.Draft,
                 Listed = false,
@@ -246,6 +255,10 @@ namespace FormFlow.Backend.Endpoints
                 .Select(questions.FindById)
                 .OfType<QuestionDefinition>()
                 .ToList();
+
+        /// <summary>The quiz feedback a builder chose, or score only when they didn't say.</summary>
+        private static string QuizFeedbackOf(NewSurvey dto) =>
+            string.IsNullOrEmpty(dto.QuizFeedback) ? QuizFeedbackModes.Score : dto.QuizFeedback;
 
         private static string? Validate(NewSurvey dto, IQuestionRepository questions)
         {
@@ -267,6 +280,11 @@ namespace FormFlow.Backend.Endpoints
             if (dto.QuestionIds.Distinct().Count() != dto.QuestionIds.Count)
             {
                 return "A question can only appear once in a survey.";
+            }
+
+            if (!string.IsNullOrEmpty(dto.QuizFeedback) && !QuizFeedbackModes.IsKnown(dto.QuizFeedback))
+            {
+                return $"quizFeedback must be \"{QuizFeedbackModes.Score}\" or \"{QuizFeedbackModes.Answers}\".";
             }
 
             var missing = dto.QuestionIds.Where(q => questions.FindById(q) is null).ToList();

@@ -1,11 +1,13 @@
 using System.Globalization;
 using FormFlow.Data.Models;
+using FormFlow.Data.Services;
 
 namespace FormFlow.Backend.Services
 {
     /// <summary>
     /// Turns a survey's stored responses into per-question summaries, optionally narrowed by a
-    /// <see cref="ResultsQuery"/>, with a timeline of when they arrived and a comparison of groups.
+    /// <see cref="ResultsQuery"/>, with a timeline of when they arrived, a comparison of groups and, for
+    /// a quiz, a summary of the scores.
     /// </summary>
     public static class SurveyResultsBuilder
     {
@@ -40,7 +42,58 @@ namespace FormFlow.Backend.Services
                 Questions = questions.Select(q => Summarize(q, matching)).ToList(),
                 TimelineInterval = interval,
                 Timeline = timeline,
-                Comparison = Compare(query.CompareBy, questions, matching)
+                Comparison = Compare(query.CompareBy, questions, matching),
+                Quiz = survey.IsQuiz ? SummarizeQuiz(questions, matching) : null
+            };
+        }
+
+        /// <summary>The score distribution splits 0–100% into this many bands of ten points.</summary>
+        public const int ScoreBands = 10;
+
+        /// <summary>
+        /// Averages the scores stored with the graded responses, spreads them over <see cref="ScoreBands"/>,
+        /// and grades each response again with the current answer keys to count how often each question
+        /// was answered correctly. Responses sent before the survey was a quiz, or with nothing to grade,
+        /// are left out.
+        /// </summary>
+        public static QuizSummary SummarizeQuiz(IReadOnlyList<QuestionDefinition> questions, IReadOnlyList<SurveyResponse> responses)
+        {
+            var graded = responses.Where(r => r.Score is not null && r.MaxScore is > 0).ToList();
+            var grades = graded
+                .SelectMany(r => QuizScorer.Score(questions, r.Answers).Questions)
+                .ToLookup(g => g.Key, StringComparer.Ordinal);
+            var bands = graded
+                .Select(r => Math.Min(ScoreBands - 1, QuizScorer.Percent(r.Score!.Value, r.MaxScore!.Value) * ScoreBands / 100))
+                .ToList();
+
+            return new QuizSummary
+            {
+                GradedResponses = graded.Count,
+                AverageScore = graded.Count == 0 ? 0 : Math.Round(graded.Average(r => r.Score!.Value), 2),
+                AverageMaxScore = graded.Count == 0 ? 0 : Math.Round(graded.Average(r => r.MaxScore!.Value), 2),
+                AveragePercent = graded.Count == 0 ? 0 : Math.Round(graded.Average(r => r.Score!.Value * 100 / r.MaxScore!.Value), 1),
+                Distribution = Enumerable.Range(0, ScoreBands).Select(band =>
+                {
+                    var min = band * 100 / ScoreBands;
+                    var max = band == ScoreBands - 1 ? 100 : min + 100 / ScoreBands - 1;
+                    return new ScoreBand { Label = $"{min}–{max}%", MinPercent = min, MaxPercent = max, Count = bands.Count(b => b == band) };
+                }).ToList(),
+                Questions = questions.Where(QuizScorer.IsGraded).Select(question =>
+                {
+                    var forQuestion = grades[question.Key].ToList();
+                    var correct = forQuestion.Count(g => g.Correct);
+                    return new QuizQuestionSummary
+                    {
+                        QuestionId = question.Id,
+                        Key = question.Key,
+                        Label = question.Label,
+                        Points = question.AnswerKey!.Points,
+                        Graded = forQuestion.Count,
+                        Correct = correct,
+                        PercentCorrect = QuizScorer.Percent(correct, forQuestion.Count),
+                        AveragePoints = forQuestion.Count == 0 ? 0 : Math.Round(forQuestion.Average(g => g.Points), 2),
+                    };
+                }).ToList()
             };
         }
 

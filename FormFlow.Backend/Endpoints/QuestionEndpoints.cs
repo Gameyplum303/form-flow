@@ -6,7 +6,10 @@ using FormFlow.Data.Services;
 
 namespace FormFlow.Backend.Endpoints
 {
-    /// <summary>Question bank endpoints: anyone can read questions; builders create, edit and delete them.</summary>
+    /// <summary>
+    /// Question bank endpoints: anyone can read questions; builders create, edit and delete them. A
+    /// question's quiz answer key is only returned to the people who manage it.
+    /// </summary>
     public static class QuestionEndpoints
     {
         public static void MapQuestionEndpoints(this IEndpointRouteBuilder app)
@@ -22,7 +25,8 @@ namespace FormFlow.Backend.Endpoints
                     return Results.NotFound();
                 }
 
-                return Results.Json(CurrentUser.From(principal).ShowOwnerToBuilders(question));
+                var user = CurrentUser.From(principal);
+                return Results.Json(user.ShowAnswerKeyToManagers(user.ShowOwnerToBuilders(question)));
             })
             .WithName("GetQuestionById")
             .Produces<QuestionDefinition>(StatusCodes.Status200OK)
@@ -31,7 +35,9 @@ namespace FormFlow.Backend.Endpoints
             group.MapGet("", (ClaimsPrincipal principal, IQuestionRepository repository) =>
             {
                 var user = CurrentUser.From(principal);
-                return Results.Json(repository.FindAll().Select(user.ShowOwnerToBuilders).ToList());
+                return Results.Json(repository.FindAll()
+                    .Select(q => user.ShowAnswerKeyToManagers(user.ShowOwnerToBuilders(q)))
+                    .ToList());
             })
             .WithName("GetAllQuestions")
             .Produces<List<QuestionDefinition>>(StatusCodes.Status200OK);
@@ -169,7 +175,15 @@ namespace FormFlow.Backend.Endpoints
             // Only a likert grid has rows.
             Rows = string.Equals(source.Type, QuestionTypes.Likert, StringComparison.OrdinalIgnoreCase) ? source.Rows ?? [] : [],
             VisibleIf = source.VisibleIf,
-            ValidationConfigs = string.IsNullOrWhiteSpace(source.ValidationConfigs) ? null : source.ValidationConfigs
+            ValidationConfigs = string.IsNullOrWhiteSpace(source.ValidationConfigs) ? null : source.ValidationConfigs,
+            AnswerKey = source.AnswerKey is { } key
+                ? new AnswerKey
+                {
+                    CorrectAnswers = key.CorrectAnswers,
+                    Points = key.Points,
+                    Explanation = string.IsNullOrWhiteSpace(key.Explanation) ? null : key.Explanation.Trim(),
+                }
+                : null
         };
 
         private static List<string?> Validate(QuestionDefinition question, IQuestionRepository repository, QuestionValidator validator)
